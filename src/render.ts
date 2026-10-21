@@ -1,0 +1,220 @@
+// @concord-file
+// @concord-implements docs/feature/target-compilation/README.md
+import { surgeGroup, singboxGroup } from "./strategies.js";
+import { isIP } from "node:net";
+import type { Compilation, TargetPlan } from "./compiler.js";
+import type { Action, Match, Secret } from "./types.js";
+
+export class RenderError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = "RenderError";
+  }
+}
+export type Artifact = {
+  readonly target: string;
+  readonly filename: string;
+  readonly content: string;
+};
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+const DIRECT = "pl-direct";
+const DNS = "pl-dns";
+const actionTag = (action: Action) =>
+  action.type === "route" ? action.to : action.type === "direct" ? DIRECT : "pl-reject";
+
+/** Secret resolution is once per token per batch, including across providers. */
+export function render(
+  compilation: Compilation,
+  resolveSecret: (token: Secret) => string | undefined,
+): readonly Artifact[] {
+  if (!compilation.ok) throw new RenderError("COMPILATION_FAILED");
+  const values = new Map<string, string>();
+  const secret = (token: Secret): string => {
+    if (values.has(token.name)) return values.get(token.name)!;
+    let value: string | undefined;
+    try {
+      value = resolveSecret(token);
+    } catch {
+      throw new RenderError("SECRET_RESOLUTION_FAILED");
+    }
+    if (typeof value !== "string" || value.length === 0) throw new RenderError("SECRET_MISSING");
+    values.set(token.name, value);
+    return value;
+  };
+  return compilation.plans.map((plan) => ({
+    target: plan.target.id,
+    filename: `${plan.target.id}.${plan.target.engine === "surge" ? "conf" : "json"}`,
+    content:
+      plan.target.engine === "surge"
+        ? surge(plan, secret)
+        : JSON.stringify(singbox(plan, secret), null, 2) + "\n",
+  }));
+}
+
+function singCondition(condition: Match): Record<string, Json> {
+  switch (condition.type) {
+    case "all":
+    case "any":
+      return {
+        type: "logical",
+        mode: condition.type === "all" ? "and" : "or",
+        rules: condition.conditions.map(singCondition),
+      };
+    case "not":
+      return {
+        type: "logical",
+        mode: "and",
+        rules: [singCondition(condition.condition)],
+        invert: true,
+      };
+    case "domain":
+      return { domain: [condition.value] };
+    case "domainSuffix":
+      return { domain_suffix: [condition.value] };
+    case "ipCidr":
+      return { ip_cidr: [condition.value] };
+    case "sourceIp":
+      return { source_ip_cidr: [condition.value] };
+    case "network":
+      return { network: [condition.value] };
+    case "port":
+    case "sourcePort": {
+      const key = condition.type === "port" ? "port" : "source_port";
+      return condition.from === condition.to
+        ? { [key]: [condition.from] }
+        : { [`${key}_range`]: [`${condition.from}:${condition.to}`] };
+    }
+  }
+}
+function singAction(action: Action): Record<string, Json> {
+  return action.type === "reject"
+    ? { action: "reject", method: "default", no_drop: true }
+    : { action: "route", outbound: actionTag(action) };
+}
+function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
+  const { program, target } = plan;
+  const modern = target.version === "1.12.0";
+  const standalone = target.mode === "standalone";
+  const outbounds: Json[] = [
+    {
+      type: "direct",
+      tag: DIRECT,
+      ...(!modern && standalone ? { domain_strategy: "prefer_ipv4" } : {}),
+    },
+  ];
+  for (const node of program.nodes) {
+    const outbound: Record<string, Json> = {
+      type: node.type,
+      tag: node.id,
+      server: node.server,
+      server_port: node.port,
+      password: secret(node.password),
+    };
+    if (node.username) outbound.username = secret(node.username);
+    if (node.type !== "http")
+      outbound.tls = {
+        enabled: true,
+        ...(node.serverName ? { server_name: node.serverName } : {}),
+      };
+    if (node.via) outbound.detour = node.via;
+    outbounds.push(outbound);
+  }
+  for (const group of program.groups) {
+    outbounds.push(singboxGroup(group));
+  }
+  const rules: Json[] = plan.rules.map((rule) => ({
+    ...singCondition(rule.when),
+    ...singAction(rule.then),
+  }));
+  const routing: Record<string, Json> = { rules };
+  if (program.fallback.type === "reject") rules.push(singAction(program.fallback));
+  else routing.final = actionTag(program.fallback);
+  const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };
+  if (standalone) {
+    const listener = program.listener!;
+    config.inbounds = [
+      { type: "mixed", tag: "pl-listener", listen: "127.0.0.1", listen_port: listener.port },
+    ];
+    config.dns = {
+      servers: [
+        modern
+          ? { type: "udp", tag: DNS, server: listener.resolver, server_port: 53, detour: DIRECT }
+          : {
+              tag: DNS,
+              address: `udp://${isIP(listener.resolver) === 6 ? `[${listener.resolver}]` : listener.resolver}`,
+              detour: DIRECT,
+            },
+      ],
+      final: DNS,
+      strategy: "prefer_ipv4",
+    };
+    if (modern) routing.default_domain_resolver = { server: DNS, strategy: "prefer_ipv4" };
+  }
+  return config;
+}
+
+function surgeCondition(condition: Match): string {
+  switch (condition.type) {
+    case "all":
+    case "any":
+      return `${condition.type === "all" ? "AND" : "OR"},(${condition.conditions.map((c) => `(${surgeCondition(c)})`).join(",")})`;
+    case "not":
+      return `NOT,((${surgeCondition(condition.condition)}))`;
+    case "domain":
+      return `DOMAIN,${condition.value}`;
+    case "domainSuffix":
+      return `DOMAIN-SUFFIX,${condition.value}`;
+    case "ipCidr":
+      return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value},no-resolve`;
+    case "sourceIp":
+      return `SRC-IP,${condition.value}`;
+    case "network":
+      return `PROTOCOL,${condition.value.toUpperCase()}`;
+    case "port":
+    case "sourcePort":
+      return `${condition.type === "port" ? "DEST-PORT" : "SRC-PORT"},${condition.from === condition.to ? condition.from : `${condition.from}-${condition.to}`}`;
+  }
+}
+function surge(plan: TargetPlan, secret: (token: Secret) => string): string {
+  const atom = (value: string): string => {
+    // Unquoted Surge values have multiple delimiters and comment syntaxes. Fail closed.
+    if (!/^[A-Za-z0-9_./:@+%-]+$/.test(value)) throw new RenderError("SURGE_VALUE_UNREPRESENTABLE");
+    return value;
+  };
+  const policy = (action: Action) =>
+    action.type === "route" ? action.to : action.type === "direct" ? "DIRECT" : "REJECT";
+  const lines = ["# Generated by proxylang; see manifest for source mapping and preconditions."];
+  if (plan.target.mode === "standalone")
+    lines.push(
+      "[General]",
+      "loglevel = warning",
+      "allow-wifi-access = false",
+      `http-listen = 127.0.0.1:${plan.program.listener!.port}`,
+      `dns-server = ${plan.program.listener!.resolver}`,
+      "",
+    );
+  lines.push("[Proxy]");
+  for (const node of plan.program.nodes) {
+    const params = [`${node.id} = ${node.type}`, node.server, String(node.port)];
+    if (node.username) params.push(`username=${atom(secret(node.username))}`);
+    params.push(`password=${atom(secret(node.password))}`);
+    if (node.serverName) params.push(`sni=${node.serverName}`);
+    if (node.type === "trojan") params.push("udp-relay=true");
+    if (node.via) params.push(`underlying-proxy=${node.via}`);
+    lines.push(params.join(", "));
+  }
+  lines.push("", "[Proxy Group]");
+  for (const group of plan.program.groups) {
+    lines.push(surgeGroup(group));
+  }
+  lines.push("", "[Rule]");
+  for (const rule of plan.rules) {
+    lines.push(`# ${rule.id}`);
+    if (rule.when.type === "ipCidr") {
+      const condition = surgeCondition(rule.when).replace(/,no-resolve$/, "");
+      lines.push(`${condition},${policy(rule.then)},no-resolve`);
+    } else lines.push(`${surgeCondition(rule.when)},${policy(rule.then)}`);
+  }
+  lines.push(`FINAL,${policy(plan.program.fallback)}`);
+  return lines.join("\n") + "\n";
+}

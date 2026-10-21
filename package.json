@@ -1,0 +1,48 @@
+{
+  "name": "proxylang",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Composable routing policies in TypeScript with explicit platform targets",
+  "bin": {
+    "proxylang": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "typecheck": "vp exec tsc --noEmit -p tsconfig.check.json",
+    "test": "vp test run",
+    "test:native": "PROXYLANG_NATIVE_CHECK=1 vp test run test/native.test.ts",
+    "check": "vp pack && vp check && vp run typecheck && vp test run",
+    "docs:check": "concord check --fresh",
+    "docs:gaps": "concord trace gaps --fresh",
+    "example:check": "vp exec node dist/cli.js check examples/home.ts",
+    "example:build": "vp exec node dist/cli.js build examples/home.ts --out out"
+  },
+  "dependencies": {
+    "ipaddr.js": "2.5.0",
+    "tsx": "4.23.15",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2",
+    "vite-plus": "1.3.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.3.0"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "packageManager": "npm@11.12.1"
+}

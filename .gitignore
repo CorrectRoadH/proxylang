@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+.cache/
+*.tgz
+.env
+
+.env.*
+*.pem
+*.key
+coverage/
+.vite/
+.vite-plus/
+.DS_Store

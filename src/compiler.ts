@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { validateClashTarget } from "./clash.js";
 import { assertData, configSchema, deepFreeze } from "./schema.js";
 import { expandRules, explainRules, logicalDepth, truthPossibilities } from "./rules.js";
 import type {
@@ -211,6 +212,8 @@ export function compile(input: unknown): Compilation {
       path,
     );
     const rules = expanded.get(target.program)!;
+    if (target.engine === "mihomo" || target.engine === "stash")
+      validateClashTarget(target, rules, diagnostics);
     if (target.engine === "surge")
       for (const rule of rules)
         if (logicalDepth(rule.when) > 10)
@@ -226,6 +229,9 @@ export function compile(input: unknown): Compilation {
         origin: rule.origin,
       })),
       preconditions: [
+        ...(target.engine === "stash"
+          ? ["Stash 4.2.1 原生未验证；block-quic: off 按现行文档编码，历史版本 QUIC 行为未验证。"]
+          : []),
         "规则只匹配已观测元数据；不自动嗅探或为了 IP 条件解析域名。",
         "节点 server 与 via 各跳必须是 IP；运行时组选择、代理连通性不由静态解释保证。",
         ...(target.mode !== "standalone"

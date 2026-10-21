@@ -11,27 +11,48 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    name: SDK and CLI / Node ${{ matrix.node }}
+    name: SDK and CLI / Node 24
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ["22", "24"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
         with:
           version: "1.3.0"
-          node-version: ${{ matrix.node }}
+          node-version: "24"
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run check
       - run: vp run example:check
+      - run: vp exec node dist/cli.js check examples/clients.ts
       - name: Exercise CLI build with example credentials
-        run: vp run example:build
+        run: |
+          vp run example:build
+          vp exec node dist/cli.js build examples/clients.ts --out out/clients
         env:
           DEMO_USER: example-user
           DEMO_PASSWORD: example-only
+  mihomo:
+    name: Mihomo 1.19.32 native check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
+        with:
+          version: "1.3.0"
+          node-version: "24"
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - name: Prepare pinned Mihomo checker
+        shell: bash
+        run: |
+          mkdir -p .cache/native
+          curl --fail --location --retry 3 --output .cache/native/mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-linux-amd64-v1-v1.19.32.gz
+          echo "306f81e723e60ce6b828899a6fe83e1d00e9ecefb2dc8d4d849312a5bc00efdc  .cache/native/mihomo.gz" | sha256sum --check
+          gzip -dc .cache/native/mihomo.gz > .cache/native/mihomo-1.19.32
+          chmod +x .cache/native/mihomo-1.19.32
+      - run: vp test run test/native.test.ts -t Mihomo
+        env:
+          PROXYLANG_NATIVE_CHECK: "1"
   contracts:
     name: Concord contracts
     runs-on: ubuntu-latest

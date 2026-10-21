@@ -67,6 +67,8 @@ export type Strategy = {
   readonly implementations: {
     readonly surge?: GroupAlgorithm;
     readonly "sing-box"?: GroupAlgorithm;
+    readonly mihomo?: GroupAlgorithm;
+    readonly stash?: GroupAlgorithm;
   };
 };
 export type StrategySelection = {
@@ -88,7 +90,7 @@ export type ConcreteGroup =
       readonly toleranceMs?: number;
     };
 export type Group = Exclude<ConcreteGroup, { readonly type: "surge-smart" }> | Strategy;
-export type Engine = "surge" | "sing-box";
+export type Engine = "surge" | "sing-box" | "mihomo" | "stash";
 export type Program = {
   readonly engine: Engine;
   readonly nodes: readonly ProxyNode[];

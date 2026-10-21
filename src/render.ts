@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { stringify } from "yaml";
+import { clashConfig } from "./clash.js";
 import { surgeGroup, singboxGroup } from "./strategies.js";
 import { isIP } from "node:net";
 import type { Compilation, TargetPlan } from "./compiler.js";
@@ -43,11 +45,13 @@ export function render(
   };
   return compilation.plans.map((plan) => ({
     target: plan.target.id,
-    filename: `${plan.target.id}.${plan.target.engine === "surge" ? "conf" : "json"}`,
+    filename: `${plan.target.id}.${plan.target.engine === "surge" ? "conf" : plan.target.engine === "sing-box" ? "json" : "yaml"}`,
     content:
       plan.target.engine === "surge"
         ? surge(plan, secret)
-        : JSON.stringify(singbox(plan, secret), null, 2) + "\n",
+        : plan.target.engine === "sing-box"
+          ? JSON.stringify(singbox(plan, secret), null, 2) + "\n"
+          : stringify(clashConfig(plan, secret)),
   }));
 }
 

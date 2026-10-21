@@ -26,4 +26,20 @@ export const targetCatalog = deepFreeze([
     groups: ["select", "surge-smart"],
     dns: "general",
   },
+  {
+    engine: "mihomo",
+    version: "1.19.32",
+    platforms: ["linux", "macos"],
+    protocols: ["trojan", "http", "anytls"],
+    groups: ["select", "urltest"],
+    dns: "clash",
+  },
+  {
+    engine: "stash",
+    version: "4.2.1",
+    platforms: ["macos"],
+    protocols: ["trojan", "http", "anytls"],
+    groups: ["select"],
+    dns: "external",
+  },
 ] as const);

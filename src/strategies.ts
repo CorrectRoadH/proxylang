@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/strategy-implementations.md
+import { stringify } from "yaml";
+import { clashGroup } from "./clash.js";
 import { z } from "zod";
 import { assertData, deepFreeze, idSchema, strategySchema } from "./schema.js";
 import { targetCatalog } from "./targets.js";
@@ -126,7 +128,7 @@ const nameSchema = z
   );
 const inputSchema: z.ZodType<StrategyGroupInput> = z.strictObject({
   target: z.strictObject({
-    engine: z.enum(["surge", "sing-box"]),
+    engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
     platform: z.enum(["macos", "linux"]),
     version: z.string().regex(/^\d+\.\d+\.\d+$/),
   }),
@@ -180,6 +182,14 @@ export function compileStrategyGroups(input: unknown): StrategyGroupCompilation 
   ]);
   if ([...nativeNames.values()].some((name) => !nameSchema.safeParse(name).success))
     error("INVALID_NATIVE_NAME", "names", "最终名称不符合原生名称约束");
+  const reserved =
+    target.engine === "mihomo"
+      ? ["GLOBAL", "PASS", "COMPATIBLE", "REJECT-DROP", "PASS-RULE"]
+      : target.engine === "stash"
+        ? ["GLOBAL", "PASS", "COMPATIBLE", "REJECT-DROP"]
+        : [];
+  if ([...nativeNames.values()].some((value) => reserved.includes(value.toUpperCase())))
+    error("INVALID_NATIVE_NAME", "names", "最终名称与目标内建策略冲突");
   if (new Set(nativeNames.values()).size !== nativeNames.size)
     error("DUPLICATE_NATIVE_NAME", "names", "最终节点和策略名称必须唯一");
   const { groups, selections } = lowerStrategies(strategies, target.engine, diagnostics, "$");
@@ -210,11 +220,13 @@ export function compileStrategyGroups(input: unknown): StrategyGroupCompilation 
   const content =
     target.engine === "surge"
       ? groups.map((g) => surgeGroup(g, name)).join("\n") + "\n"
-      : JSON.stringify(
-          groups.map((g) => singboxGroup(g, name)),
-          null,
-          2,
-        ) + "\n";
+      : target.engine === "mihomo" || target.engine === "stash"
+        ? stringify({ "proxy-groups": groups.map((g) => clashGroup(g, name)) })
+        : JSON.stringify(
+            groups.map((g) => singboxGroup(g, name)),
+            null,
+            2,
+          ) + "\n";
   return deepFreeze({
     ok: true,
     artifactKind: "strategy-groups",

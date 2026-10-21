@@ -47,7 +47,7 @@ const adaptive = strategy({
 
 ## 本地使用
 
-需要 Node.js 22.18+ 或 24.11+，以及 [Vite+ 1.3.0](https://viteplus.dev/guide/)。项目仍处于早期开发，尚未发布 npm 包。
+需要 Node.js 24（24.11.0 ≤ 版本 < 25），以及 [Vite+ 1.3.0](https://viteplus.dev/guide/)。项目仍处于早期开发，尚未发布 npm 包。
 
 ```sh
 git clone https://github.com/CorrectRoadH/proxylang.git
@@ -81,13 +81,24 @@ TS 配置是可信的可执行代码，CLI 不是沙箱。默认导出配置，�
 
 目标目录由 `vp exec node dist/cli.js targets` 查看：
 
-| 引擎     | 版本   | 平台         | 说明                                    |
-| -------- | ------ | ------------ | --------------------------------------- |
-| Surge    | 6.10.0 | macOS        | select、显式 Smart；Trojan/HTTP/AnyTLS  |
-| sing-box | 1.11.0 | Linux、macOS | select/urltest；Trojan/HTTP；legacy DNS |
-| sing-box | 1.12.0 | Linux、macOS | 增加 AnyTLS；typed DNS                  |
+| 引擎     | 版本    | 平台               | 说明                                                  |
+| -------- | ------- | ------------------ | ----------------------------------------------------- |
+| Surge    | 6.10.0  | macOS              | select、显式 Smart；Trojan/HTTP/AnyTLS                |
+| sing-box | 1.11.0  | Linux、macOS       | select/urltest；Trojan/HTTP；legacy DNS               |
+| sing-box | 1.12.0  | Linux、macOS       | 增加 AnyTLS；typed DNS                                |
+| Mihomo   | 1.19.32 | Linux、macOS       | select/urltest；Trojan/HTTP/AnyTLS；YAML              |
+| Stash    | 4.2.1   | macOS（build 487） | select；Trojan/HTTP/AnyTLS；YAML fragment，原生未验证 |
 
-未知版本拒绝，不把一个版本的成功推断为整个版本区间都支持。Clash/Mihomo/Stash 后端、远程订阅与规则集、MAC/进程规则、完整 DNS 策略及 TUN 尚未实现。
+未知版本拒绝，不把一个版本的成功推断为整个版本区间都支持。Mihomo 与 Stash 是独立目标，不使用笼统的 Clash 兼容声明。远程订阅与规则集、MAC/进程规则、完整 DNS 策略及 TUN 尚未实现。
+
+Stash 4.2.1 暂不支持来源 IP/端口、端口范围和 standalone；节点共享测速结果无法保持现有组级 URL 契约，因此 `urltest` 报错。已有 select、域名/IP、单端口、网络与逻辑规则可组合使用。详见[转换边界](docs/engineering/clash-backends/README.md)。
+
+[四客户端示例](examples/clients.ts)复用同一个 policy，并显式选择 Surge Smart、sing-box/Mihomo URLTest、Stash select：
+
+```sh
+vp exec node dist/cli.js check examples/clients.ts
+DEMO_PASSWORD=example-only vp exec node dist/cli.js build examples/clients.ts --out out/clients
+```
 
 节点 `server` 暂限 IP 字面量，TLS `serverName` 可单独给域名；这样不会隐式发明节点域名的引导解析路径。HTTP 和 AnyTLS 首期按 TCP-only 检查，必须用 TCP 条件限定；任何可选成员或 via 路径不支持 UDP，整个出口都不能用于无约束规则或 fallback。
 
@@ -111,7 +122,7 @@ vp run check
 vp run test:native
 ```
 
-原生测试从 `.cache/native/sing-box-1.11.0`、`.cache/native/sing-box-1.12.0` 和安装的 Surge 读取校验器，先核对版本再执行离线检查，不会自动下载或启动代理。普通测试会明确跳过这三个环境相关测试。
+原生测试从 `.cache/native/sing-box-1.11.0`、`.cache/native/sing-box-1.12.0`、`.cache/native/mihomo-1.19.32` 和安装的 Surge 读取校验器，先核对版本再执行离线检查，不会自动下载或启动代理。普通测试会明确跳过这四个环境相关测试。
 
 [验收记录](docs/implementation-validation.md)区分 SDK/CLI 测试、macOS 原生配置检查和未进行的 Linux/网络实测。[设计入口](docs/README.md)说明规则组合、平台机制和 provider；长期设计不等于本期全部实现。
 
@@ -119,4 +130,4 @@ vp run test:native
 
 [Concord 文档入口](docs/README.md)包含产品行为、用户故事、代码与测试关系。新增行为先更新对应契约，使用 `vp run docs:check` 与 `vp run docs:gaps` 检查。
 
-Feature 和 Use Case 由 Concord 管理；Vite+ 负责工具链。CI 在 Node 22/24 执行检查、打包、测试及 CLI 示例，并单独运行 Concord 检查和秘密扫描，详见[开发工作流](docs/engineering/development/README.md)。
+Feature 和 Use Case 由 Concord 管理；Vite+ 负责工具链。CI 在 Node 24 执行检查、打包、测试及 CLI 示例，并单独运行 Concord 检查和秘密扫描，详见[开发工作流](docs/engineering/development/README.md)。

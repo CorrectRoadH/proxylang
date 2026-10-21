@@ -131,8 +131,13 @@ export const strategySchema: z.ZodType<Strategy> = z.strictObject({
   id: idSchema,
   members,
   implementations: z
-    .strictObject({ surge: algorithmSchema.optional(), "sing-box": algorithmSchema.optional() })
-    .refine((v) => !!v.surge || !!v["sing-box"]),
+    .strictObject({
+      surge: algorithmSchema.optional(),
+      "sing-box": algorithmSchema.optional(),
+      mihomo: algorithmSchema.optional(),
+      stash: algorithmSchema.optional(),
+    })
+    .refine((v) => !!v.surge || !!v["sing-box"] || !!v.mihomo || !!v.stash),
 });
 const groupSchema = z.union([
   strategySchema,
@@ -158,7 +163,7 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
   programs: z.record(
     idSchema,
     z.strictObject({
-      engine: z.enum(["surge", "sing-box"]),
+      engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
       nodes: z.array(nodeSchema),
       groups: z.array(groupSchema),
       routing: z.array(entrySchema),
@@ -171,7 +176,7 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
       z.strictObject({
         id: idSchema,
         program: idSchema,
-        engine: z.enum(["surge", "sing-box"]),
+        engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
         platform: z.enum(["macos", "linux"]),
         version: z.string().regex(/^\d+\.\d+\.\d+$/),
         mode: z.enum(["fragment", "standalone"]).default("fragment"),

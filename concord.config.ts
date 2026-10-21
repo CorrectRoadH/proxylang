@@ -30,6 +30,7 @@ export default {
       "src/strategies.ts",
       "src/targets.ts",
       "src/render.ts",
+      "src/clash.ts",
       "src/host.ts",
       "src/cli.ts",
       "src/index.ts",
@@ -39,7 +40,9 @@ export default {
       "test/strategies.test.ts",
       "test/host.test.ts",
       "test/native.test.ts",
+      "test/clash.test.ts",
       "examples/home.ts",
+      "examples/clients.ts",
       "examples/policies.ts"
     ],
     "timeoutMs": 120000

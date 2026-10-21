@@ -19,3 +19,5 @@ constitutionRefs:
 - [为多个客户端版本检查转换](use-case/build-targets.md)
 
 - [为同一出口声明不同平台算法](use-case/strategy-implementations.md)
+
+- [复用规则构建 Mihomo 与 Stash](use-case/clash-backends.md)

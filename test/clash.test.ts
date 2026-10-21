@@ -327,7 +327,9 @@ test("UDP 不得走 HTTP AnyTLS 或含 TCP-only 的组和 via 路径；循环与
   for (const engine of engines) {
     for (const type of ["http", "anytls"] as const) {
       const nodes = [
-        { ...trojan, id: "hop", type, ...(type === "http" ? { serverName: undefined } : {}) },
+        type === "http"
+          ? { ...trojan, id: "hop", type, serverName: undefined }
+          : { ...trojan, id: "hop", type },
         { ...trojan, via: "hop" },
       ];
       const groups = [{ id: "relay", type: "select" as const, members: ["edge"] }];

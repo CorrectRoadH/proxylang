@@ -37,19 +37,75 @@ export type Use = {
 };
 export type Entry = Rule | Block | Use;
 export type Secret = { readonly type: "env"; readonly name: string };
-export type ProxyNode = {
+export type ProxyBase = {
   readonly id: string;
-  readonly type: "trojan" | "anytls" | "http";
   readonly server: string;
   readonly port: number;
-  readonly password: Secret;
-  readonly username?: Secret;
-  readonly serverName?: string;
   readonly via?: string;
   readonly label?: string;
   readonly region?: string;
   readonly provider?: string;
   readonly tags?: readonly string[];
+};
+export type ProxyTLS = {
+  readonly serverName: string;
+  readonly alpn?: readonly string[];
+};
+export type WebSocketTransport = {
+  readonly type: "ws";
+  readonly path: string;
+  readonly host?: string;
+};
+export type TrojanNode = ProxyBase & {
+  readonly type: "trojan";
+  readonly password: Secret;
+  readonly serverName?: string;
+};
+export type AnyTLSNode = ProxyBase & {
+  readonly type: "anytls";
+  readonly password: Secret;
+  readonly serverName?: string;
+};
+export type HttpNode = ProxyBase & {
+  readonly type: "http";
+  readonly serverName?: never;
+  readonly password: Secret;
+  readonly username?: Secret;
+};
+export type ShadowsocksNode = ProxyBase & {
+  readonly type: "shadowsocks";
+  readonly method: "aes-128-gcm" | "aes-256-gcm" | "chacha20-ietf-poly1305";
+  readonly password: Secret;
+};
+export type VMessNode = ProxyBase & {
+  readonly type: "vmess";
+  readonly uuid: Secret;
+  readonly tls?: ProxyTLS;
+  readonly transport?: WebSocketTransport;
+};
+export type VLESSNode = ProxyBase & {
+  readonly type: "vless";
+  readonly uuid: Secret;
+  readonly tls?: ProxyTLS;
+  readonly transport?: WebSocketTransport;
+};
+export type ProxyNode =
+  | TrojanNode
+  | AnyTLSNode
+  | HttpNode
+  | ShadowsocksNode
+  | VMessNode
+  | VLESSNode;
+export type TailscaleEndpoint = {
+  readonly type: "sing-box-tailscale";
+  readonly id: string;
+  readonly hostname: string;
+  readonly stateDirectory: string;
+  readonly acceptRoutes: boolean;
+  readonly bootstrapResolver: string;
+  readonly authKey?: Secret;
+  readonly exitNode?: string;
+  readonly exitNodeAllowLanAccess?: boolean;
 };
 export type GroupAlgorithm =
   | { readonly type: "select" }
@@ -94,6 +150,7 @@ export type Engine = "surge" | "sing-box" | "mihomo" | "stash";
 export type Program = {
   readonly engine: Engine;
   readonly nodes: readonly ProxyNode[];
+  readonly endpoints?: readonly TailscaleEndpoint[];
   readonly groups: readonly Group[];
   readonly routing: readonly Entry[];
   readonly fallback: Action;

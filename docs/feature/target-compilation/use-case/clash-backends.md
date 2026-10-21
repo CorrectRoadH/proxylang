@@ -17,7 +17,7 @@ feature: docs/feature/target-compilation/README.md
 
 Mihomo 1.19.32（macOS/Linux）和 Stash 4.2.1（macOS，build 487）拥有独立 engine 与 strategy 实现键，输出 YAML。目标检查未知版本、不支持条件和算法；嵌套子条件也不能被省略。Surge Smart 不自动变成 URLTest。
 
-两者支持 HTTP、Trojan、AnyTLS 和 select；Mihomo 支持现有 urltest，Stash 节点级测速不能等价为组级 URL，因此暂时拒绝 urltest。Stash 4.2.1 拒绝来源 IP、来源端口、目标端口范围与 standalone。Mihomo 支持这些条件及 loopback 显式代理 standalone；两者都支持 fragment，片段不代表已部署的系统代理。详见[转换机制](../../../engineering/clash-backends/README.md)。
+两者支持 HTTP、Trojan、AnyTLS、SS、VMess 和 select；Mihomo 另支持 VLESS；Mihomo 支持现有 urltest，Stash 节点级测速不能等价为组级 URL，因此暂时拒绝 urltest。Stash 4.2.1 拒绝来源 IP、来源端口、目标端口范围与 standalone。Mihomo 支持这些条件及 loopback 显式代理 standalone；两者都支持 fragment，片段不代表已部署的系统代理。详见[转换机制](../../../engineering/clash-backends/README.md)。
 
 ## 验收条件
 

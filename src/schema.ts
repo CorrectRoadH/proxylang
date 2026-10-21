@@ -86,25 +86,108 @@ const secretSchema = z.strictObject({
   type: z.literal("env"),
   name: z.string().regex(/^[A-Z][A-Z0-9_]{0,127}$/),
 });
+const nodeBase = {
+  id: idSchema,
+  server: ip,
+  port,
+  via: idSchema.optional(),
+  label: z.string().min(1).max(256).optional(),
+  region: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .optional(),
+  provider: idSchema.optional(),
+  tags: z.array(idSchema).refine(unique).optional(),
+};
+const tlsSchema = z.strictObject({
+  serverName: domain,
+  alpn: z
+    .array(
+      z
+        .string()
+        .min(1)
+        .refine((x) => !/\p{C}/u.test(x) && Buffer.byteLength(x) <= 255),
+    )
+    .min(1)
+    .refine(unique)
+    .optional(),
+});
+const transportSchema = z.strictObject({
+  type: z.literal("ws"),
+  path: z
+    .string()
+    .max(2048)
+    .regex(/^\/[A-Za-z0-9/._~-]*$/)
+    .refine((x) => !x.startsWith("//")),
+  host: domain.optional(),
+});
+const uuidNode = {
+  ...nodeBase,
+  uuid: secretSchema,
+  tls: tlsSchema.optional(),
+  transport: transportSchema.optional(),
+};
 const nodeSchema = z
+  .discriminatedUnion("type", [
+    z.strictObject({
+      ...nodeBase,
+      type: z.literal("trojan"),
+      password: secretSchema,
+      serverName: domain.optional(),
+    }),
+    z.strictObject({
+      ...nodeBase,
+      type: z.literal("anytls"),
+      password: secretSchema,
+      serverName: domain.optional(),
+    }),
+    z.strictObject({
+      ...nodeBase,
+      type: z.literal("http"),
+      serverName: z.undefined().optional(),
+      password: secretSchema,
+      username: secretSchema.optional(),
+    }),
+    z.strictObject({
+      ...nodeBase,
+      type: z.literal("shadowsocks"),
+      method: z.enum(["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"]),
+      password: secretSchema,
+    }),
+    z.strictObject({ ...uuidNode, type: z.literal("vmess") }),
+    z.strictObject({ ...uuidNode, type: z.literal("vless") }),
+  ])
+  .refine(
+    (node) =>
+      !("transport" in node && node.transport && node.tls?.alpn) ||
+      (node.tls.alpn.length === 1 && node.tls.alpn[0] === "http/1.1"),
+  );
+const endpointSchema = z
   .strictObject({
+    type: z.literal("sing-box-tailscale"),
     id: idSchema,
-    type: z.enum(["trojan", "anytls", "http"]),
-    server: ip,
-    port,
-    password: secretSchema,
-    username: secretSchema.optional(),
-    serverName: domain.optional(),
-    via: idSchema.optional(),
-    label: z.string().min(1).max(256).optional(),
-    region: z
+    hostname: domain.refine((x) => !x.includes(".")),
+    stateDirectory: z
       .string()
-      .regex(/^[A-Z]{2}$/)
-      .optional(),
-    provider: idSchema.optional(),
-    tags: z.array(idSchema).refine(unique).optional(),
+      .max(4096)
+      .refine(
+        (x) =>
+          x.startsWith("/") &&
+          !/[\p{C}$\\]/u.test(x) &&
+          x
+            .split("/")
+            .slice(1)
+            .every((part) => part !== "" && part !== "." && part !== ".."),
+      ),
+    acceptRoutes: z.boolean(),
+    bootstrapResolver: ip,
+    authKey: secretSchema.optional(),
+    exitNode: ip.optional(),
+    exitNodeAllowLanAccess: z.boolean().optional(),
   })
-  .refine((n) => (n.type === "http" ? n.serverName === undefined : n.username === undefined));
+  .refine(
+    (endpoint) => endpoint.exitNodeAllowLanAccess === undefined || endpoint.exitNode !== undefined,
+  );
 const members = z.array(idSchema).min(1).refine(unique);
 const url = z
   .string()
@@ -165,6 +248,7 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
     z.strictObject({
       engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
       nodes: z.array(nodeSchema),
+      endpoints: z.array(endpointSchema).max(1000).optional(),
       groups: z.array(groupSchema),
       routing: z.array(entrySchema),
       fallback: actionSchema,

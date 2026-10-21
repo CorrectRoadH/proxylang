@@ -15,6 +15,7 @@ import type {
   Use,
   GroupAlgorithm,
   Strategy,
+  TailscaleEndpoint,
 } from "./types.js";
 
 export const match = {
@@ -92,3 +93,24 @@ export const group = {
   ): GroupAlgorithm => ({ type: "urltest", ...options }),
 };
 export const surge = { smart: (): GroupAlgorithm => ({ type: "surge-smart" }) };
+
+/** Protocol constructors keep credentials and options specific to their protocol. */
+function nodeConstructor<T extends ProxyNode["type"]>(type: T) {
+  return (
+    options: Omit<Extract<ProxyNode, { type: T }>, "type">,
+  ): Extract<ProxyNode, { type: T }> => ({ ...options, type }) as Extract<ProxyNode, { type: T }>;
+}
+export const proxy = {
+  http: nodeConstructor("http"),
+  trojan: nodeConstructor("trojan"),
+  anytls: nodeConstructor("anytls"),
+  shadowsocks: nodeConstructor("shadowsocks"),
+  vmess: nodeConstructor("vmess"),
+  vless: nodeConstructor("vless"),
+};
+export const singbox = {
+  tailscale: (options: Omit<TailscaleEndpoint, "type">): TailscaleEndpoint => ({
+    ...options,
+    type: "sing-box-tailscale",
+  }),
+};

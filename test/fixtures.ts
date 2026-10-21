@@ -4,10 +4,10 @@ import {
   type Config,
   type Entry,
   type Program,
-  type ProxyNode,
+  type TrojanNode,
 } from "../src/index.js";
 
-export const trojan: ProxyNode = {
+export const trojan: TrojanNode = {
   id: "edge",
   type: "trojan",
   server: "192.0.2.1",

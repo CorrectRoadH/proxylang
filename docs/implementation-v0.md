@@ -10,7 +10,7 @@ SDK 提供 rule、block、policy、use、sequence，以及 match.domain/domainSu
 
 policy 声明 id、exits 和规则序列，作为可复用模板。模板中只能通过 slot 动作引用声明的出口，另可 direct/reject，不能直接引用具体节点。use 给模板一个实例 id 和完整 bindings，值为 route/direct/reject，嵌套 use 的绑定还可引用外层 slot。多余、缺失和未声明 slot 均报错。模板内部 block/use 可嵌套，递归引用和过深输入拒绝。不同实例有独立名字空间；来源路径保留模板与实例名。
 
-顶层平台程序有 engine、nodes、groups、routing、fallback。fallback 只允许在程序顶层，规则块中不能自带默认动作。route 终结本次规则选择；拨号失败不得重新匹配下一规则。explain 只解释静态条件及逻辑出口，不模拟探活、DNS、代理连接或组的运行时选择。
+顶层平台程序有 engine、nodes、可选 endpoints、groups、routing、fallback。fallback 只允许在程序顶层，规则块中不能自带默认动作。route 终结本次规则选择；拨号失败不得重新匹配下一规则。explain 只解释静态条件及逻辑出口，不模拟探活、DNS、代理连接或组的运行时选择。
 
 ## 条件与元数据
 
@@ -20,7 +20,7 @@ domain 精确匹配，domainSuffix 匹配根域及点分隔子域；采用小写
 
 ## 节点和平台程序
 
-节点支持静态 Trojan、AnyTLS、HTTP，拥有稳定 id、单独展示 label、server/port、secret 引用、可选 TLS serverName、地区 region、供应商 provider、标签 tags、可选 via 拨号依赖。selectNodes 按元数据返回 id 列表，空组错误；所有可选路径与 via 构成有向图，检查缺失引用、循环及协议能力。展示 label 首期不写入原生节点名，发出可省略展示 warning；原生使用稳定 ID，避免重命名破坏引用。
+节点支持静态 Trojan、AnyTLS、HTTP、Shadowsocks、VMess、VLESS。节点拥有稳定 id、单独展示 label、server/port、secret 引用、可选 TLS serverName、地区 region、供应商 provider、标签 tags、可选 via 拨号依赖。selectNodes 按元数据返回 id 列表，空组错误；所有可选路径与 via 构成有向图，检查缺失引用、循环及协议能力。展示 label 首期不写入原生节点名，发出可省略展示 warning；原生使用稳定 ID，避免重命名破坏引用。
 
 groups 支持 select 和 urltest；sing-box 与 Mihomo 后端实现组级 urltest 参数，Stash 当前只支持 select。strategy 用同一个 id 与 members 声明各引擎算法，详见[策略实现契约](feature/target-compilation/use-case/strategy-implementations.md)。
 
@@ -34,7 +34,9 @@ urltest 只接受 id/members/url/intervalSeconds/toleranceMs，url 必填 HTTP(S
 
 其他选项拒绝。
 
-HTTP 节点及经它拨号的路径仅 TCP；AnyTLS 首期也保守仅允许 TCP 路由；Trojan 支持 TCP/UDP。
+HTTP、AnyTLS、VMess、VLESS 及经它们拨号的路径仅 TCP；Trojan 和 Shadowsocks 支持 TCP/UDP。
+
+协议构造器、严格字段、TLS/WS 范围及 singbox.tailscale 端点详见[代理资源契约](engineering/proxy-resources/README.md)。Tailscale 仅允许 sing-box 1.12.0 standalone；状态目录与构建生命周期分离，普通 DNS/final 不使用引导 DNS。
 
 编译器按规则条件保守计算可能网络集，网络条件不能证明仅 TCP 时，通往 TCP-only 路径的 route 拒绝。
 

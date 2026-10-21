@@ -2,6 +2,7 @@
 // @concord-implements docs/feature/artifact-publication/README.md
 import { mkdir, lstat, rename, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
+import { pathsOverlap } from "./proxies.js";
 import { randomUUID } from "node:crypto";
 import { render, RenderError } from "./render.js";
 import type { Compilation } from "./compiler.js";
@@ -30,6 +31,12 @@ export async function buildToDirectory(
 ): Promise<BuildResult> {
   if (!compilation.ok) return { published: false, exitCode: 1, code: "COMPILATION_FAILED" };
   const root = resolve(output);
+  if (
+    compilation.plans.some((plan) =>
+      plan.program.endpoints?.some((endpoint) => pathsOverlap(root, endpoint.stateDirectory)),
+    )
+  )
+    return { published: false, exitCode: 1, code: "ENDPOINT_STATE_OVERLAP" };
   const lock = join(root, ".proxylang-lock");
   const id = randomUUID();
   const relativeGeneration = `generations/${id}`;

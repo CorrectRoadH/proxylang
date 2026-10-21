@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/clash-backends.md
+import { clashProxy } from "./proxies.js";
 import type { TargetPlan } from "./compiler.js";
 import type {
   Action,
@@ -96,18 +97,9 @@ export function clashConfig(
 ): Record<string, unknown> {
   const { program, target } = plan;
   const config: Record<string, unknown> = {
-    proxies: program.nodes.map((node) => ({
-      name: node.id,
-      type: node.type,
-      server: node.server,
-      port: node.port,
-      password: secret(node.password),
-      ...(node.username ? { username: secret(node.username) } : {}),
-      ...(node.serverName ? { sni: node.serverName } : {}),
-      ...(node.type === "trojan" ? { udp: true } : {}),
-      ...(target.engine === "stash" ? { "block-quic": "off" } : {}),
-      ...(node.via ? { "dialer-proxy": node.via } : {}),
-    })),
+    proxies: program.nodes.map((node) =>
+      clashProxy(node, target.engine as "mihomo" | "stash", secret),
+    ),
     "proxy-groups": program.groups.map((g) => clashGroup(g)),
     rules: [
       ...plan.rules.map((rule) =>

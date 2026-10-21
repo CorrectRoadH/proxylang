@@ -24,13 +24,16 @@ jobs:
       - run: vp run check
       - run: vp run example:check
       - run: vp exec node dist/cli.js check examples/clients.ts
+      - run: vp exec node dist/cli.js check examples/proxies.ts
       - name: Exercise CLI build with example credentials
         run: |
           vp run example:build
           vp exec node dist/cli.js build examples/clients.ts --out out/clients
+          vp exec node dist/cli.js build examples/proxies.ts --out out/proxies
         env:
           DEMO_USER: example-user
           DEMO_PASSWORD: example-only
+          DEMO_UUID: 11111111-2222-4333-8444-555555555555
   mihomo:
     name: Mihomo 1.19.32 native check
     runs-on: ubuntu-latest

@@ -34,13 +34,13 @@ Stash 的测速 URL 属于节点，多个组共享节点测试结果，不能保
 
 Mihomo 与 Stash 共享明确相同的 proxy/group/rule codec；差异由 engine 显式分支和目录能力约束处理。
 
-节点仅支持既有 HTTP、Trojan 及目录明确允许的 AnyTLS，不趁此扩展订阅、provider、远程规则集、DNS policy 或 TUN。
+节点支持 HTTP、Trojan、AnyTLS、SS 和 VMess；Mihomo 另支持 VLESS。具体字段与 TLS/WS 边界见[代理资源契约](../proxy-resources/README.md)。订阅、provider、远程规则集、DNS policy 或 TUN 尚未实现。
 
-两目标协议目录都为 trojan/http/anytls。
+两目标分别维护精确协议目录；Stash 4.2.1 不编码 VLESS。
 
 Trojan 显式启用 UDP；Stash 节点另设 block-quic: off，避免客户端默认拦截改变语言行为。
 
-HTTP/AnyTLS 延续 TCP-only 检查。
+HTTP/AnyTLS/VMess/VLESS 使用 TCP-only 检查，SS 显式启用 UDP。
 
 TLS 使用 sni，不关闭验证。
 

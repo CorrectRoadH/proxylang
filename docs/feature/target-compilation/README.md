@@ -21,3 +21,5 @@ constitutionRefs:
 - [为同一出口声明不同平台算法](use-case/strategy-implementations.md)
 
 - [复用规则构建 Mihomo 与 Stash](use-case/clash-backends.md)
+
+- [按协议定义代理与有状态端点](use-case/define-proxies.md)

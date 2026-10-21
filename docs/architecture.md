@@ -6,7 +6,7 @@ TypeScript SDK 产生纯数据。`schema.ts` 校验输入并拒绝未知字段�
 
 `compiler.ts` 创建不可变快照，检查资源引用、循环、网络约束和目标能力，执行配置案例，生成每目标计划。任一目标失败不暴露部分可发布结果。
 
-`render.ts` 按目标编码原生配置，仅在渲染批次解析秘密。`host.ts` 管理锁、权限、generation 与活动指针。`cli.ts` 加载可信配置并提供命令入口；它不是沙箱。
+`proxies.ts` 拥有协议专属字段的目标检查与节点编码，`render.ts` 按目标组合原生配置，仅在渲染批次解析秘密。`host.ts` 管理锁、权限、generation 与活动指针。`cli.ts` 加载可信配置并提供命令入口；它不是沙箱。
 
 ## 契约边界
 
@@ -14,7 +14,7 @@ TypeScript SDK 产生纯数据。`schema.ts` 校验输入并拒绝未知字段�
 
 [目标编译](feature/target-compilation/README.md)拥有能力目录及编码约束；[产物发布](feature/artifact-publication/README.md)拥有秘密处理与文件生命周期。公共参数详见 [SDK 参数细则](implementation-v0.md)。
 
-平台程序持有自己的节点、组、默认动作和运行前提，共享策略只通过槽位绑定资源。不同内核的 DNS、探活和入口机制不自动合并；长期 Provider 设想见 [研究说明](research/platform-model/README.md)。
+平台程序持有自己的节点、有状态端点、组、默认动作和运行前提，共享策略只通过槽位绑定资源。不同内核的 DNS、探活和入口机制不自动合并；长期 Provider 设想见 [研究说明](research/platform-model/README.md)。
 
 ## 验证边界
 

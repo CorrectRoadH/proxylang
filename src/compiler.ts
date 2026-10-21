@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { nodeIsTcpOnly, pathsOverlap, validateProxyOptions } from "./proxies.js";
 import { validateClashTarget } from "./clash.js";
 import { assertData, configSchema, deepFreeze } from "./schema.js";
 import { expandRules, explainRules, logicalDepth, truthPossibilities } from "./rules.js";
@@ -79,19 +80,40 @@ export function compile(input: unknown): Compilation {
     const path = `programs.${name}`;
     const rules = expandRules(program.routing, diagnostics, name);
     expanded.set(name, rules);
-    const resources = [...program.nodes, ...program.groups];
+    const endpoints = program.endpoints ?? [];
+    const resources = [...program.nodes, ...program.groups, ...endpoints];
     const byId = new Map(resources.map((resource) => [resource.id, resource]));
     if (byId.size !== resources.length)
-      error("DUPLICATE_RESOURCE", path, "节点与组共用唯一 ID 命名空间");
+      error("DUPLICATE_RESOURCE", path, "节点、组与端点共用唯一 ID 命名空间");
     const edges = new Map(
       resources.map((resource) => [
         resource.id,
-        "members" in resource ? resource.members : resource.via ? [resource.via] : [],
+        "members" in resource
+          ? resource.members
+          : "via" in resource && resource.via
+            ? [resource.via]
+            : [],
       ]),
     );
     for (const [id, refs] of edges)
       for (const ref of refs)
         if (!byId.has(ref)) error("MISSING_REFERENCE", `${path}.${id}`, "节点或组引用不存在");
+    for (const [id, refs] of edges)
+      for (const ref of refs)
+        if (byId.get(ref)?.type === "sing-box-tailscale")
+          error(
+            "ENDPOINT_REFERENCE_UNSUPPORTED",
+            `${path}.${id}`,
+            "端点只能由 route 引用，不能作为组成员或 via",
+          );
+    for (let i = 0; i < endpoints.length; i++)
+      for (let j = 0; j < i; j++)
+        if (pathsOverlap(endpoints[i]!.stateDirectory, endpoints[j]!.stateDirectory))
+          error(
+            "ENDPOINT_STATE_OVERLAP",
+            `${path}.endpoints.${endpoints[i]!.id}`,
+            "端点状态目录不能重复或互为祖先",
+          );
     const states = new Map<string, number>();
     const tcpOnly = new Map<string, boolean>();
     const visit = (id: string): boolean => {
@@ -102,14 +124,14 @@ export function compile(input: unknown): Compilation {
       if (states.get(id) === 2) return tcpOnly.get(id) ?? false;
       states.set(id, 1);
       const item = byId.get(id);
-      let limited = item?.type === "http" || item?.type === "anytls";
+      let limited = !!item && "server" in item && nodeIsTcpOnly(item);
       for (const ref of edges.get(id) ?? []) limited = visit(ref) || limited;
       states.set(id, 2);
       tcpOnly.set(id, limited);
       return limited;
     };
     // Bound graph traversal independently of the nested input limit.
-    if (resources.length > 1000) error("RESOURCE_LIMIT", path, "单程序最多 1000 个节点与组");
+    if (resources.length > 1000) error("RESOURCE_LIMIT", path, "单程序最多 1000 个节点、组与端点");
     else for (const id of byId.keys()) visit(id);
     const validateAction = (action: Action, where: string, udpPossible: boolean) => {
       if (action.type !== "route") return;
@@ -180,7 +202,24 @@ export function compile(input: unknown): Compilation {
         "fragment 不能静默忽略 listener；请使用独立程序或 standalone 目标",
         target.id,
       );
+    for (const endpoint of program.endpoints ?? []) {
+      if (!(descriptor.endpoints as readonly string[]).includes(endpoint.type))
+        error(
+          "ENDPOINT_UNSUPPORTED",
+          `${path}.endpoints.${endpoint.id}`,
+          "Tailscale 端点仅支持 sing-box 1.12.0",
+          target.id,
+        );
+      if (target.mode !== "standalone")
+        error(
+          "ENDPOINT_MODE_UNSUPPORTED",
+          `${path}.endpoints.${endpoint.id}`,
+          "Tailscale 需要 standalone 的普通 DNS/final 隔离引导解析",
+          target.id,
+        );
+    }
     for (const node of program.nodes) {
+      validateProxyOptions(node, target, diagnostics);
       if (!(descriptor.protocols as readonly string[]).includes(node.type))
         error(
           "PROTOCOL_UNSUPPORTED",
@@ -229,6 +268,18 @@ export function compile(input: unknown): Compilation {
         origin: rule.origin,
       })),
       preconditions: [
+        ...(program.endpoints?.length
+          ? [
+              "Tailscale 需要 with_tailscale 构建标签；运行方负责登录、路由批准及每实例独占身份目录。构建不注册 tailnet。",
+              "状态目录真实路径必须独立于产物与清理范围；output 重叠检查仅为词法检查，不能证明运行主机符号链接隔离。",
+              "普通 DNS/final 与端点控制面引导 DNS 分离；未配置 MagicDNS，私有域名须由运行方提供适用的普通解析器。",
+            ]
+          : []),
+        ...(target.engine === "surge" && program.nodes.some((node) => node.type === "vmess")
+          ? [
+              "Surge VMess 的 TCP-only 由语言路由检查保证；fragment 组合方不得额外引入通往此节点的 UDP 路由。",
+            ]
+          : []),
         ...(target.engine === "stash"
           ? ["Stash 4.2.1 原生未验证；block-quic: off 按现行文档编码，历史版本 QUIC 行为未验证。"]
           : []),

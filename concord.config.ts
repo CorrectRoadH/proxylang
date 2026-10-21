@@ -31,6 +31,7 @@ export default {
       "src/targets.ts",
       "src/render.ts",
       "src/clash.ts",
+      "src/proxies.ts",
       "src/host.ts",
       "src/cli.ts",
       "src/index.ts",
@@ -41,8 +42,11 @@ export default {
       "test/host.test.ts",
       "test/native.test.ts",
       "test/clash.test.ts",
+      "test/proxies.test.ts",
+      "test/proxy-fixtures.ts",
       "examples/home.ts",
       "examples/clients.ts",
+      "examples/proxies.ts",
       "examples/policies.ts"
     ],
     "timeoutMs": 120000

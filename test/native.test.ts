@@ -1,12 +1,13 @@
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import {
   compile,
+  singbox,
   strategy,
   group,
   surge,
@@ -21,6 +22,7 @@ import {
   type Engine,
   type ProxyNode,
 } from "../src/index.js";
+import { protocolConfig, testUuid } from "./proxy-fixtures.js";
 import { trojan } from "./fixtures.js";
 
 const exec = promisify(execFile);
@@ -225,3 +227,116 @@ test.skipIf(!enabled)(
     assert.match(checked.stdout + checked.stderr, /configuration.*(?:successful|successfully)/i);
   },
 );
+
+// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+for (const [engine, version] of [
+  ["surge", "6.10.0"],
+  ["sing-box", "1.11.0"],
+  ["sing-box", "1.12.0"],
+  ["mihomo", "1.19.32"],
+] as const) {
+  test.skipIf(!enabled)(
+    `原生代理资源 ${engine === "mihomo" ? "Mihomo" : engine} ${version}: SS/UUID/TLS/WS`,
+    async (t) => {
+      const root = await mkdtemp(join(tmpdir(), "proxylang-proxy-native-"));
+      t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+      const config = protocolConfig(engine, version);
+      const compiled = compile({
+        ...config,
+        targets: config.targets.map((target) => ({
+          ...target,
+          platform: process.platform === "linux" ? "linux" : "macos",
+        })),
+      });
+      assert.equal(compiled.ok, true, JSON.stringify(compiled.diagnostics));
+      const artifact = render(compiled, (token) =>
+        token.name === "UUID" ? testUuid : "native-test-only",
+      )[0]!;
+      const path = join(root, artifact.filename);
+      await writeFile(path, artifact.content, { mode: 0o600 });
+      const binary =
+        engine === "surge"
+          ? "/Applications/Surge.app/Contents/Applications/surge-cli"
+          : resolve(`.cache/native/${engine}-${version}`);
+      if (engine === "surge") {
+        const info = await exec("/usr/libexec/PlistBuddy", [
+          "-c",
+          "Print :CFBundleShortVersionString",
+          "/Applications/Surge.app/Contents/Info.plist",
+        ]);
+        assert.equal(info.stdout.trim(), version);
+      } else {
+        const info = await exec(binary, [engine === "mihomo" ? "-v" : "version"]);
+        assert.match(
+          info.stdout,
+          engine === "mihomo"
+            ? /Mihomo Meta v?1\.19\.32(?:\s|$)/
+            : new RegExp(`sing-box version ${version.replaceAll(".", "\\.")}\\n`),
+        );
+      }
+      const result = await exec(
+        binary,
+        engine === "surge"
+          ? ["--check", path]
+          : engine === "mihomo"
+            ? ["-t", "-d", root, "-f", path]
+            : ["check", "-c", path],
+        { timeout: 30000 },
+      );
+      if (engine === "surge") assert.match(result.stdout, /OK/);
+      if (engine === "mihomo")
+        assert.match(result.stdout + result.stderr, /configuration.*(?:successful|successfully)/i);
+    },
+  );
+}
+
+// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+test.skipIf(!enabled)("原生 sing-box 1.12.0 Tailscale check 不启动身份且隔离DNS", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-endpoint-native-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const stateDirectory = join(root, "identity");
+  const binary = resolve(".cache/native/sing-box-1.12.0");
+  const info = await exec(binary, ["version"]);
+  assert.match(info.stdout, /sing-box version 1\.12\.0\n/);
+  assert.match(info.stdout, /\bwith_tailscale\b/);
+  const compiled = compile({
+    programs: {
+      home: {
+        engine: "sing-box",
+        nodes: [],
+        groups: [],
+        endpoints: [
+          singbox.tailscale({
+            id: "home",
+            hostname: "test-only",
+            stateDirectory,
+            acceptRoutes: true,
+            bootstrapResolver: "9.9.9.9",
+          }),
+        ],
+        routing: [rule("lan", m.ipCidr("192.168.50.0/24"), route("home"))],
+        fallback: direct(),
+        listener: { port: 16902, resolver: "1.1.1.1" },
+      },
+    },
+    targets: [
+      {
+        id: "native",
+        program: "home",
+        engine: "sing-box",
+        platform: process.platform === "linux" ? "linux" : "macos",
+        version: "1.12.0",
+        mode: "standalone",
+      },
+    ],
+  });
+  assert.equal(compiled.ok, true, JSON.stringify(compiled.diagnostics));
+  const artifact = render(compiled, () => {
+    throw new Error("No authentication is required by this offline fixture");
+  })[0]!;
+  const path = join(root, artifact.filename);
+  await writeFile(path, artifact.content, { mode: 0o600 });
+  await assert.rejects(access(stateDirectory));
+  await exec(binary, ["check", "-c", path], { timeout: 30000, cwd: root });
+  await assert.rejects(access(stateDirectory));
+});

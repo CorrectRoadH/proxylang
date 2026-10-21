@@ -179,6 +179,84 @@ PROXY_PASSWORD=example-only vp exec node dist/cli.js build proxy.config.ts --out
 
 默认输出是包含节点、策略组和规则的 **fragment**，需要与客户端的入口、DNS 等配置组合。可选 `standalone` 提供本机显式代理配置；生成文件不等于部署或系统接管。
 
+## 定义代理节点
+
+用 `proxy.<协议>()` 定义节点。每种协议有自己的必填字段：SS 使用加密方法和密码，VMess／VLESS 使用 UUID；TypeScript 和运行时检查都会拒绝混用字段。
+
+```ts
+import { proxy, secret } from "proxylang";
+
+const ss = proxy.shadowsocks({
+  id: "ss",
+  server: "192.0.2.10",
+  port: 8388,
+  method: "aes-128-gcm",
+  password: secret("SS_PASSWORD"),
+});
+
+const vmess = proxy.vmess({
+  id: "vmess",
+  server: "192.0.2.20",
+  port: 443,
+  uuid: secret("VMESS_UUID"),
+  tls: { serverName: "tls.example.com" },
+  transport: { type: "ws", path: "/proxy", host: "ws.example.com" },
+});
+
+const vless = proxy.vless({
+  id: "vless",
+  server: "192.0.2.30",
+  port: 443,
+  uuid: secret("VLESS_UUID"),
+  tls: { serverName: "vless.example.com" },
+});
+```
+
+把这些值放进程序的 `nodes`，便可用 `route("ss")` 或策略组的 `members: ["ss", "vmess"]` 引用。还提供 `proxy.trojan`、`proxy.anytls`、`proxy.http`；已有对象声明仍可用。节点可带 `region`、`provider`、`tags`，供 `selectNodes` 组合筛选；`via` 引用另一个节点或组，声明拨号链。
+
+TLS 的 `serverName` 是证书身份，WebSocket 的 `host` 是 HTTP Host，二者明确分开。省略 `tls` 表示不启用 TLS，省略 `transport` 表示普通 TCP。VMess 当前固定 AEAD／AES-128-GCM；VMess 与 VLESS 暂只允许 TCP 规则，不能作为覆盖 UDP 的 fallback。SS 支持三种 AEAD 方法及 TCP／UDP。
+
+这些是当前已实现的有限组合：WebSocket 只接受普通路径，不接受查询参数或百分号转义；Reality、XTLS／flow、gRPC、SS2022 和插件尚未实现，传入会报错。VLESS 目前只编码到 sing-box 和 Mihomo。
+
+### Tailscale：有状态的网络端点
+
+Tailscale 需要持久身份和引导解析，使用独立的 `endpoints` 声明。规则仍通过 `route(id)` 或 policy 的出口槽位引用它：
+
+```ts
+import { singbox, secret, match, rule, route, direct, type Program } from "proxylang";
+
+const backup: Program = {
+  engine: "sing-box",
+  nodes: [],
+  groups: [],
+  endpoints: [
+    singbox.tailscale({
+      id: "home-net",
+      hostname: "backup-proxy",
+      stateDirectory: "/var/lib/proxylang/backup-tailnet",
+      authKey: secret("TAILSCALE_AUTH_KEY"),
+      acceptRoutes: true,
+      bootstrapResolver: "9.9.9.9",
+    }),
+  ],
+  listener: { port: 17890, resolver: "1.1.1.1" },
+  routing: [rule("home", match.ipCidr("192.168.50.0/24"), route("home-net"))],
+  fallback: direct(),
+};
+```
+
+这个程序需要 **sing-box 1.12.0、`standalone` 目标及带 `with_tailscale` 的内核**。`bootstrapResolver` 仅供控制面引导解析，`listener.resolver` 负责普通 DNS。`authKey` 可省略，由运行方完成首次登录或提供已有身份。
+
+构建只生成配置，不加入 tailnet、不创建身份目录、不启用 MagicDNS。状态目录应由单个运行实例独占，并独立于构建产物；端点暂不能放进策略组或作为 `via`。这是本机显式代理配置，尚不是 TUN 网关或已验收的整机备份。
+
+[完整节点与 Tailscale 示例](examples/proxies.ts)包含五个构建目标和共用规则，可直接检查：
+
+```sh
+vp exec node dist/cli.js check examples/proxies.ts
+DEMO_PASSWORD=example-only DEMO_UUID=11111111-2222-4333-8444-555555555555 \
+  vp exec node dist/cli.js build examples/proxies.ts --out out/proxies
+```
+
 ## 当前支持
 
 | 目标     | 精确版本           | 平台         | 策略组                          |
@@ -188,14 +266,15 @@ PROXY_PASSWORD=example-only vp exec node dist/cli.js build proxy.config.ts --out
 | Mihomo   | 1.19.32            | Linux、macOS | select、URLTest                 |
 | Stash    | 4.2.1（build 487） | macOS        | select；仅 fragment，原生未验证 |
 
-支持域名、IP、端口、网络类型与逻辑条件，节点协议包括 Trojan、HTTP、AnyTLS，具体能力按目标版本检查。未知版本和影响路由行为的不支持项报错；可省略的展示信息报 warning，可用 `warningsAsErrors` 提升为错误。
+支持域名、IP、端口、网络类型与逻辑条件，节点协议包括 Trojan、HTTP、AnyTLS、Shadowsocks、VMess、VLESS，具体能力按目标版本检查。未知版本和影响路由行为的不支持项报错；可省略的展示信息报 warning，可用 `warningsAsErrors` 提升为错误。
 
-Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。节点地址暂限 IP；HTTP、AnyTLS 及经过它们的代理链按 TCP-only 检查。远程订阅、远程规则集、MAC/进程匹配和 TUN 尚未实现。完整限制见 [SDK 细则](docs/implementation-v0.md)和 [Mihomo / Stash 转换边界](docs/engineering/clash-backends/README.md)。
+Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。节点地址暂限 IP；HTTP、AnyTLS、VMess、VLESS 及经过它们的代理链按 TCP-only 检查。远程订阅、远程规则集、MAC/进程匹配和 TUN 尚未实现。完整限制见 [SDK 细则](docs/implementation-v0.md)和 [Mihomo / Stash 转换边界](docs/engineering/clash-backends/README.md)。
 
 配置文件是可信的 TypeScript 代码；构建产物包含密码，旧构建也会保留。凭据与产物管理见[构建契约](docs/feature/artifact-publication/use-case/publish-generation.md)。
 
 ## 更多示例与文档
 
+- [代理协议与 Tailscale](examples/proxies.ts)：SS／VMess／VLESS 节点和独立家庭网络端点。
 - [四客户端共用规则](examples/clients.ts)：同一个 policy，不同平台策略。
 - [家庭与开发环境规则](examples/policies.ts)：规则模块、守卫与出口绑定。
 - [多设备配置与请求案例](examples/home.ts)：节点筛选、代理链和路由回归案例。

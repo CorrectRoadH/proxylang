@@ -16,7 +16,7 @@ kind: engineering
 
 ## 确定的语法
 
-新增 `strategy({ id, members, implementations })` 作为 Group 的一个变体，type 为 strategy。members 仍是稳定资源 ID 数组；implementations 是可选 surge 与 sing-box 字段组成的严格对象，至少一个分支。每分支是结构化 GroupAlgorithm，包含 type: select / urltest / surge-smart。
+新增 `strategy({ id, members, implementations })` 作为 Group 的一个变体，type 为 strategy。members 仍是稳定资源 ID 数组；implementations 是可选 surge、sing-box、mihomo 与 stash 字段组成的严格对象，至少一个分支。每分支是结构化 GroupAlgorithm，包含 type: select / urltest / surge-smart。
 
 构造器 `group.select()` 返回 select 算法；`group.urltest({url, intervalSeconds?, toleranceMs?})` 返回通用 urltest 算法；`surge.smart()` 返回 surge-smart。`strategy` 返回可放入 Program.groups 的对象，规则仍使用 route(id)。禁止原生文本、未知键、回调或自动算法替代。
 
@@ -26,7 +26,7 @@ urltest 继续保持 URL 必填、禁止认证和 fragment、默认 intervalSeco
 
 ## 编译与证据
 
-先校验整个声明树，包括未选分支结构，再按精确 target 的 engine 选择算法。没分支报 STRATEGY_IMPLEMENTATION_MISSING；surge-smart 放在 sing-box 分支报 ALGORITHM_ENGINE_MISMATCH。选择算法之后执行完整资源图与能力验证，不回退到其它分支。
+先校验整个声明树，包括未选分支结构，再按精确 target 的 engine 选择算法。没分支报 STRATEGY_IMPLEMENTATION_MISSING；surge-smart 放在非 Surge 分支报 ALGORITHM_ENGINE_MISMATCH。选择算法之后执行完整资源图与能力验证，不回退到其它分支。
 
 TargetPlan.program 必须是该目标的独立、不可变程序快照，groups 只含具体算法，不保留未决 strategy。TargetPlan.strategySelections 记录策略 ID、选择引擎、算法及原始成员；check 和 manifest 均输出这项记录。策略选择是用户声明的差异，不发“语义等价”的保证，也不把它当可忽略 unsupported warning。
 
@@ -63,3 +63,5 @@ nativeName 必须非空、无首尾空白，为单行可打印 Unicode，禁止�
 通用条件、顺序、规则模板与出口绑定在已有规则层组合。Tailscale 生命周期、远程规则集更新、extended-matching 的观测来源与 MAC 匹配入口仍有专属约束，其语法见未采用的研究提案，不能因为策略组可生成就视为全部可移植。
 
 原生语义依据：[Surge Smart](https://manual.nssurge.com/policy-groups/smart.html)、[Surge URL Test](https://manual.nssurge.com/policy-groups/url-test.html)、[sing-box URLTest](https://sing-box.sagernet.org/configuration/outbound/urltest/)。
+
+Mihomo / Stash 的 YAML 策略片段及名称约束见[后端契约](../clash-backends/README.md)。Stash 的节点测速资源不同于组级 URL，当前只接入 select。

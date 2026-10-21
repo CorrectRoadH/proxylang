@@ -22,7 +22,7 @@ domain 精确匹配，domainSuffix 匹配根域及点分隔子域；采用小写
 
 节点支持静态 Trojan、AnyTLS、HTTP，拥有稳定 id、单独展示 label、server/port、secret 引用、可选 TLS serverName、地区 region、供应商 provider、标签 tags、可选 via 拨号依赖。selectNodes 按元数据返回 id 列表，空组错误；所有可选路径与 via 构成有向图，检查缺失引用、循环及协议能力。展示 label 首期不写入原生节点名，发出可省略展示 warning；原生使用稳定 ID，避免重命名破坏引用。
 
-groups 支持 select 和 urltest；当前只有 sing-box 后端实现组级 urltest 参数。strategy 用同一个 id 与 members 声明各引擎算法，详见[策略实现契约](feature/target-compilation/use-case/strategy-implementations.md)。
+groups 支持 select 和 urltest；sing-box 与 Mihomo 后端实现组级 urltest 参数，Stash 当前只支持 select。strategy 用同一个 id 与 members 声明各引擎算法，详见[策略实现契约](feature/target-compilation/use-case/strategy-implementations.md)。
 
 旧 type: smart 保留为可识别但 unsupported 的能力；新 strategy 的 Surge 分支通过 surge.smart() 明确声明节点评分机制，sing-box 分支可显式选择 group.urltest。两者不是自动转换，也不保证运行时行为等价。
 
@@ -30,7 +30,7 @@ groups 支持 select 和 urltest；当前只有 sing-box 后端实现组级 urlt
 
 默认 select 为第一成员，原生序列顺序固定；运行时选择状态不跨目标同步。
 
-urltest 只接受 id/members/url/intervalSeconds/toleranceMs，url 必填 HTTP(S) 且禁止认证信息，intervalSeconds 默认 180，toleranceMs 默认 50。idle_timeout 固定 30m，interrupt_exist_connections 固定 false；全部显式编码。
+urltest 只接受 id/members/url/intervalSeconds/toleranceMs，url 必填 HTTP(S) 且禁止认证信息，intervalSeconds 默认 180，toleranceMs 默认 50。sing-box 的 idle_timeout 固定 30m，interrupt_exist_connections 固定 false；全部显式编码。Mihomo 使用原生 url/interval/tolerance 参数，不承诺相同切换时机。
 
 其他选项拒绝。
 
@@ -46,7 +46,7 @@ fragment 报告必须列出元数据和运行前提，不能称为完整网关�
 
 可选 standalone 显式代理配置：必须指定 loopback listener 端口以及一个字面 IP 的 UDP `resolver`。
 
-Surge 输出 HTTP listener 与 dns-server；sing-box 输出 mixed inbound、版本适用 DNS server、默认 domain `resolver`。
+Surge 输出 HTTP listener 与 dns-server；sing-box 输出 mixed inbound、版本适用 DNS server、默认 domain `resolver`。Mihomo 输出 loopback mixed-port 与内部 DNS；Stash 暂不支持 standalone。
 
 仅用于本机显式代理，不开放 LAN 或自动接管路由；ZimaCube TUN、tailscaled、IPv6、防火墙及故障切换是后续独立部署契约。
 
@@ -66,7 +66,9 @@ fragment 报告列明组/代理的元数据前提、节点 IP 限制及组合方
 
 ## 支持矩阵和转换
 
-内置 provider 目录精确列出 sing-box 1.11.0、1.12.0（Linux/macOS）及 Surge 6.10.0（macOS）。只承诺此目录，不宣称其他版本支持；原生检查状态独立记录。AnyTLS 仅在目录内 1.12.0 与 Surge 目标可编码，较早目标明确 unsupported；未知版本 error。sing-box DNS 旧版本 address 格式和新版 type/server 格式由独立处理器选择，核心规则保持显式 action 表达。
+Mihomo 与 Stash 的规则能力、测速机制及入口差异见[后端契约](engineering/clash-backends/README.md)，以精确目标能力为准。
+
+内置 provider 目录精确列出 sing-box 1.11.0、1.12.0（Linux/macOS）、Surge 6.10.0（macOS）、Mihomo 1.19.32（Linux/macOS）和 Stash 4.2.1（macOS）。只承诺此目录，不宣称其他版本支持；原生检查状态独立记录。AnyTLS 在目录内 sing-box 1.12.0、Surge、Mihomo 与 Stash 目标可编码，较早目标明确 unsupported；未知版本 error。sing-box DNS 旧版本 address 格式和新版 type/server 格式由独立处理器选择，核心规则保持显式 action 表达。
 
 编译过程：严格运行时 schema → 不可变快照 → 展开规则块与绑定 → 引用/循环/网络能力检查 → 每目标能力决定与规则源映射 → 原生 AST/结构化模板 → 渲染。原子条件和组合逻辑各有固定处理器，首期使用固定有限流水线，不实现开放插件或通用改写搜索。每个规则必须有唯一输出映射；决不做规则排序、去重或不透明压缩。
 
@@ -76,7 +78,7 @@ compile 为纯函数，返回诊断、计划与待渲染目标；任一目标错
 
 Node.js ESM + TypeScript，npm 包与本地 CLI。命令 check 检查所有目标与案例；explain 指定 target 与 JSON 请求；build 编译所有选定目标，输出 generation 及 active.json；targets 列出目录。导出的 config 由 defineConfig 提供类型，CLI 用 tsx 加载可信 TS，不宣称沙箱。加载失败不回显原异常及源码，以免错误消息泄密。
 
-secret 只允许 env token，不在源码或计划存明文；同一批次每 token 仅解析一次。JSON 用结构化值序列化，Surge 参数采取保守编码：不能安全表示的逗号、控制符等秘密拒绝渲染，不截断、不插入新行。日志与计划均只报告固定原因和源路径，不打印值或原生配置。check/explain 不解析秘密。
+secret 只允许 env token，不在源码或计划存明文；同一批次每 token 仅解析一次。JSON 与 YAML 用结构化值序列化，Surge 参数采取保守编码：不能安全表示的逗号、控制符等秘密拒绝渲染，不截断、不插入新行。日志与计划均只报告固定原因和源路径，不打印值或原生配置。check/explain 不解析秘密。
 
 发布前先完成全部渲染、案例和 warning 提升检查。
 

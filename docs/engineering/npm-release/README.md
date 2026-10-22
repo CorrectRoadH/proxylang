@@ -48,3 +48,9 @@ npm version 0.1.1 --no-git-tag-version
 git tag v0.1.1
 git push origin v0.1.1
 ```
+
+## 公开延迟与恢复
+
+发布后最多等待约10分钟，查询公开版本并核对 SHA512。npm 接受上传不代表公开可安装；等待超限时任务失败，不重发已有版本。
+
+手动运行 release.yml 只执行完整检查、构建安装包及公开完整性验证，跳过发布。选择仍对应待验证版本的分支；例如 main 仍为该版本时使用 `gh workflow run release.yml --ref main`。包内容不同会校验失败，不能覆盖远端版本或修改 tag。

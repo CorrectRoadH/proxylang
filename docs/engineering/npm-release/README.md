@@ -16,11 +16,11 @@ release.yml 调用同一份 CI，等待 SDK/CLI、Concord、Mihomo 和秘密扫�
 
 验证后发布同一个 tgz，不重新打包。包文件清单只允许 package.json、README.md 和 dist 下的 JS、声明文件。临时消费者和包在验证后清理；失败不执行 publish。普通 CI 也运行安装包验证。
 
-npm 发布使用 GitHub 托管 runner 和 OIDC，权限仅在发布 job 开启 id-token:write。npm CLI 固定11.12.1，运行时 Node24；不存储长期 npm token。首次发布前需确认 npm 包名归属和发布身份。
+npm 发布使用 GitHub 托管 runner 和 OIDC，权限仅在发布 job 开启 id-token:write。npm CLI 固定12.2.1，运行时 Node24；不存储长期 npm token。首次发布前需确认 npm 包名归属和发布身份。
 
 ## npm 侧准备
 
-在 npm 的包设置中建立 Trusted Publisher：用户 CorrectRoadH、仓库 proxylang、workflow 文件 release.yml。此 workflow 不使用 GitHub environment。发布身份需允许直接 npm publish。
+本包的 Trusted Publisher 配置为：用户 CorrectRoadH、仓库 proxylang、workflow 文件 release.yml。此 workflow 不使用 GitHub environment。发布身份需允许直接 npm publish。
 
 若包尚不存在，先由 npm 所有者完成首次发布及包名认领，再配置 Trusted Publisher；不要把本地登录状态假定为 CI 已授权。首次手工发布也应先运行完整检查和安装包验证。配置方式以 [npm 官方说明](https://docs.npmjs.com/trusted-publishers/) 为准。
 

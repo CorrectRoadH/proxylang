@@ -21,7 +21,16 @@ proxylang 把这些关系直接写进代码：
 
 ## 快速开始
 
-当前处于早期开发，npm 发布流程见[发布说明](docs/engineering/npm-release/README.md)。首次版本发布前仍从源码使用。需要 **Node.js 24（最低 24.11.0）** 和 **Vite+ 1.3.0**。
+需要 **Node.js 24（最低 24.11.0）**。安装已发布的 npm 包：
+
+```sh
+npm install --save-exact proxylang@0.1.1
+npx proxylang --help
+```
+
+将下面的 Usage 示例保存为 `proxy.config.ts`，即可执行 `npx proxylang check proxy.config.ts`。
+
+若要运行仓库里的完整示例，另需 **Vite+ 1.3.0**：
 
 ```sh
 git clone https://github.com/CorrectRoadH/proxylang.git
@@ -40,7 +49,7 @@ DEMO_PASSWORD=example-only vp exec node dist/cli.js build examples/clients.ts --
 
 ## Usage
 
-将下面三个 TypeScript 代码块按顺序保存为仓库根目录的 `proxy.config.ts`。
+将下面三个 TypeScript 代码块按顺序保存为项目中的 `proxy.config.ts`。
 
 ### 1. 组合规则，给出口留一个位置
 
@@ -165,14 +174,14 @@ export default defineConfig({
 
 ```sh
 # 检查所有目标和请求案例
-vp exec node dist/cli.js check proxy.config.ts
+npx proxylang check proxy.config.ts
 
 # 查看请求命中了哪条规则，以及规则来自哪个模板
-vp exec node dist/cli.js explain proxy.config.ts --target backup \
+npx proxylang explain proxy.config.ts --target backup \
   --request '{"network":"tcp","domain":"github.com","port":443}'
 
 # 用测试密码构建；实际使用时由环境提供真实凭据
-PROXY_PASSWORD=example-only vp exec node dist/cli.js build proxy.config.ts --out out
+PROXY_PASSWORD=example-only npx proxylang build proxy.config.ts --out out
 ```
 
 `explain` 展示条件匹配与逻辑出口，不模拟节点测速或网络连通性。`build` 生成原生配置，整批成功后更新 `out/active.json`，其中列出各目标文件路径；一个目标失败不会替换上一批结果。

@@ -46,4 +46,6 @@ jobs:
       - name: Build and test the exact publish tarball
         run: vp run test:package -- --keep
       - name: Publish to npm using trusted publishing
-        run: vp exec npx --yes --package=npm@11.12.1 npm publish .cache/release/proxylang-*.tgz --access public --provenance --ignore-scripts --registry https://registry.npmjs.org/
+        run: vp exec npx --yes --package=npm@12.2.1 npm publish .cache/release/proxylang-*.tgz --access public --provenance --ignore-scripts --registry https://registry.npmjs.org/
+      - name: Verify public version and exact tarball integrity
+        run: vp exec node scripts/verify-published.mjs

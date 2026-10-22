@@ -21,10 +21,10 @@ proxylang 把这些关系直接写进代码：
 
 ## 快速开始
 
-需要 **Node.js 24（最低 24.11.0）**。安装已发布的 npm 包：
+需要 **Node.js 24（最低 24.11.0）**。安装 npm 包：
 
 ```sh
-npm install --save-exact proxylang@0.1.1
+npm install --save-exact proxylang@0.1.2
 npx proxylang --help
 ```
 
@@ -253,6 +253,41 @@ TLS 的 `serverName` 是证书身份，WebSocket 的 `host` 是 HTTP Host，二�
 
 这些是当前已实现的有限组合：WebSocket 只接受普通路径，不接受查询参数或百分号转义；Reality、XTLS／flow、gRPC、SS2022 和插件尚未实现，传入会报错。VLESS 目前只编码到 sing-box 和 Mihomo。
 
+### 链式声明与已有配置迁移
+
+`proxy.builder(node)` 提供不可变的链式写法，最后 `.build()` 得到普通节点数据。`.via("relay")` 表示通过 relay 连接这个节点；重复调用会替换依赖，不会追加一跳。
+
+```ts
+import { proxy, secret, compileProxyNodes, renderProxyNodes } from "proxylang";
+
+const exit = proxy
+  .builder(
+    proxy.http({
+      id: "exit",
+      server: "proxy.example.com",
+      port: 8080,
+      username: secret("PROXY_USER"),
+      password: secret("PROXY_PASSWORD"),
+    }),
+  )
+  .via("relay")
+  .build();
+
+const compiled = compileProxyNodes({
+  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  nodes: [exit],
+  names: { exit: "🇭🇰 我的出口" },
+  externals: [{ id: "relay", nativeName: "已有代理组", kind: "group" }],
+});
+if (!compiled.ok) throw new Error("节点编译失败");
+const artifact = renderProxyNodes(compiled, (token) => process.env[token.name]);
+// artifact.entries 提供每个节点的 id 和原生行，可按 provider 分文件。
+```
+
+节点片段目前仅支持 Surge macOS 6.10.0，允许域名服务器地址。它保留输入顺序，通过 `names` 映射原生名称；`label` 仍是元数据。外部组由已有配置提供，SDK 返回 `requirements` 并发出 warning；组装方必须逐设备检查实际包含的符号、种类及完整依赖图。片段不会生成占位组。
+
+Surge 节点可显式声明 `tcpFastOpen`，Trojan/AnyTLS 可声明 `skipCertVerify` 和 `surge: { udpRelay: true }`。其它目标暂拒绝这些新选项。SS 可用 `surge: { udpRelay: false, blockQuic: "auto" }` 关闭 UDP 并保留原生 QUIC 策略；关闭 UDP 的约束会沿组与拨号链传播。详见[节点片段契约](docs/engineering/proxy-node-fragments/README.md)。
+
 ### Tailscale：有状态的网络端点
 
 Tailscale 需要持久身份和引导解析，使用独立的 `endpoints` 声明。规则仍通过 `route(id)` 或 policy 的出口槽位引用它：
@@ -303,7 +338,7 @@ DEMO_PASSWORD=example-only DEMO_UUID=11111111-2222-4333-8444-555555555555 \
 
 支持域名、IP、端口、网络类型与逻辑条件，节点协议包括 Trojan、HTTP、AnyTLS、Shadowsocks、VMess、VLESS，具体能力按目标版本检查。未知版本和影响路由行为的不支持项报错；可省略的展示信息报 warning，可用 `warningsAsErrors` 提升为错误。
 
-Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。节点地址暂限 IP；HTTP、AnyTLS、VMess、VLESS 及经过它们的代理链按 TCP-only 检查。远程订阅、远程规则集、MAC/进程匹配和 TUN 尚未实现。完整限制见 [SDK 细则](docs/implementation-v0.md)和 [Mihomo / Stash 转换边界](docs/engineering/clash-backends/README.md)。
+Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。完整配置的节点地址暂限 IP，独立 Surge 节点片段支持域名。HTTP、VMess、VLESS 及经过它们的代理链按 TCP-only 检查；AnyTLS 目前仅在 Surge 放行 UDP。远程节点订阅、MAC/进程匹配和 TUN 尚未实现。完整限制见 [SDK 细则](docs/implementation-v0.md)和 [Mihomo / Stash 转换边界](docs/engineering/clash-backends/README.md)。
 
 配置文件是可信的 TypeScript 代码；构建产物包含密码，旧构建也会保留。凭据与产物管理见[构建契约](docs/feature/artifact-publication/use-case/publish-generation.md)。
 

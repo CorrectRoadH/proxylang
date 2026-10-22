@@ -23,3 +23,5 @@ constitutionRefs:
 - [复用规则构建 Mihomo 与 Stash](use-case/clash-backends.md)
 
 - [按协议定义代理与有状态端点](use-case/define-proxies.md)
+
+- [将 provider 节点接入原生配置](use-case/provider-nodes.md)

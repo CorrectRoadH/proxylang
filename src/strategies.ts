@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/strategy-implementations.md
 import { stringify } from "yaml";
+import { nativeNameSchema as nameSchema, isReservedNativeName } from "./native-names.js";
 import { clashGroup } from "./clash.js";
 import { z } from "zod";
 import { assertData, deepFreeze, idSchema, strategySchema } from "./schema.js";
@@ -115,17 +116,6 @@ export type StrategyGroupCompilation = {
   readonly selections: readonly StrategySelection[];
   readonly content: string | null;
 };
-const nameSchema = z
-  .string()
-  .min(1)
-  .max(256)
-  .refine(
-    (value) =>
-      value.trim() === value &&
-      !/[\p{C}\p{Zl}\p{Zp},=[\]()#;]/u.test(value) &&
-      !["DIRECT", "REJECT"].includes(value.toUpperCase()) &&
-      !value.toLowerCase().startsWith("pl-"),
-  );
 const inputSchema: z.ZodType<StrategyGroupInput> = z.strictObject({
   target: z.strictObject({
     engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
@@ -178,17 +168,11 @@ export function compileStrategyGroups(input: unknown): StrategyGroupCompilation 
     error("UNKNOWN_NAME_MAPPING", "names", "只能映射已声明策略 ID");
   const nativeNames = new Map([
     ...nodes.map((n) => [n.id, n.nativeName] as const),
-    ...strategies.map((s) => [s.id, names[s.id] ?? s.id] as const),
+    ...strategies.map((s) => [s.id, Object.hasOwn(names, s.id) ? names[s.id]! : s.id] as const),
   ]);
   if ([...nativeNames.values()].some((name) => !nameSchema.safeParse(name).success))
     error("INVALID_NATIVE_NAME", "names", "最终名称不符合原生名称约束");
-  const reserved =
-    target.engine === "mihomo"
-      ? ["GLOBAL", "PASS", "COMPATIBLE", "REJECT-DROP", "PASS-RULE"]
-      : target.engine === "stash"
-        ? ["GLOBAL", "PASS", "COMPATIBLE", "REJECT-DROP"]
-        : [];
-  if ([...nativeNames.values()].some((value) => reserved.includes(value.toUpperCase())))
+  if ([...nativeNames.values()].some((value) => isReservedNativeName(value, target.engine)))
     error("INVALID_NATIVE_NAME", "names", "最终名称与目标内建策略冲突");
   if (new Set(nativeNames.values()).size !== nativeNames.size)
     error("DUPLICATE_NATIVE_NAME", "names", "最终节点和策略名称必须唯一");

@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { proxyBuilder } from "./proxy-builder.js";
 import type {
   NamedRuleSet,
   NativeRuleSet,
@@ -120,6 +121,7 @@ function nodeConstructor<T extends ProxyNode["type"]>(type: T) {
   ): Extract<ProxyNode, { type: T }> => ({ ...options, type }) as Extract<ProxyNode, { type: T }>;
 }
 export const proxy = {
+  builder: proxyBuilder,
   http: nodeConstructor("http"),
   trojan: nodeConstructor("trojan"),
   anytls: nodeConstructor("anytls"),

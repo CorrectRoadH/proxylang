@@ -1,6 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/define-proxies.md
-import type { Diagnostic, ProxyNode, Secret, Target } from "./types.js";
+import type { Diagnostic, Engine, ProxyNode, Secret, Target } from "./types.js";
 
 export class RenderError extends Error {
   constructor(readonly code: string) {
@@ -18,9 +18,13 @@ export function pathsOverlap(a: string, b: string): boolean {
     b.startsWith(a.endsWith("/") ? a : `${a}/`)
   );
 }
-export function nodeIsTcpOnly(node: ProxyNode): boolean {
+export function nodeIsTcpOnly(node: ProxyNode, engine: Engine): boolean {
   return (
-    node.type === "http" || node.type === "anytls" || node.type === "vmess" || node.type === "vless"
+    node.type === "http" ||
+    (node.type === "anytls" && engine !== "surge") ||
+    node.type === "vmess" ||
+    node.type === "vless" ||
+    (engine === "surge" && node.type === "shadowsocks" && node.surge?.udpRelay === false)
   );
 }
 export function validateProxyOptions(
@@ -28,8 +32,23 @@ export function validateProxyOptions(
   target: Target,
   diagnostics: Diagnostic[],
 ): void {
-  if (target.engine !== "surge") return;
   const tls = "tls" in node ? node.tls : undefined;
+  if (target.engine !== "surge") {
+    if (
+      node.tcpFastOpen !== undefined ||
+      ("skipCertVerify" in node && node.skipCertVerify !== undefined) ||
+      tls?.skipCertVerify !== undefined ||
+      ("surge" in node && node.surge !== undefined)
+    )
+      diagnostics.push({
+        severity: "error",
+        code: "PROXY_OPTION_UNSUPPORTED",
+        target: target.id,
+        path: `targets.${target.id}.nodes.${node.id}`,
+        message: "显式节点选项尚未实现此精确目标的编码",
+      });
+    return;
+  }
   const name = "serverName" in node ? node.serverName : tls?.serverName;
   if (name === "off" || tls?.alpn !== undefined) {
     diagnostics.push({
@@ -141,13 +160,17 @@ export function clashProxy(
   }
   return result;
 }
-export function surgeProxy(node: ProxyNode, secret: Secrets): string {
+export function surgeProxy(
+  node: ProxyNode,
+  secret: Secrets,
+  name: (id: string) => string = (id) => id,
+): string {
   const atom = (value: string): string => {
     if (!/^[A-Za-z0-9_./:@+%-]+$/.test(value)) throw new RenderError("SURGE_VALUE_UNREPRESENTABLE");
     return value;
   };
   const params = [
-    `${node.id} = ${node.type === "shadowsocks" ? "ss" : node.type}`,
+    `${name(node.id)} = ${node.type === "shadowsocks" ? "ss" : node.type}`,
     node.server,
     String(node.port),
   ];
@@ -160,15 +183,10 @@ export function surgeProxy(node: ProxyNode, secret: Secrets): string {
     case "anytls":
       params.push(`password=${atom(secret(node.password))}`);
       if (node.serverName) params.push(`sni=${node.serverName}`);
-      if (node.type === "trojan") params.push("udp-relay=true");
+      if (node.skipCertVerify !== undefined) params.push(`skip-cert-verify=${node.skipCertVerify}`);
       break;
     case "shadowsocks":
-      params.push(
-        `encrypt-method=${node.method}`,
-        `password=${atom(secret(node.password))}`,
-        "udp-relay=true",
-        "block-quic=off",
-      );
+      params.push(`encrypt-method=${node.method}`, `password=${atom(secret(node.password))}`);
       break;
     case "vmess":
       params.push(
@@ -178,6 +196,8 @@ export function surgeProxy(node: ProxyNode, secret: Secrets): string {
         `tls=${!!node.tls}`,
       );
       if (node.tls) params.push(`sni=${node.tls.serverName}`);
+      if (node.tls?.skipCertVerify !== undefined)
+        params.push(`skip-cert-verify=${node.tls.skipCertVerify}`);
       if (node.transport) {
         params.push("ws=true", `ws-path=${node.transport.path}`);
         if (node.transport.host) params.push(`ws-headers=Host:${node.transport.host}`);
@@ -186,6 +206,16 @@ export function surgeProxy(node: ProxyNode, secret: Secrets): string {
     case "vless":
       throw new RenderError("PROTOCOL_UNSUPPORTED");
   }
-  if (node.via) params.push(`underlying-proxy=${node.via}`);
+  if (node.tcpFastOpen !== undefined) params.push(`tfo=${node.tcpFastOpen}`);
+  if (node.type === "trojan" || (node.type === "anytls" && node.surge?.udpRelay))
+    params.push("udp-relay=true");
+  if (node.type === "shadowsocks")
+    params.push(
+      `udp-relay=${node.surge?.udpRelay ?? true}`,
+      `block-quic=${node.surge?.blockQuic ?? "off"}`,
+    );
+  if (node.type !== "shadowsocks" && "surge" in node && node.surge?.blockQuic !== undefined)
+    params.push(`block-quic=${node.surge.blockQuic}`);
+  if (node.via) params.push(`underlying-proxy=${name(node.via)}`);
   return params.join(", ");
 }

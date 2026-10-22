@@ -39,6 +39,19 @@ try {
     "import {ruleSet} from 'proxylang'; if(typeof ruleSet !== 'function') process.exit(1)",
   ]);
   assert.equal(sdk, "");
+  writeFileSync(
+    join(temp, "nodes.ts"),
+    `
+    import {proxy,secret,compileProxyNodes,renderProxyNodes,type ProxyNodeInput} from 'proxylang';
+    const node=proxy.builder(proxy.http({id:'exit',server:'proxy.example.com',port:8080,password:secret('PASS')})).via('relay').build();
+    const input:ProxyNodeInput={target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],names:{exit:'出口'},externals:[{id:'relay',nativeName:'Relay Group',kind:'group'}]};
+    const compiled=compileProxyNodes(input);
+    if(!compiled.ok) throw Error('fragment compilation failed');
+    const artifact=renderProxyNodes(compiled,()=> 'test-only');
+    if(artifact.entries.length!==1 || !artifact.content.includes('underlying-proxy=Relay Group')) throw Error('fragment encoding failed');
+  `,
+  );
+  assert.equal(run(process.execPath, ["nodes.ts"]), "");
   const cli = join(temp, "node_modules/.bin/proxylang");
   assert.equal(JSON.parse(run(cli, ["check", "config.ts"])).ok, true);
   assert.equal(JSON.parse(run(cli, ["build", "config.ts", "--out", "out"])).published, true);
@@ -54,6 +67,7 @@ try {
     "--module",
     "nodenext",
     "config.ts",
+    "nodes.ts",
   ]);
   if (process.argv.includes("--keep")) {
     const output = resolve(root, ".cache/release");

@@ -22,6 +22,7 @@ import type {
 } from "./types.js";
 
 import { targetCatalog } from "./targets.js";
+import { isIP } from "node:net";
 export { targetCatalog } from "./targets.js";
 import { lowerStrategies, validateSmartMembers } from "./strategies.js";
 export type TargetPlan = {
@@ -85,6 +86,13 @@ export function compile(input: unknown): Compilation {
     error("EMPTY_PROGRAMS", "programs", "至少需要一个程序");
   for (const [name, program] of Object.entries(config.programs)) {
     const path = `programs.${name}`;
+    for (const node of program.nodes)
+      if (!isIP(node.server))
+        error(
+          "PROXY_HOSTNAME_MODE_UNSUPPORTED",
+          `${path}.nodes.${node.id}`,
+          "域名代理地址目前仅允许节点片段入口",
+        );
     validateRuleSets(program.routing, program.engine, diagnostics, path);
     const rules = lowerRuleSets(expandRules(program.routing, diagnostics, name), diagnostics, path);
     expanded.set(name, rules);
@@ -132,7 +140,7 @@ export function compile(input: unknown): Compilation {
       if (states.get(id) === 2) return tcpOnly.get(id) ?? false;
       states.set(id, 1);
       const item = byId.get(id);
-      let limited = !!item && "server" in item && nodeIsTcpOnly(item);
+      let limited = !!item && "server" in item && nodeIsTcpOnly(item, program.engine);
       for (const ref of edges.get(id) ?? []) limited = visit(ref) || limited;
       states.set(id, 2);
       tcpOnly.set(id, limited);

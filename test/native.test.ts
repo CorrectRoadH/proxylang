@@ -9,6 +9,9 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import {
   compile,
+  compileProxyNodes,
+  renderProxyNodes,
+  proxy,
   singbox,
   mihomo,
   ruleSet,
@@ -31,6 +34,68 @@ import { trojan } from "./fixtures.js";
 
 const exec = promisify(execFile);
 const enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
+// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+test.skipIf(!enabled)("原生节点片段 Surge 6.10.0：域名、原生名、TLS/TFO与外部组", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-nodes-native-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const info = await exec("/usr/libexec/PlistBuddy", [
+    "-c",
+    "Print :CFBundleShortVersionString",
+    "/Applications/Surge.app/Contents/Info.plist",
+  ]);
+  assert.equal(info.stdout.trim(), "6.10.0");
+  const compilation = compileProxyNodes({
+    target: { engine: "surge", platform: "macos", version: "6.10.0" },
+    nodes: [
+      proxy.trojan({
+        id: "entry",
+        server: "entry.example.com",
+        port: 443,
+        password: secret("PASS"),
+        serverName: "tls.example.com",
+        skipCertVerify: true,
+        tcpFastOpen: true,
+        surge: { udpRelay: true },
+      }),
+      proxy.anytls({
+        id: "any",
+        server: "any.example.com",
+        port: 443,
+        password: secret("PASS"),
+        serverName: "tls.example.com",
+        skipCertVerify: true,
+        tcpFastOpen: false,
+        surge: { udpRelay: true },
+      }),
+      proxy
+        .builder(
+          proxy.http({
+            id: "exit",
+            server: "exit.example.com",
+            port: 8080,
+            password: secret("PASS"),
+            username: secret("USER"),
+          }),
+        )
+        .via("relay")
+        .build(),
+    ],
+    names: { entry: "🇭🇰 示例节点", any: "备用 节点", exit: "出口" },
+    externals: [{ id: "relay", nativeName: "Relay Group", kind: "group" }],
+  });
+  assert.equal(compilation.ok, true, JSON.stringify(compilation.diagnostics));
+  const content = renderProxyNodes(compilation, () => "test-only").content;
+  const path = join(root, "nodes.conf");
+  await writeFile(
+    path,
+    `[General]\nloglevel = notify\n[Proxy]\n${content}[Proxy Group]\nRelay Group = select, 🇭🇰 示例节点, 备用 节点\n[Rule]\nDOMAIN,example.com,出口\nFINAL,DIRECT\n`,
+  );
+  const checked = await exec("/Applications/Surge.app/Contents/Applications/surge-cli", [
+    "--check",
+    path,
+  ]);
+  assert.match(checked.stdout, /OK/);
+});
 for (const [engine, version] of [
   ["sing-box", "1.11.0"],
   ["sing-box", "1.12.0"],

@@ -14,3 +14,6 @@ export type { StrategyGroupInput, StrategyGroupCompilation } from "./strategies.
 
 export { StaticRuleSetUnknownError } from "./rules.js";
 export type { CaseResult } from "./compiler.js";
+export type { ProxyBuilder } from "./proxy-builder.js";
+export { compileProxyNodes, renderProxyNodes } from "./proxy-fragments.js";
+export type { ProxyNodeInput, ProxyNodeCompilation, ProxyNodeArtifact } from "./proxy-fragments.js";

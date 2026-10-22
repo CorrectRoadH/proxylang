@@ -134,9 +134,10 @@ const secretSchema = z.strictObject({
 });
 const nodeBase = {
   id: idSchema,
-  server: ip,
+  server: z.union([ip, domain]),
   port,
   via: idSchema.optional(),
+  tcpFastOpen: z.boolean().optional(),
   label: z.string().min(1).max(256).optional(),
   region: z
     .string()
@@ -147,6 +148,7 @@ const nodeBase = {
 };
 const tlsSchema = z.strictObject({
   serverName: domain,
+  skipCertVerify: z.boolean().optional(),
   alpn: z
     .array(
       z
@@ -173,19 +175,26 @@ const uuidNode = {
   tls: tlsSchema.optional(),
   transport: transportSchema.optional(),
 };
-const nodeSchema = z
+const surgeOptions = {
+  blockQuic: z.enum(["auto", "on", "off"]).optional(),
+};
+export const nodeSchema = z
   .discriminatedUnion("type", [
     z.strictObject({
       ...nodeBase,
       type: z.literal("trojan"),
       password: secretSchema,
       serverName: domain.optional(),
+      skipCertVerify: z.boolean().optional(),
+      surge: z.strictObject({ ...surgeOptions, udpRelay: z.literal(true).optional() }).optional(),
     }),
     z.strictObject({
       ...nodeBase,
       type: z.literal("anytls"),
       password: secretSchema,
       serverName: domain.optional(),
+      skipCertVerify: z.boolean().optional(),
+      surge: z.strictObject({ ...surgeOptions, udpRelay: z.literal(true).optional() }).optional(),
     }),
     z.strictObject({
       ...nodeBase,
@@ -197,10 +206,15 @@ const nodeSchema = z
     z.strictObject({
       ...nodeBase,
       type: z.literal("shadowsocks"),
+      surge: z.strictObject({ ...surgeOptions, udpRelay: z.boolean().optional() }).optional(),
       method: z.enum(["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"]),
       password: secretSchema,
     }),
-    z.strictObject({ ...uuidNode, type: z.literal("vmess") }),
+    z.strictObject({
+      ...uuidNode,
+      type: z.literal("vmess"),
+      surge: z.strictObject(surgeOptions).optional(),
+    }),
     z.strictObject({ ...uuidNode, type: z.literal("vless") }),
   ])
   .refine(

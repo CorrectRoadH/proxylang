@@ -34,7 +34,9 @@ urltest 只接受 id/members/url/intervalSeconds/toleranceMs，url 必填 HTTP(S
 
 其他选项拒绝。
 
-HTTP、AnyTLS、VMess、VLESS 及经它们拨号的路径仅 TCP；Trojan 和 Shadowsocks 支持 TCP/UDP。
+HTTP、VMess、VLESS 及经它们拨号的路径仅 TCP；AnyTLS 仅在 Surge 支持 UDP。Trojan 和 Shadowsocks 支持 TCP/UDP；SS 在 Surge 显式 udpRelay=false 后按 TCP-only 检查。
+
+节点片段入口、fluent builder、原生名称映射和外部拨号声明见[节点片段契约](engineering/proxy-node-fragments/README.md)。完整配置节点地址仍仅 IP，Surge 节点片段允许域名。
 
 协议构造器、严格字段、TLS/WS 范围及 singbox.tailscale 端点详见[代理资源契约](engineering/proxy-resources/README.md)。Tailscale 仅允许 sing-box 1.12.0 standalone；状态目录与构建生命周期分离，普通 DNS/final 不使用引导 DNS。
 

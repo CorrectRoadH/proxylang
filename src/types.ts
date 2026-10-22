@@ -67,6 +67,7 @@ export type ProxyBase = {
   readonly server: string;
   readonly port: number;
   readonly via?: string;
+  readonly tcpFastOpen?: boolean;
   readonly label?: string;
   readonly region?: string;
   readonly provider?: string;
@@ -75,6 +76,14 @@ export type ProxyBase = {
 export type ProxyTLS = {
   readonly serverName: string;
   readonly alpn?: readonly string[];
+  readonly skipCertVerify?: boolean;
+};
+export type SurgeProxyOptions = {
+  readonly udpRelay?: boolean;
+  readonly blockQuic?: "auto" | "on" | "off";
+};
+type SurgeAutomaticUdpOptions = Omit<SurgeProxyOptions, "udpRelay"> & {
+  readonly udpRelay?: true;
 };
 export type WebSocketTransport = {
   readonly type: "ws";
@@ -85,11 +94,15 @@ export type TrojanNode = ProxyBase & {
   readonly type: "trojan";
   readonly password: Secret;
   readonly serverName?: string;
+  readonly skipCertVerify?: boolean;
+  readonly surge?: SurgeAutomaticUdpOptions;
 };
 export type AnyTLSNode = ProxyBase & {
   readonly type: "anytls";
   readonly password: Secret;
   readonly serverName?: string;
+  readonly skipCertVerify?: boolean;
+  readonly surge?: SurgeAutomaticUdpOptions;
 };
 export type HttpNode = ProxyBase & {
   readonly type: "http";
@@ -101,12 +114,14 @@ export type ShadowsocksNode = ProxyBase & {
   readonly type: "shadowsocks";
   readonly method: "aes-128-gcm" | "aes-256-gcm" | "chacha20-ietf-poly1305";
   readonly password: Secret;
+  readonly surge?: SurgeProxyOptions;
 };
 export type VMessNode = ProxyBase & {
   readonly type: "vmess";
   readonly uuid: Secret;
   readonly tls?: ProxyTLS;
   readonly transport?: WebSocketTransport;
+  readonly surge?: Pick<SurgeProxyOptions, "blockQuic">;
 };
 export type VLESSNode = ProxyBase & {
   readonly type: "vless";

@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
 import { stringify } from "yaml";
+import { secretReader } from "./secrets.js";
 import { clashConfig } from "./clash.js";
 import { surgeGroup, singboxGroup } from "./strategies.js";
 import { isIP } from "node:net";
@@ -25,19 +26,7 @@ export function render(
   resolveSecret: (token: Secret) => string | undefined,
 ): readonly Artifact[] {
   if (!compilation.ok) throw new RenderError("COMPILATION_FAILED");
-  const values = new Map<string, string>();
-  const secret = (token: Secret): string => {
-    if (values.has(token.name)) return values.get(token.name)!;
-    let value: string | undefined;
-    try {
-      value = resolveSecret(token);
-    } catch {
-      throw new RenderError("SECRET_RESOLUTION_FAILED");
-    }
-    if (typeof value !== "string" || value.length === 0) throw new RenderError("SECRET_MISSING");
-    values.set(token.name, value);
-    return value;
-  };
+  const secret = secretReader(resolveSecret);
   return compilation.plans.map((plan) => ({
     target: plan.target.id,
     filename: `${plan.target.id}.${plan.target.engine === "surge" ? "conf" : plan.target.engine === "sing-box" ? "json" : "yaml"}`,

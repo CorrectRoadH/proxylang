@@ -14,12 +14,12 @@ kind: engineering
 
 ## 数据与语法
 
-`ProxyNode` 是按 `type` 区分的严格联合。共同字段为 id、server（仍仅 IP）、port、via、label、region、provider、tags。已有 HTTP（password 必需、username 可选）、Trojan/AnyTLS（password、serverName 可选）对象保持兼容，不改旧字段语义。新增 `proxy.http/trojan/anytls/shadowsocks/vmess/vless(options)` 返回对应具体节点类型；构造器只加 type，不解析秘密，schema 是运行时权威。
+`ProxyNode` 是按 `type` 区分的严格联合。共同字段为 id、server（完整配置仅 IP）、port、via、label、region、provider、tags。已有 HTTP（password 必需、username 可选）、Trojan/AnyTLS（password、serverName 可选）对象保持兼容，不改旧字段语义。新增 `proxy.http/trojan/anytls/shadowsocks/vmess/vless(options)` 返回对应具体节点类型；构造器只加 type，不解析秘密，schema 是运行时权威。
 
 - Shadowsocks：type=shadowsocks，method 必填，只接受 aes-128-gcm、aes-256-gcm、chacha20-ietf-poly1305；password 为 Secret。支持 TCP/UDP，不接受 TLS、transport、SS2022 或插件字段。
 - VMess：uuid 为 Secret；本次只实现 AEAD（alterId=0）和 aes-128-gcm 加密，不暴露其它 cipher/alterId。可选 tls 和 transport；UDP 暂不承诺，因为 packet encoding 尚未建模。sing-box/Mihomo/Stash 原生显式关闭 UDP / 限定 TCP。Surge 的 VMess 自动支持 UDP，语言只保证所生成路由不将 UDP 送到该节点；组合 fragment 时不能绕过此约束。
 - VLESS：uuid 为 Secret；可选 tls 和 transport；同样 TCP-only。本次不支持 flow、Reality、XTLS、multiplex、packet encoding。
-- tls 为 `{ serverName: string, alpn?: readonly string[] }`，serverName 必填以避免 WS Host 改变证书身份。存在即启用 TLS，正常校验证书。serverName 使用域名 schema；Surge 拒绝特殊字面量 off，避免关闭 SNI。ALPN 为非空、无控制字符、每项最多255字节的唯一列表。不支持 insecure。TLS+WS 只能省略 ALPN 或明确使用 ["http/1.1"]。
+- tls 为 `{ serverName: string, alpn?: readonly string[] }`，serverName 必填以避免 WS Host 改变证书身份。存在即启用 TLS，默认校验证书。serverName 使用域名 schema；Surge 拒绝特殊字面量 off，避免关闭 SNI。ALPN 为非空、无控制字符、每项最多255字节的唯一列表。不支持 insecure 别名。TLS+WS 只能省略 ALPN 或明确使用 ["http/1.1"]。
 - transport 为 `{ type: "ws", path: string, host?: string }`；无 transport 即普通 TCP。path 匹配 `^/[A-Za-z0-9/._~-]*$`，同时禁止 // 开头、query/percent/空白，避免 Mihomo 从 ed 查询参数隐式启用 early data；host 使用域名 schema。不支持 arbitrary headers、early data、gRPC/XHTTP 等字段。
 
 所有未知字段严格报错。协议特有字段在类型与 schema 双重约束。UUID 仍是 Secret，compile 不读取；render 按使用位置验证规范 8-4-4-4-12 十六进制 UUID，无效报 `INVALID_UUID_SECRET`，不回显值。不同协议共用 token 只解析一次，不能因为缓存而跳过 UUID 格式验证。
@@ -79,3 +79,7 @@ types/schema 拥有判别模型与组合校验，dsl 拥有数据构造；新 pr
 依据：[Surge SS](https://manual.nssurge.com/policies/shadowsocks.html)、[Surge VMess](https://manual.nssurge.com/policies/vmess.html)、[Mihomo VLESS](https://wiki.metacubex.one/config/proxies/vless/)、[Stash 协议](https://stash.wiki/proxy-protocols/proxy-types)、[sing-box1.12.0 endpoint字段](https://github.com/SagerNet/sing-box/blob/v1.12.0/option/tailscale.go)、[端点初始化与状态](https://github.com/SagerNet/sing-box/blob/v1.12.0/protocol/tailscale/endpoint.go)。当前文档只提供字段依据，精确版本原生checker承担配置接纳验证。
 
 重大边界：核心节点联合、端点引用空间及持久身份所有权。需要独立原生 Codex GPT-6.1 Sol 审查，结论收敛后实施。独立原生 Codex GPT-6.1 Sol 审查结论为 CONDITIONAL。已采纳全部必要修订：拒绝 // authority 路径；TLS serverName 必填；Tailscale 仅 standalone 并隔离普通 DNS/final；Surge SS 显式开启 UDP、关闭 QUIC 阻断。AEAD 固定算法、WS query/percent 限制与 WS ALPN 限制亦获认可。实现须用原生检查及字段断言验证这些边界。
+
+## 节点迁移扩展
+
+链式 builder、Surge TLS/TFO/UDP 显式参数及域名节点片段按[节点片段契约](../proxy-node-fragments/README.md)实现。完整配置仍仅接受 IP；片段允许由原生配置拥有的外部符号。AnyTLS 在 Surge 支持 UDP；SS 显式禁用 UDP 后的 TCP-only 约束沿组及 via 传播。

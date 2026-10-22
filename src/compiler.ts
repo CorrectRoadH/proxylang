@@ -1,5 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { collectNativeRuleSets, lowerRuleSets, validateRuleSets } from "./rulesets.js";
+import { StaticRuleSetUnknownError } from "./rules.js";
+import type { NativeRuleSet } from "./types.js";
 import { nodeIsTcpOnly, pathsOverlap, validateProxyOptions } from "./proxies.js";
 import { validateClashTarget } from "./clash.js";
 import { assertData, configSchema, deepFreeze } from "./schema.js";
@@ -24,6 +27,7 @@ import { lowerStrategies, validateSmartMembers } from "./strategies.js";
 export type TargetPlan = {
   readonly target: Target;
   readonly program: Omit<Program, "groups"> & { readonly groups: readonly ConcreteGroup[] };
+  readonly nativeRuleSets: readonly NativeRuleSet[];
   readonly strategySelections: readonly StrategySelection[];
   readonly rules: readonly ExpandedRule[];
   readonly sourceMap: readonly {
@@ -38,18 +42,21 @@ export type Compilation = {
   readonly ok: boolean;
   readonly diagnostics: readonly Diagnostic[];
   readonly plans: readonly TargetPlan[];
-  readonly cases: readonly {
-    readonly id: string;
-    readonly passed: boolean;
-    readonly actual: { readonly rule: string; readonly action: Action };
-  }[];
+  readonly cases: readonly CaseResult[];
 };
+export type CaseResult =
+  | {
+      readonly id: string;
+      readonly passed: boolean;
+      readonly actual: { readonly rule: string; readonly action: Action };
+    }
+  | { readonly id: string; readonly passed: false; readonly code: "CASE_INDETERMINATE" };
 // @concord-code
 // @concord-implements docs/feature/target-compilation/use-case/build-targets.md
 export function compile(input: unknown): Compilation {
   const diagnostics: Diagnostic[] = [];
   const plans: TargetPlan[] = [];
-  const cases: { id: string; passed: boolean; actual: { rule: string; action: Action } }[] = [];
+  const cases: CaseResult[] = [];
   const error = (code: string, path: string, message: string, target?: string) =>
     diagnostics.push({ severity: "error", code, path, message, ...(target ? { target } : {}) });
   try {
@@ -78,7 +85,8 @@ export function compile(input: unknown): Compilation {
     error("EMPTY_PROGRAMS", "programs", "至少需要一个程序");
   for (const [name, program] of Object.entries(config.programs)) {
     const path = `programs.${name}`;
-    const rules = expandRules(program.routing, diagnostics, name);
+    validateRuleSets(program.routing, program.engine, diagnostics, path);
+    const rules = lowerRuleSets(expandRules(program.routing, diagnostics, name), diagnostics, path);
     expanded.set(name, rules);
     const endpoints = program.endpoints ?? [];
     const resources = [...program.nodes, ...program.groups, ...endpoints];
@@ -257,7 +265,17 @@ export function compile(input: unknown): Compilation {
       for (const rule of rules)
         if (logicalDepth(rule.when) > 10)
           error("LOGICAL_DEPTH", rule.id, "Surge 逻辑条件最多嵌套 10 层", target.id);
+    const nativeRuleSets = collectNativeRuleSets(rules, target, diagnostics);
+    for (const resource of nativeRuleSets)
+      if (!(descriptor.nativeRuleSets as readonly string[]).includes(resource.format))
+        error(
+          "RULESET_UNSUPPORTED",
+          `${path}.ruleSets.${resource.id}`,
+          "精确目标不支持此原生规则资源格式",
+          target.id,
+        );
     plans.push({
+      nativeRuleSets,
       target,
       program,
       rules,
@@ -268,6 +286,11 @@ export function compile(input: unknown): Compilation {
         origin: rule.origin,
       })),
       preconditions: [
+        ...(nativeRuleSets.length
+          ? [
+              "原生外部规则由客户端持续下载和解释；静态布尔结果不验证 DNS 等副作用。缓存与下载失败处理沿用客户端机制，fragment 运行方提供工作目录与下载 DNS 路径。",
+            ]
+          : []),
         ...(program.endpoints?.length
           ? [
               "Tailscale 需要 with_tailscale 构建标签；运行方负责登录、路由批准及每实例独占身份目录。构建不注册 tailnet。",
@@ -301,7 +324,15 @@ export function compile(input: unknown): Compilation {
       error("MISSING_PROGRAM", `cases.${test.id}`, "案例引用的程序不存在");
       continue;
     }
-    const actual = explainRules(expanded.get(test.program)!, program.fallback, test.request);
+    let actual: Explanation;
+    try {
+      actual = explainRules(expanded.get(test.program)!, program.fallback, test.request);
+    } catch (cause) {
+      if (!(cause instanceof StaticRuleSetUnknownError)) throw cause;
+      cases.push({ id: test.id, passed: false, code: "CASE_INDETERMINATE" });
+      error("CASE_INDETERMINATE", `cases.${test.id}`, "外部规则内容未知，无法静态确定首命中");
+      continue;
+    }
     const passed =
       (test.expect.rule === undefined || test.expect.rule === actual.rule) &&
       sameAction(test.expect.action, actual.action);

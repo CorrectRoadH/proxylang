@@ -35,8 +35,54 @@ const port = z.number().int().min(1).max(65535);
 const network = z.enum(["tcp", "udp"]);
 const atom = (type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp", value: z.ZodType<string>) =>
   z.strictObject({ type: z.literal(type), value });
+const remoteBase = {
+  type: z.literal("nativeRuleSet"),
+  id: idSchema,
+  url: z
+    .string()
+    .max(2048)
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return (
+          /^https?:\/\//.test(value) &&
+          ["http:", "https:"].includes(url.protocol) &&
+          !url.username &&
+          !url.password &&
+          !url.hash &&
+          !/[\s\p{C},()\\"']/u.test(value)
+        );
+      } catch {
+        return false;
+      }
+    }),
+};
+const updateInterval = z.number().int().min(60).max(2147483647);
+const nativeRuleSetSchema = z.union([
+  z.strictObject({
+    ...remoteBase,
+    engine: z.literal("surge"),
+    format: z.enum(["rule-set", "domain-set"]),
+    intervalSeconds: updateInterval.optional(),
+  }),
+  z.strictObject({
+    ...remoteBase,
+    engine: z.literal("sing-box"),
+    format: z.enum(["source", "binary"]),
+    intervalSeconds: updateInterval,
+  }),
+  z.strictObject({
+    ...remoteBase,
+    engine: z.literal("mihomo"),
+    format: z.enum(["yaml", "text"]),
+    behavior: z.enum(["domain", "ipcidr", "classical"]),
+    intervalSeconds: updateInterval,
+  }),
+]);
 export const matchSchema: z.ZodType<Match> = z.lazy(() =>
   z.union([
+    nativeRuleSetSchema,
+    z.strictObject({ type: z.literal("ruleSet"), id: idSchema, when: matchSchema }),
     atom("domain", domain),
     atom("domainSuffix", domain),
     atom("ipCidr", cidr),

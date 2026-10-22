@@ -26,6 +26,7 @@ export default {
       "src/dsl.ts",
       "src/schema.ts",
       "src/rules.ts",
+      "src/rulesets.ts",
       "src/compiler.ts",
       "src/strategies.ts",
       "src/targets.ts",
@@ -37,6 +38,7 @@ export default {
       "src/index.ts",
       "test/fixtures.ts",
       "test/rules.test.ts",
+      "test/rulesets.test.ts",
       "test/compiler.test.ts",
       "test/strategies.test.ts",
       "test/host.test.ts",
@@ -47,6 +49,7 @@ export default {
       "examples/home.ts",
       "examples/clients.ts",
       "examples/proxies.ts",
+      "examples/rule-sets.ts",
       "examples/policies.ts"
     ],
     "timeoutMs": 120000

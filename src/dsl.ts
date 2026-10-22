@@ -1,6 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
 import type {
+  NamedRuleSet,
+  NativeRuleSet,
   Action,
   Block,
   Config,
@@ -18,7 +20,12 @@ import type {
   TailscaleEndpoint,
 } from "./types.js";
 
+export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet => ({
+  ...definition,
+  type: "ruleSet",
+});
 export const match = {
+  ruleSet: (set: NamedRuleSet): Match => set,
   domain: (value: string): Match => ({ type: "domain", value }),
   domainSuffix: (value: string): Match => ({ type: "domainSuffix", value }),
   ipCidr: (value: string): Match => ({ type: "ipCidr", value }),
@@ -92,7 +99,19 @@ export const group = {
     options: Omit<Extract<GroupAlgorithm, { type: "urltest" }>, "type">,
   ): GroupAlgorithm => ({ type: "urltest", ...options }),
 };
-export const surge = { smart: (): GroupAlgorithm => ({ type: "surge-smart" }) };
+export const surge = {
+  smart: (): GroupAlgorithm => ({ type: "surge-smart" }),
+  ruleSet: (
+    options: Omit<Extract<NativeRuleSet, { engine: "surge" }>, "type" | "engine" | "format"> & {
+      format?: "rule-set" | "domain-set";
+    },
+  ): NativeRuleSet => ({ format: "rule-set", ...options, type: "nativeRuleSet", engine: "surge" }),
+};
+export const mihomo = {
+  ruleProvider: (
+    options: Omit<Extract<NativeRuleSet, { engine: "mihomo" }>, "type" | "engine">,
+  ): NativeRuleSet => ({ ...options, type: "nativeRuleSet", engine: "mihomo" }),
+};
 
 /** Protocol constructors keep credentials and options specific to their protocol. */
 function nodeConstructor<T extends ProxyNode["type"]>(type: T) {
@@ -109,6 +128,9 @@ export const proxy = {
   vless: nodeConstructor("vless"),
 };
 export const singbox = {
+  ruleSet: (
+    options: Omit<Extract<NativeRuleSet, { engine: "sing-box" }>, "type" | "engine">,
+  ): NativeRuleSet => ({ ...options, type: "nativeRuleSet", engine: "sing-box" }),
   tailscale: (options: Omit<TailscaleEndpoint, "type">): TailscaleEndpoint => ({
     ...options,
     type: "sing-box-tailscale",

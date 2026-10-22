@@ -4,6 +4,7 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { tsImport } from "tsx/esm/api";
+import { StaticRuleSetUnknownError } from "./rules.js";
 import { compile, explain, targetCatalog } from "./compiler.js";
 import { buildToDirectory } from "./host.js";
 import { requestSchema } from "./schema.js";
@@ -102,6 +103,8 @@ async function main(args: string[]): Promise<number> {
 }
 try {
   process.exitCode = await main(process.argv.slice(2));
-} catch {
-  process.exitCode = failure("UNEXPECTED_FAILURE");
+} catch (cause) {
+  process.exitCode = failure(
+    cause instanceof StaticRuleSetUnknownError ? cause.message : "UNEXPECTED_FAILURE",
+  );
 }

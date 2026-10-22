@@ -68,6 +68,10 @@ export function clashGroup(
 
 function conditionText(condition: Match): string {
   switch (condition.type) {
+    case "ruleSet":
+      return conditionText(condition.when);
+    case "nativeRuleSet":
+      return `RULE-SET,${condition.id}`;
     case "all":
     case "any":
       return `${condition.type === "all" ? "AND" : "OR"},(${condition.conditions.map((c) => `(${conditionText(c)})`).join(",")})`;
@@ -110,6 +114,21 @@ export function clashConfig(
       `MATCH,${policy(program.fallback)}`,
     ],
   };
+  if (plan.nativeRuleSets.length)
+    config["rule-providers"] = Object.fromEntries(
+      plan.nativeRuleSets.map((r) => [
+        r.id,
+        {
+          type: "http",
+          url: r.url,
+          path: `rule-providers/pl-${r.id}.${r.format === "yaml" ? "yaml" : "txt"}`,
+          interval: r.intervalSeconds,
+          behavior: "behavior" in r ? r.behavior : "classical",
+          format: r.format,
+          proxy: "DIRECT",
+        },
+      ]),
+    );
   if (target.mode === "standalone") {
     const listener = program.listener!;
     Object.assign(config, {

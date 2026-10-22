@@ -1,7 +1,32 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
 export type Network = "tcp" | "udp";
+export type NamedRuleSet = { readonly type: "ruleSet"; readonly id: string; readonly when: Match };
+export type NativeRuleSet = {
+  readonly type: "nativeRuleSet";
+  readonly id: string;
+  readonly url: string;
+} & (
+  | {
+      readonly engine: "surge";
+      readonly format: "rule-set" | "domain-set";
+      readonly intervalSeconds?: number;
+    }
+  | {
+      readonly engine: "sing-box";
+      readonly format: "source" | "binary";
+      readonly intervalSeconds: number;
+    }
+  | {
+      readonly engine: "mihomo";
+      readonly format: "yaml" | "text";
+      readonly behavior: "domain" | "ipcidr" | "classical";
+      readonly intervalSeconds: number;
+    }
+);
 export type Match =
+  | NamedRuleSet
+  | NativeRuleSet
   | { readonly type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp"; readonly value: string }
   | { readonly type: "port" | "sourcePort"; readonly from: number; readonly to: number }
   | { readonly type: "network"; readonly value: Network }
@@ -199,7 +224,7 @@ export type ExpandedRule = {
 };
 export type ConditionTrace = {
   readonly type: Match["type"];
-  readonly matched: boolean;
+  readonly matched: boolean | null;
   readonly reason: string;
   readonly children?: readonly ConditionTrace[];
 };

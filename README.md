@@ -179,6 +179,32 @@ PROXY_PASSWORD=example-only vp exec node dist/cli.js build proxy.config.ts --out
 
 默认输出是包含节点、策略组和规则的 **fragment**，需要与客户端的入口、DNS 等配置组合。可选 `standalone` 提供本机显式代理配置；生成文件不等于部署或系统接管。
 
+## 组合规则集与原生能力
+
+规则集是可以命名、复用的匹配条件。`any`、`all`、`not` 可以组合本地条件、其它规则集，以及客户端原生能力；动作由使用处绑定。
+
+```ts
+import { match, ruleSet, rule, direct, surge } from "proxylang";
+
+const streaming = surge.ruleSet({
+  id: "streaming",
+  url: "https://example.com/streaming.list",
+});
+const media = ruleSet({
+  id: "media",
+  when: match.any(streaming, match.domainSuffix("video.example")),
+});
+const mediaRule = rule("media", match.all(match.network("tcp"), media), direct());
+```
+
+`surge.ruleSet` 是 Surge 原生能力入口；sing-box 使用 `singbox.ruleSet`，Mihomo 使用 `mihomo.ruleProvider`。同一 TS 函数可以接收不同的原生条件，再组合业务规则。把 Surge 原生条件传给 sing-box 会报错，不会自动翻译规则文件。
+
+生成配置仍保留外部资源引用，下载、更新、缓存由客户端完成。编译器不访问 URL；静态解释遇到无法确定的外部条件会报告 `STATIC_RULESET_UNKNOWN`，不会猜测默认出口。外部内容未验证会产生 warning，可由 `warningsAsErrors` 升级。
+
+Surge 顶层引用可设置 `intervalSeconds`；嵌套逻辑使用客户端默认更新间隔，显式间隔暂报不支持。sing-box 与 Mihomo 的更新间隔是必填项，嵌套组合仍引用独立声明的资源。Stash 原生外部规则入口尚未实现。
+
+完整的三平台组合与构建示例见 [examples/rule-sets.ts](examples/rule-sets.ts)。示例 URL 仅展示语法，实际使用时替换为自己的规则源。更完整的平台逃生舱边界见[设计说明](docs/engineering/composable-rule-sets/README.md)。
+
 ## 定义代理节点
 
 用 `proxy.<协议>()` 定义节点。每种协议有自己的必填字段：SS 使用加密方法和密码，VMess／VLESS 使用 UUID；TypeScript 和运行时检查都会拒绝混用字段。

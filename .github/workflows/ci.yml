@@ -25,11 +25,13 @@ jobs:
       - run: vp run example:check
       - run: vp exec node dist/cli.js check examples/clients.ts
       - run: vp exec node dist/cli.js check examples/proxies.ts
+      - run: vp exec node dist/cli.js check examples/rule-sets.ts
       - name: Exercise CLI build with example credentials
         run: |
           vp run example:build
           vp exec node dist/cli.js build examples/clients.ts --out out/clients
           vp exec node dist/cli.js build examples/proxies.ts --out out/proxies
+          vp exec node dist/cli.js build examples/rule-sets.ts --out out/rule-sets
         env:
           DEMO_USER: example-user
           DEMO_PASSWORD: example-only

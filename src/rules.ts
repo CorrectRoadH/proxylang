@@ -25,6 +25,7 @@ export function expandRules(
 ): ExpandedRule[] {
   const output: ExpandedRule[] = [];
   const seen = new Set<string>();
+  let limited = false;
   const error = (code: string, where: string, message: string) =>
     diagnostics.push({ severity: "error", code, path: where, message });
   function resolve(
@@ -55,6 +56,12 @@ export function expandRules(
     origin: readonly string[],
   ): void {
     for (const entry of items) {
+      if (limited) return;
+      if (entry.type === "rule" && output.length >= 10000) {
+        limited = true;
+        error("EXPANSION_LIMIT", path, "展开规则超过10000条");
+        return;
+      }
       const id = `${prefix}/${entry.id}`;
       if (seen.has(id)) {
         error("DUPLICATE_RULE_ID", id, "同一实例路径出现重复 ID");
@@ -98,7 +105,7 @@ export function expandRules(
     }
   }
   walk(entries, path, [], {}, false, []);
-  return output;
+  return limited ? [] : output;
 }
 
 function inCidr(address: string | undefined, cidr: string): boolean {
@@ -108,13 +115,30 @@ function inCidr(address: string | undefined, cidr: string): boolean {
   return parsed.kind() === base.kind() && parsed.match(base, bits);
 }
 
+export class StaticRuleSetUnknownError extends Error {
+  constructor() {
+    super("STATIC_RULESET_UNKNOWN");
+    this.name = "StaticRuleSetUnknownError";
+  }
+}
 export function evaluate(condition: Match, request: Request): ConditionTrace {
+  if (condition.type === "ruleSet") return evaluate(condition.when, request);
+  if (condition.type === "nativeRuleSet")
+    return { type: condition.type, matched: null, reason: "外部规则内容由客户端解释，静态未知" };
   if (condition.type === "all" || condition.type === "any") {
     const children = condition.conditions.map((child) => evaluate(child, request));
     const matched =
       condition.type === "all"
-        ? children.every((child) => child.matched)
-        : children.some((child) => child.matched);
+        ? children.some((child) => child.matched === false)
+          ? false
+          : children.some((child) => child.matched === null)
+            ? null
+            : true
+        : children.some((child) => child.matched === true)
+          ? true
+          : children.some((child) => child.matched === null)
+            ? null
+            : false;
     return {
       type: condition.type,
       matched,
@@ -126,7 +150,7 @@ export function evaluate(condition: Match, request: Request): ConditionTrace {
     const child = evaluate(condition.condition, request);
     return {
       type: "not",
-      matched: !child.matched,
+      matched: child.matched === null ? null : !child.matched,
       reason: "布尔取反；缺失字段的原子条件为 false",
       children: [child],
     };
@@ -185,6 +209,7 @@ export function explainRules(
   for (const rule of rules) {
     const condition = evaluate(rule.when, parsed.data);
     trace.push({ id: rule.id, origin: rule.origin, condition });
+    if (condition.matched === null) throw new StaticRuleSetUnknownError();
     if (condition.matched) return { mode: "static", rule: rule.id, action: rule.then, trace };
   }
   return { mode: "static", rule: "$fallback", action: fallback, trace };
@@ -193,6 +218,8 @@ export function explainRules(
 /** Over-approximation of possible truth values, never a proof from unobserved metadata. */
 export function truthPossibilities(condition: Match, network: Network): readonly boolean[] {
   switch (condition.type) {
+    case "ruleSet":
+      return truthPossibilities(condition.when, network);
     case "network":
       return [condition.value === network];
     case "not":
@@ -216,6 +243,7 @@ export function truthPossibilities(condition: Match, network: Network): readonly
   }
 }
 export function logicalDepth(condition: Match): number {
+  if (condition.type === "ruleSet") return logicalDepth(condition.when);
   if (condition.type === "all" || condition.type === "any")
     return 1 + Math.max(...condition.conditions.map(logicalDepth));
   if (condition.type === "not") return 1 + logicalDepth(condition.condition);

@@ -20,3 +20,5 @@ feature: docs/feature/policy-explanation/README.md
 ## 验收条件
 
 将首命中拒绝动作误期望为直连时检查非零退出；恢复正确预期后通过。相同动作但规则路径不同也能检测顺序回归。
+
+无法确定外部条件时，案例返回 `{id, passed:false, code:"CASE_INDETERMINATE"}`，不伪造 actual。编译记录错误并继续处理其余案例，整批构建失败。

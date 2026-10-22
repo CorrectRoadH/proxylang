@@ -52,6 +52,10 @@ export function render(
 
 function singCondition(condition: Match): Record<string, Json> {
   switch (condition.type) {
+    case "ruleSet":
+      return singCondition(condition.when);
+    case "nativeRuleSet":
+      return { rule_set: [condition.id] };
     case "all":
     case "any":
       return {
@@ -110,6 +114,15 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
     ...singAction(rule.then),
   }));
   const routing: Record<string, Json> = { rules };
+  if (plan.nativeRuleSets.length)
+    routing.rule_set = plan.nativeRuleSets.map((r) => ({
+      type: "remote",
+      tag: r.id,
+      url: r.url,
+      format: r.format,
+      update_interval: `${r.intervalSeconds}s`,
+      download_detour: DIRECT,
+    }));
   if (program.fallback.type === "reject") rules.push(singAction(program.fallback));
   else routing.final = actionTag(program.fallback);
   const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };
@@ -162,6 +175,10 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
 
 function surgeCondition(condition: Match): string {
   switch (condition.type) {
+    case "ruleSet":
+      return surgeCondition(condition.when);
+    case "nativeRuleSet":
+      return `${condition.format === "domain-set" ? "DOMAIN-SET" : "RULE-SET"},${condition.url}`;
     case "all":
     case "any":
       return `${condition.type === "all" ? "AND" : "OR"},(${condition.conditions.map((c) => `(${surgeCondition(c)})`).join(",")})`;
@@ -207,7 +224,10 @@ function surge(plan: TargetPlan, secret: (token: Secret) => string): string {
     if (rule.when.type === "ipCidr") {
       const condition = surgeCondition(rule.when).replace(/,no-resolve$/, "");
       lines.push(`${condition},${policy(rule.then)},no-resolve`);
-    } else lines.push(`${surgeCondition(rule.when)},${policy(rule.then)}`);
+    } else
+      lines.push(
+        `${surgeCondition(rule.when)},${policy(rule.then)}${rule.when.type === "nativeRuleSet" && rule.when.intervalSeconds !== undefined ? `,update-interval=${rule.when.intervalSeconds}` : ""}`,
+      );
   }
   lines.push(`FINAL,${policy(plan.program.fallback)}`);
   return lines.join("\n") + "\n";

@@ -9,6 +9,7 @@ export const targetCatalog = deepFreeze([
     protocols: ["trojan", "http", "shadowsocks", "vmess", "vless"],
     endpoints: [],
     groups: ["select", "urltest"],
+    nativeRuleSets: ["source", "binary"],
     dns: "legacy",
   },
   {
@@ -18,6 +19,7 @@ export const targetCatalog = deepFreeze([
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess", "vless"],
     endpoints: ["sing-box-tailscale"],
     groups: ["select", "urltest"],
+    nativeRuleSets: ["source", "binary"],
     dns: "typed",
   },
   {
@@ -27,6 +29,7 @@ export const targetCatalog = deepFreeze([
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess"],
     endpoints: [],
     groups: ["select", "surge-smart"],
+    nativeRuleSets: ["rule-set", "domain-set"],
     dns: "general",
   },
   {
@@ -36,6 +39,7 @@ export const targetCatalog = deepFreeze([
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess", "vless"],
     endpoints: [],
     groups: ["select", "urltest"],
+    nativeRuleSets: ["yaml", "text"],
     dns: "clash",
   },
   {
@@ -45,6 +49,7 @@ export const targetCatalog = deepFreeze([
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess"],
     endpoints: [],
     groups: ["select"],
+    nativeRuleSets: [],
     dns: "external",
   },
 ] as const);

@@ -17,3 +17,5 @@ proxylang 用 TypeScript 组合规则，再按精确目标编译配置。产品�
 - [宪法](constitution.md)与[Concord 操作指南](concord.md)：项目约束及工具入口。
 
 用法与可运行示例见[项目 README](../README.md)。历史调查、审查及验收记录使用 `concord memory index` 和 `concord memory recall` 查询；历史检查不代表本次执行结果。
+
+- [可组合规则与原生能力入口](engineering/composable-rule-sets/README.md)：客户端外部规则与组合边界。

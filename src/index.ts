@@ -11,3 +11,6 @@ export type { BuildResult } from "./host.js";
 
 export { compileStrategyGroups } from "./strategies.js";
 export type { StrategyGroupInput, StrategyGroupCompilation } from "./strategies.js";
+
+export { StaticRuleSetUnknownError } from "./rules.js";
+export type { CaseResult } from "./compiler.js";

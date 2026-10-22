@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import { once } from "node:events";
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -8,6 +10,8 @@ import { execFile } from "node:child_process";
 import {
   compile,
   singbox,
+  mihomo,
+  ruleSet,
   strategy,
   group,
   surge,
@@ -340,3 +344,143 @@ test.skipIf(!enabled)("原生 sing-box 1.12.0 Tailscale check 不启动身份且
   await exec(binary, ["check", "-c", path], { timeout: 30000, cwd: root });
   await assert.rejects(access(stateDirectory));
 });
+
+// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+for (const [engine, version] of [
+  ["surge", "6.10.0"],
+  ["sing-box", "1.11.0"],
+  ["sing-box", "1.12.0"],
+  ["mihomo", "1.19.32"],
+] as const) {
+  test.skipIf(!enabled)(
+    `原生规则集 ${engine === "mihomo" ? "Mihomo" : engine} ${version} 组合与客户端资源引用`,
+    async (t) => {
+      const root = await mkdtemp(join(tmpdir(), "proxylang-rule-set-native-"));
+      t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+      const server = createServer((_req, res) => {
+        res.setHeader("Content-Type", "text/plain");
+        res.end(
+          engine === "sing-box"
+            ? JSON.stringify({ version: 1, rules: [{ domain_suffix: ["example.org"] }] })
+            : engine === "mihomo"
+              ? "payload:\n  - DOMAIN-SUFFIX,example.org\n"
+              : "DOMAIN-SUFFIX,example.org\n",
+        );
+      });
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      t.onTestFinished(
+        () =>
+          new Promise<void>((done) => {
+            server.close(() => done());
+            server.closeAllConnections();
+          }),
+      );
+      const address = server.address();
+      assert.ok(address && typeof address !== "string");
+      const url = `http://127.0.0.1:${address.port}/rules`;
+      const remote =
+        engine === "surge"
+          ? surge.ruleSet({ id: "remote", url })
+          : engine === "sing-box"
+            ? singbox.ruleSet({ id: "remote", url, format: "source", intervalSeconds: 600 })
+            : mihomo.ruleProvider({
+                id: "remote",
+                url,
+                format: "yaml",
+                behavior: "classical",
+                intervalSeconds: 600,
+              });
+      const set = ruleSet({ id: "combined", when: m.any(remote, m.domain("example.net")) });
+      const result = compile({
+        programs: {
+          home: {
+            engine,
+            nodes: [],
+            groups: [],
+            routing: [
+              rule("nested", m.all(m.network("tcp"), m.not(set)), direct()),
+              rule("remote", remote, direct()),
+              ...(engine === "surge"
+                ? [
+                    rule(
+                      "explicit",
+                      surge.ruleSet({ id: "timed", url: url + "/timed", intervalSeconds: 600 }),
+                      direct(),
+                    ),
+                    rule(
+                      "domains",
+                      surge.ruleSet({
+                        id: "domains",
+                        url: url + "/domains",
+                        format: "domain-set",
+                        intervalSeconds: 600,
+                      }),
+                      direct(),
+                    ),
+                    rule(
+                      "domain-nested",
+                      m.not(
+                        surge.ruleSet({
+                          id: "domain-default",
+                          url: url + "/domain-default",
+                          format: "domain-set",
+                        }),
+                      ),
+                      direct(),
+                    ),
+                  ]
+                : []),
+            ],
+            fallback: direct(),
+            listener: { port: 16154, resolver: "1.1.1.1" },
+          },
+        },
+        targets: [
+          {
+            id: "native",
+            program: "home",
+            engine,
+            version,
+            platform: process.platform === "linux" ? "linux" : "macos",
+            mode: "standalone",
+          },
+        ],
+      });
+      assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+      const artifact = render(result, () => undefined)[0]!;
+      const path = join(root, artifact.filename);
+      await writeFile(path, artifact.content);
+      const binary =
+        engine === "surge"
+          ? "/Applications/Surge.app/Contents/Applications/surge-cli"
+          : resolve(`.cache/native/${engine}-${version}`);
+      if (engine === "surge") {
+        const info = await exec("/usr/libexec/PlistBuddy", [
+          "-c",
+          "Print :CFBundleShortVersionString",
+          "/Applications/Surge.app/Contents/Info.plist",
+        ]);
+        assert.equal(info.stdout.trim(), version);
+      } else {
+        const info = await exec(binary, [engine === "mihomo" ? "-v" : "version"]);
+        assert.ok(info.stdout.includes(version));
+      }
+      const checked = await exec(
+        binary,
+        engine === "surge"
+          ? ["--check", path]
+          : engine === "mihomo"
+            ? ["-t", "-d", root, "-f", path]
+            : ["check", "-c", path],
+        { timeout: 30000, cwd: root },
+      );
+      if (engine === "surge") assert.match(checked.stdout, /OK/);
+      if (engine === "mihomo")
+        assert.match(
+          checked.stdout + checked.stderr,
+          /configuration.*(?:successful|successfully)/i,
+        );
+    },
+  );
+}

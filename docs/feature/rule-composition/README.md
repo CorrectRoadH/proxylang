@@ -20,3 +20,5 @@ constitutionRefs:
 
 - [复用规则而保留优先级](use-case/compose-policy.md)
 - [按元数据组合出口](use-case/select-resources.md)
+
+- [组合命名规则集与原生外部条件](use-case/compose-native-rule-sets.md)

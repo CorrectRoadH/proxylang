@@ -21,7 +21,7 @@ proxylang 把这些关系直接写进代码：
 
 ## 快速开始
 
-当前处于早期开发，尚未发布 npm 包。需要 **Node.js 24（最低 24.11.0）** 和 **Vite+ 1.3.0**。
+当前处于早期开发，npm 发布流程见[发布说明](docs/engineering/npm-release/README.md)。首次版本发布前仍从源码使用。需要 **Node.js 24（最低 24.11.0）** 和 **Vite+ 1.3.0**。
 
 ```sh
 git clone https://github.com/CorrectRoadH/proxylang.git

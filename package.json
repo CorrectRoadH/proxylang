@@ -1,8 +1,15 @@
 {
   "name": "proxylang",
   "version": "0.1.0",
-  "private": true,
   "description": "Composable routing policies in TypeScript with explicit platform targets",
+  "homepage": "https://github.com/CorrectRoadH/proxylang#readme",
+  "bugs": {
+    "url": "https://github.com/CorrectRoadH/proxylang/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CorrectRoadH/proxylang.git"
+  },
   "bin": {
     "proxylang": "./dist/cli.js"
   },
@@ -17,6 +24,10 @@
       "import": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "vp pack",
     "typecheck": "vp exec tsc --noEmit -p tsconfig.check.json",
@@ -26,7 +37,8 @@
     "docs:check": "concord check --fresh",
     "docs:gaps": "concord trace gaps --fresh",
     "example:check": "vp exec node dist/cli.js check examples/home.ts",
-    "example:build": "vp exec node dist/cli.js build examples/home.ts --out out"
+    "example:build": "vp exec node dist/cli.js build examples/home.ts --out out",
+    "test:package": "vp pack && vp exec node scripts/verify-package.mjs"
   },
   "dependencies": {
     "ipaddr.js": "2.5.0",

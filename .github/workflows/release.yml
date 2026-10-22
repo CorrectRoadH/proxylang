@@ -1,0 +1,49 @@
+name: Publish npm
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
+        with:
+          version: "1.3.0"
+          node-version: "24"
+          run-install: false
+      - name: Validate release tag and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          vp exec node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import fs from "node:fs";
+            const pkg = JSON.parse(fs.readFileSync("package.json"));
+            const lock = JSON.parse(fs.readFileSync("package-lock.json"));
+            assert.match(process.env.RELEASE_TAG, /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
+            assert.equal(process.env.RELEASE_TAG, `v${pkg.version}`);
+            assert.equal(lock.version, pkg.version);
+            assert.equal(lock.packages[""].version, pkg.version);
+            assert.equal(pkg.name, "proxylang");
+            assert.notEqual(pkg.private, true);
+          '
+          git merge-base --is-ancestor HEAD origin/main
+      - run: vp install --frozen-lockfile
+      - name: Build and test the exact publish tarball
+        run: vp run test:package -- --keep
+      - name: Publish to npm using trusted publishing
+        run: vp exec npx --yes --package=npm@11.12.1 npm publish .cache/release/proxylang-*.tgz --access public --provenance --ignore-scripts --registry https://registry.npmjs.org/

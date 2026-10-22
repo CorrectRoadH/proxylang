@@ -4,6 +4,7 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -22,6 +23,7 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run check
+      - run: vp run test:package
       - run: vp run example:check
       - run: vp exec node dist/cli.js check examples/clients.ts
       - run: vp exec node dist/cli.js check examples/proxies.ts

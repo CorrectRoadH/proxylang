@@ -31,8 +31,12 @@ vite.config.ts 统一 lint、format、test、pack 配置。受 Concord 管理的
 
 ## CI 与验证边界
 
-GitHub Actions 在 Linux 的 Node 24（最低 24.11.0，仅支持 24 主版本） 执行冻结安装、vp run check、CLI 示例检查与示例构建；样例只使用保留地址与固定测试字符串。另一任务使用固定发布版本的 Concord 包，先验证 SHA-256 再安装，执行 check、trace gaps 与 doctor。秘密扫描检查提交历史，不上传扫描中的秘密值。
+GitHub Actions 在 Linux 的 Node 24.11.0 和当前 Node 24 矩阵执行冻结安装、vp run check、CLI 示例检查与示例构建；样例只使用保留地址与固定测试字符串。另一任务使用固定发布版本的 Concord 包，先验证 SHA-256 再安装，执行 check、trace gaps 与 doctor。秘密扫描检查提交历史，不上传扫描中的秘密值。
 
 Mihomo 任务使用固定 1.19.32 Linux 二进制，下载后核对 SHA-256，仅在隔离目录执行配置检查。Stash 没有自动化原生验证，不以 Mihomo 检查代替。
 
-Concord command evidence 是整条命令结果，不是假定每个用例独立运行。CI 默认明确跳过三个需要精确版本本机二进制的原生测试；vp run test:native 仅在本机准备好 Surge 与 sing-box 时执行离线配置解析。CI 成功不证明 Linux 网关、DNS、节点连通、TUN 或故障接管。构建不发布 npm 包、不部署代理服务。
+Concord command evidence 是整条命令结果，不是假定每个用例独立运行。普通 SDK 测试跳过原生检查，独立 CI 任务执行固定 sing-box 1.11.0、1.12.0 与 Mihomo 1.19.32 检查；下载均验证 SHA-256，1.12.0 另检查 with_tailscale 构建标签和身份目录未创建。
+
+Surge 只在准备好精确版本本机应用时运行，Stash 原生验证仍缺失。vp run test:native 需要全部相关内核；也可用 vp test run test/native.test.ts -t 指定内核与版本。隔离安装包验证同时检查 ESM/CJS 配置、CLI check/explain/build，以及源代码与发布声明的类型正反例。详见 [作者体验与持续验收](../authoring-quality/README.md)。
+
+CI 成功不证明 Linux 网关、DNS、节点连通、TUN 或故障接管。构建不发布 npm 包、不部署代理服务。

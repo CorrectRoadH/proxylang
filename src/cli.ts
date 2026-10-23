@@ -14,6 +14,29 @@ const failure = (code: string): number => {
   print({ ok: false, code });
   return 1;
 };
+function loadFailure(cause: unknown): number {
+  let code: unknown;
+  let name: unknown;
+  try {
+    if (cause && typeof cause === "object") {
+      code = Object.getOwnPropertyDescriptor(cause, "code")?.value;
+      name = Object.getOwnPropertyDescriptor(cause, "name")?.value;
+      if (cause instanceof SyntaxError) name = "SyntaxError";
+    }
+  } catch {
+    // Arbitrary configuration exceptions, including proxies, are not trusted diagnostics.
+  }
+  const detail =
+    code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND" || code === "ENOENT"
+      ? { reason: "MODULE_NOT_FOUND", hint: "检查配置文件和 import 路径，并安装所需依赖" }
+      : code === "EACCES" || code === "EPERM"
+        ? { reason: "ACCESS_DENIED", hint: "检查配置及导入文件的读取权限" }
+        : name === "TransformError" || name === "SyntaxError"
+          ? { reason: "INVALID_SYNTAX", hint: "使用 TypeScript 检查配置与导入文件的语法" }
+          : { reason: "EXECUTION_FAILED", hint: "检查默认导出、导入依赖和配置顶层执行逻辑" };
+  print({ ok: false, code: "CONFIG_LOAD_FAILED", ...detail });
+  return 1;
+}
 // @concord-code
 // @concord-implements docs/feature/artifact-publication/cli.md
 async function main(args: string[]): Promise<number> {
@@ -56,8 +79,8 @@ async function main(args: string[]): Promise<number> {
     const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
     // tsx follows the config's package scope: TS outside type:module uses CJS interop.
     config = loaded.default?.__esModule === true ? loaded.default.default : loaded.default;
-  } catch {
-    return failure("CONFIG_LOAD_FAILED");
+  } catch (cause) {
+    return loadFailure(cause);
   }
   const result = compile(config);
   if (!result.ok) {

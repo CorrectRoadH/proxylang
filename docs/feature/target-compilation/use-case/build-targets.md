@@ -20,3 +20,7 @@ feature: docs/feature/target-compilation/README.md
 ## 验收条件
 
 未知版本、引擎不一致、协议或组不支持都阻止整批构建。展示 warning 可升级。原生检查按精确版本独立执行，不以静态通过证明网络连通。节点 IP、DNS 与入口边界必须明确。
+
+## 作者反馈
+
+defineConfig 对已知 programs 键检查 target 与 case 的 program 引用。schema 错误保留 INVALID_SCHEMA，提供字段路径与受控约束提示，不回显输入值、未知字段名或原始错误文本。动态配置的运行时校验不因类型约束而省略。

@@ -41,31 +41,68 @@ export const match = {
 export const direct = (): Action => ({ type: "direct" });
 export const reject = (): Action => ({ type: "reject" });
 export const route = (to: string): Action => ({ type: "route", to });
-export const slot = (name: string): Slot => ({ type: "slot", name });
+/** An exit parameter declared by policy.exits and resolved by use.bindings. */
+export const slot = <const S extends string>(name: S): Slot<S> => ({ type: "slot", name });
 export const secret = (name: string): Secret => ({ type: "env", name });
-export const rule = (id: string, when: Match, then: Action | Slot): Rule => ({
+export const rule = <const S extends string = never>(
+  id: string,
+  when: Match,
+  then: Action | Slot<S>,
+): Rule<S> => ({
   type: "rule",
   id,
   when,
   then,
 });
-export const block = (id: string, rules: readonly Entry[], when?: Match): Block => ({
+export const block = <const S extends string = never>(
+  id: string,
+  rules: readonly Entry<S>[],
+  when?: Match,
+): Block<S> => ({
   type: "block",
   id,
   rules,
   ...(when ? { when } : {}),
 });
-export const policy = <const S extends string>(definition: Omit<Policy<S>, "type">): Policy<S> => ({
+type CheckedEntries<S extends string, R extends readonly Entry[]> = R &
+  (string extends (R[number] extends Entry<infer Used> ? Used : never)
+    ? unknown
+    : readonly Entry<S>[]);
+export const policy = <
+  const S extends string,
+  const R extends readonly Entry[] = readonly Entry<S>[],
+>(
+  definition: Omit<Policy<S>, "type" | "rules"> & { readonly rules: CheckedEntries<NoInfer<S>, R> },
+): Policy<S> => ({
   type: "policy",
   ...definition,
 });
-export const use = <S extends string>(
+export const use = <S extends string, const B extends Record<NoInfer<S>, Action | Slot>>(
   definition: Policy<S>,
-  options: { id: string; bindings: Record<NoInfer<S>, Action | Slot> },
-): Use => ({ type: "use", id: options.id, policy: definition, bindings: options.bindings });
-export const sequence = (...parts: readonly (Entry | readonly Entry[])[]): Entry[] =>
-  parts.flatMap((part) => (Array.isArray(part) ? part : [part])) as Entry[];
-export const defineConfig = <T extends Config>(config: T): T => config;
+  options: { id: string; bindings: B & Record<Exclude<keyof B, S>, never> },
+): Use<Extract<B[keyof B], Slot>["name"]> => ({
+  type: "use",
+  id: options.id,
+  policy: definition,
+  bindings: options.bindings,
+});
+export const sequence = <const S extends string = never>(
+  ...parts: readonly (Entry<S> | readonly Entry<S>[])[]
+): Entry<S>[] => parts.flatMap((part) => (Array.isArray(part) ? part : [part])) as Entry<S>[];
+export const defineConfig = <const T extends Config>(
+  config: T & {
+    readonly targets: readonly (Config["targets"][number] & {
+      readonly program: string extends NoInfer<T>["targets"][number]["program"]
+        ? string
+        : keyof NoInfer<T>["programs"] & string;
+    })[];
+    readonly cases?: readonly (NonNullable<Config["cases"]>[number] & {
+      readonly program: string extends NonNullable<NoInfer<T>["cases"]>[number]["program"]
+        ? string
+        : keyof NoInfer<T>["programs"] & string;
+    })[];
+  },
+): T => config;
 
 /** Filtering is stable: catalogue order determines initial selector order. */
 // @concord-code

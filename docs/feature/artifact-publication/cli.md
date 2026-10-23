@@ -10,7 +10,7 @@
 | `proxylang build config.ts --out DIRECTORY` | 检查并整批渲染，发布活动指针，输出状态与文件路径；输出目录必填。 |
 | `proxylang --help` 或无参数 | 输出 JSON 用法和可信配置提示，不加载配置。 |
 
-`check` 不接受选项；`explain` 和 `build` 拒绝未知、重复、缺值选项。配置是可信 TS/ESM 或 CJS 模块，执行其顶层代码；不是隔离环境。加载异常不回显源码、原异常或秘密。
+`check` 不接受选项；`explain` 和 `build` 拒绝未知、重复、缺值选项。配置是可信 TS/ESM 或 CJS 模块，执行其顶层代码；不是隔离环境。加载异常不回显源码、原异常或秘密。CONFIG_LOAD_FAILED 附带受控 reason 和固定 hint：MODULE_NOT_FOUND（配置或导入模块不存在）、ACCESS_DENIED（权限不足）、INVALID_SYNTAX（语法或转换失败）、EXECUTION_FAILED（其它加载或执行失败）。诊断格式化不执行异常属性 getter；未知异常保持通用提示。可信配置本身及其加载器的执行副作用不属于输出脱敏保证。
 
 ## 输出与错误
 

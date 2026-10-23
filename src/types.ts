@@ -35,17 +35,17 @@ export type Match =
 export type Action =
   | { readonly type: "direct" | "reject" }
   | { readonly type: "route"; readonly to: string };
-export type Slot = { readonly type: "slot"; readonly name: string };
-export type Rule = {
+export type Slot<S extends string = string> = { readonly type: "slot"; readonly name: S };
+export type Rule<S extends string = string> = {
   readonly type: "rule";
   readonly id: string;
   readonly when: Match;
-  readonly then: Action | Slot;
+  readonly then: Action | Slot<S>;
 };
-export type Block = {
+export type Block<S extends string = string> = {
   readonly type: "block";
   readonly id: string;
-  readonly rules: readonly Entry[];
+  readonly rules: readonly Entry<S>[];
   readonly when?: Match;
 };
 export type Policy<S extends string = string> = {
@@ -54,13 +54,13 @@ export type Policy<S extends string = string> = {
   readonly exits: readonly S[];
   readonly rules: readonly Entry[];
 };
-export type Use = {
+export type Use<S extends string = string> = {
   readonly type: "use";
   readonly id: string;
   readonly policy: Policy;
-  readonly bindings: Readonly<Record<string, Action | Slot>>;
+  readonly bindings: Readonly<Record<string, Action | Slot<S>>>;
 };
-export type Entry = Rule | Block | Use;
+export type Entry<S extends string = string> = Rule<S> | Block<S> | Use<S>;
 export type Secret = { readonly type: "env"; readonly name: string };
 export type ProxyBase = {
   readonly id: string;

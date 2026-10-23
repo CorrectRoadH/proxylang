@@ -16,6 +16,38 @@ import {
 import { dual, fixture, trojan } from "./fixtures.js";
 
 // @use-case docs/feature/target-compilation/use-case/build-targets.md
+test("schema 诊断定位嵌套字段并解释约束，不回显非法值或额外键", () => {
+  const config = fixture([rule("port", m.port(70000), direct())]);
+  const result = compile(config);
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.diagnostics.some(
+      (d) => d.path === "programs.home.routing.0.when.from" && d.message.includes("65535"),
+    ),
+  );
+  assert.ok(result.diagnostics.every((d) => d.code === "INVALID_SCHEMA"));
+  assert.ok(!JSON.stringify(result).includes("70000"));
+  const hidden = "secret-marker-do-not-print";
+  const invalid = compile(
+    fixture([
+      {
+        type: "rule",
+        id: "broken",
+        when: { type: "network", value: hidden },
+        then: direct(),
+      },
+    ] as unknown as Parameters<typeof fixture>[0]),
+  );
+  assert.ok(
+    invalid.diagnostics.some((d) => d.path.endsWith("when.value") && d.message.includes("tcp")),
+  );
+  assert.ok(!JSON.stringify(invalid).includes(hidden));
+  const extra = compile({ ...fixture(), [hidden]: hidden });
+  assert.ok(extra.diagnostics.some((d) => d.message.includes("额外字段")));
+  assert.ok(!JSON.stringify(extra).includes(hidden));
+});
+
+// @use-case docs/feature/target-compilation/use-case/build-targets.md
 test("精确版本、平台和引擎检查；任何失败不暴露部分计划", () => {
   for (const override of [{ version: "1.12.1" }, { engine: "surge" }, { platform: "windows" }]) {
     const config = dual(fixture());

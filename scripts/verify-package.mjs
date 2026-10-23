@@ -52,8 +52,35 @@ try {
   `,
   );
   assert.equal(run(process.execPath, ["nodes.ts"]), "");
+  writeFileSync(
+    join(temp, "type-contracts.ts"),
+    readFileSync(join(root, "test/type-contracts.ts"), "utf8").replace(
+      '"../src/index.js"',
+      '"proxylang"',
+    ),
+  );
   const cli = join(temp, "node_modules/.bin/proxylang");
   assert.equal(JSON.parse(run(cli, ["check", "config.ts"])).ok, true);
+  assert.equal(
+    JSON.parse(
+      run(cli, [
+        "explain",
+        "config.ts",
+        "--target",
+        "home",
+        "--request",
+        '{"network":"tcp","domain":"example.com"}',
+      ]),
+    ).rule,
+    "home/local",
+  );
+  mkdirSync(join(temp, "commonjs"));
+  writeFileSync(join(temp, "commonjs/package.json"), JSON.stringify({ type: "commonjs" }));
+  writeFileSync(
+    join(temp, "commonjs/config.ts"),
+    "export default {programs:{home:{engine:'sing-box',nodes:[],groups:[],routing:[],fallback:{type:'direct'}}},targets:[{id:'home',program:'home',engine:'sing-box',platform:'linux',version:'1.12.0'}]};",
+  );
+  assert.equal(JSON.parse(run(cli, ["check", "commonjs/config.ts"])).ok, true);
   assert.equal(JSON.parse(run(cli, ["build", "config.ts", "--out", "out"])).published, true);
   const active = JSON.parse(readFileSync(join(temp, "out/active.json"), "utf8"));
   assert.ok(active.artifacts.home);
@@ -68,6 +95,7 @@ try {
     "nodenext",
     "config.ts",
     "nodes.ts",
+    "type-contracts.ts",
   ]);
   if (process.argv.includes("--keep")) {
     const output = resolve(root, ".cache/release");

@@ -176,3 +176,47 @@ test("CLI 加载异常不会打印源码、秘密或原异常消息", async (t) 
     },
   );
 });
+
+// @feature docs/feature/artifact-publication/cli.md
+test("CLI 加载失败提供受控原因，不回显异常及 getter 中的秘密", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-load-reasons-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const marker = "secret-marker-do-not-print";
+  const variants = [
+    { name: "missing", reason: "MODULE_NOT_FOUND" },
+    { name: "import", source: `import './${marker}.ts';`, reason: "MODULE_NOT_FOUND" },
+    {
+      name: "syntax",
+      source: `export default { bad: ; /* ${marker} */ }`,
+      reason: "INVALID_SYNTAX",
+    },
+    {
+      name: "permission",
+      source: `throw Object.assign(new Error('${marker}'), {code:'EACCES'});`,
+      reason: "ACCESS_DENIED",
+    },
+    { name: "execution", source: `throw new Error('${marker}');`, reason: "EXECUTION_FAILED" },
+    {
+      name: "getter",
+      source: `throw {get code(){throw Error('${marker}')}, get name(){throw Error('${marker}')}};`,
+      reason: "EXECUTION_FAILED",
+    },
+  ];
+  for (const variant of variants) {
+    const file = join(root, `${variant.name}.ts`);
+    if (variant.source) await writeFile(file, variant.source);
+    await assert.rejects(
+      exec(process.execPath, [resolve("dist/cli.js"), "check", file]),
+      (error: unknown) => {
+        const result = error as { code: number; stdout: string; stderr: string };
+        assert.equal(result.code, 1);
+        const output = JSON.parse(result.stdout);
+        assert.equal(output.code, "CONFIG_LOAD_FAILED");
+        assert.equal(output.reason, variant.reason);
+        assert.ok(output.hint.length > 0);
+        assert.ok(!(result.stdout + result.stderr).includes(marker), variant.name);
+        return true;
+      },
+    );
+  }
+});

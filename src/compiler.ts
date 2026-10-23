@@ -5,7 +5,7 @@ import { StaticRuleSetUnknownError } from "./rules.js";
 import type { NativeRuleSet } from "./types.js";
 import { nodeIsTcpOnly, pathsOverlap, validateProxyOptions } from "./proxies.js";
 import { validateClashTarget } from "./clash.js";
-import { assertData, configSchema, deepFreeze } from "./schema.js";
+import { assertData, configSchema, deepFreeze, schemaIssueMessage } from "./schema.js";
 import { expandRules, explainRules, logicalDepth, truthPossibilities } from "./rules.js";
 import type {
   Action,
@@ -73,11 +73,7 @@ export function compile(input: unknown): Compilation {
   const parsed = configSchema.safeParse(input);
   if (!parsed.success) {
     for (const issue of parsed.error.issues.slice(0, 20))
-      error(
-        "INVALID_SCHEMA",
-        issue.path.map(String).join(".") || "$",
-        "字段、类型或值不符合语言契约；检查严格 schema（不回显输入值）",
-      );
+      error("INVALID_SCHEMA", issue.path.map(String).join(".") || "$", schemaIssueMessage(issue));
     return deepFreeze({ ok: false, diagnostics, plans: [], cases });
   }
   const config: Config = deepFreeze(parsed.data);

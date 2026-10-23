@@ -20,3 +20,7 @@ feature: docs/feature/rule-composition/README.md
 ## 验收条件
 
 同一模板在两个实例绑定不同出口，结果与绑定一致；外层槽位可转绑定到内层。飞书允许规则先于包含飞书域名的屏蔽规则。LAN 与家庭规则先于设备规则，Steam 商店精确规则先于下载后缀规则。重复 ID、未声明或缺失槽位阻止编译。
+
+## TypeScript 作者检查
+
+字面量声明中的槽位名称沿 rule、block、sequence 与嵌套 use 保留；policy 的 exits 决定可用槽位，规则不能扩大声明。use 的 bindings 必须完整且无额外键，包括变量形式。动态字符串及 JavaScript 配置仍接受运行时验证。具体机制见 [作者体验与持续验收](../../../engineering/authoring-quality/README.md)。

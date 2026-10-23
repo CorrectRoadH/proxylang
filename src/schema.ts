@@ -58,7 +58,7 @@ const remoteBase = {
     }),
 };
 const updateInterval = z.number().int().min(60).max(2147483647);
-const nativeRuleSetSchema = z.union([
+const nativeRuleSetSchema = z.discriminatedUnion("engine", [
   z.strictObject({
     ...remoteBase,
     engine: z.literal("surge"),
@@ -80,7 +80,7 @@ const nativeRuleSetSchema = z.union([
   }),
 ]);
 export const matchSchema: z.ZodType<Match> = z.lazy(() =>
-  z.union([
+  z.discriminatedUnion("type", [
     nativeRuleSetSchema,
     z.strictObject({ type: z.literal("ruleSet"), id: idSchema, when: matchSchema }),
     atom("domain", domain),
@@ -96,12 +96,12 @@ export const matchSchema: z.ZodType<Match> = z.lazy(() =>
     z.strictObject({ type: z.literal("not"), condition: matchSchema }),
   ]),
 );
-export const actionSchema = z.union([
+export const actionSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.enum(["direct", "reject"]) }),
   z.strictObject({ type: z.literal("route"), to: idSchema }),
 ]);
 const slotSchema = z.strictObject({ type: z.literal("slot"), name: idSchema });
-const ruleAction = z.union([actionSchema, slotSchema]);
+const ruleAction = z.discriminatedUnion("type", [actionSchema, slotSchema]);
 const unique = (items: readonly string[]) => new Set(items).size === items.length;
 const policySchema: z.ZodType<Policy> = z.lazy(() =>
   z.strictObject({
@@ -112,7 +112,7 @@ const policySchema: z.ZodType<Policy> = z.lazy(() =>
   }),
 );
 export const entrySchema: z.ZodType<Entry> = z.lazy(() =>
-  z.union([
+  z.discriminatedUnion("type", [
     z.strictObject({ type: z.literal("rule"), id: idSchema, when: matchSchema, then: ruleAction }),
     z.strictObject({
       type: z.literal("block"),
@@ -339,6 +339,28 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
     .optional(),
   warningsAsErrors: z.boolean().optional(),
 });
+
+/** Only schema-owned constraints are rendered; Zod messages can contain input values. */
+export function schemaIssueMessage(issue: z.core.$ZodIssue): string {
+  switch (issue.code) {
+    case "invalid_type":
+      return `字段类型错误或缺失；需要 ${issue.expected}`;
+    case "too_small":
+      return `字段低于下限；${issue.origin} 的最小值或长度为 ${issue.minimum}`;
+    case "too_big":
+      return `字段超过上限；${issue.origin} 的最大值或长度为 ${issue.maximum}`;
+    case "invalid_value":
+      return `字段必须使用声明的枚举值：${issue.values.map(String).join("、")}`;
+    case "invalid_format":
+      return "字段格式不符合约束；检查域名、标识符或路径格式";
+    case "unrecognized_keys":
+      return "对象包含当前声明不支持的字段；请删除额外字段";
+    case "invalid_union":
+      return "声明不符合任何支持的分支；检查 type、engine 及对应必填字段";
+    default:
+      return "字段不满足语义约束；检查地址、范围顺序、重复项或相关字段组合";
+  }
+}
 
 /** Reject cycles, executable values and excessive expansion before recursive schema parsing. */
 export function assertData(value: unknown): void {

@@ -194,7 +194,7 @@ for (const [engine, version] of [
             program: "native",
             engine,
             version,
-            platform: "macos",
+            platform: process.platform === "linux" ? "linux" : "macos",
             mode: "standalone",
           },
         ],

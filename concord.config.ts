@@ -38,6 +38,7 @@ export default {
       "src/index.ts",
       "test/fixtures.ts",
       "test/rules.test.ts",
+      "test/type-contracts.ts",
       "test/rulesets.test.ts",
       "test/compiler.test.ts",
       "test/strategies.test.ts",

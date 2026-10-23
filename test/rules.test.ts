@@ -127,10 +127,12 @@ test("缺失、多余、未声明、顶层 slot 与模板资源捕获都拒绝",
   const variants: Entry[] = [
     { type: "use", id: "one", policy: template, bindings: {} },
     { type: "use", id: "one", policy: template, bindings: { exit: direct(), extra: direct() } },
-    use(
-      { ...template, rules: [rule("one", m.network("tcp"), slot("undeclared"))] },
-      { id: "one", bindings: { exit: direct() } },
-    ),
+    {
+      type: "use",
+      id: "one",
+      policy: { ...template, rules: [rule("one", m.network("tcp"), slot("undeclared"))] },
+      bindings: { exit: direct() },
+    },
     rule("top", m.network("tcp"), slot("exit")),
     use(
       { ...template, rules: [rule("one", m.network("tcp"), route("edge"))] },

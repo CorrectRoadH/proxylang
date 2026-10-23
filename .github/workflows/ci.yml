@@ -12,14 +12,19 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    name: SDK and CLI / Node 24
+    name: SDK and CLI / Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["24.11.0", "24"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
         with:
           version: "1.3.0"
-          node-version: "24"
+          node-version: ${{ matrix.node }}
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run check
@@ -38,6 +43,42 @@ jobs:
           DEMO_USER: example-user
           DEMO_PASSWORD: example-only
           DEMO_UUID: 11111111-2222-4333-8444-555555555555
+  sing-box:
+    name: sing-box ${{ matrix.version }} native check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "1.11.0"
+            sha256: "eff0237951bfbd2381be36f114e419f10d3ed57dbf929f680e4cc9f57e319d64"
+          - version: "1.12.0"
+            sha256: "f59b1253ae0143997cb46915af30d14a33431dcbd7e39edacfcde8d73050faaf"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
+        with:
+          version: "1.3.0"
+          node-version: "24"
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - name: Prepare pinned sing-box checker
+        shell: bash
+        env:
+          SING_BOX_VERSION: ${{ matrix.version }}
+          SING_BOX_SHA256: ${{ matrix.sha256 }}
+        run: |
+          mkdir -p .cache/native
+          curl --fail --location --retry 3 --output .cache/native/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
+          echo "${SING_BOX_SHA256}  .cache/native/sing-box.tar.gz" | sha256sum --check
+          tar -xzf .cache/native/sing-box.tar.gz -C .cache/native "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box"
+          mv ".cache/native/sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" ".cache/native/sing-box-${SING_BOX_VERSION}"
+      - name: Check generated configurations without starting the proxy
+        run: vp test run test/native.test.ts -t "sing-box $SING_BOX_VERSION"
+        env:
+          SING_BOX_VERSION: ${{ matrix.version }}
+          PROXYLANG_NATIVE_CHECK: "1"
   mihomo:
     name: Mihomo 1.19.32 native check
     runs-on: ubuntu-latest

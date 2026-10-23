@@ -12,13 +12,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    name: SDK and CLI / Node ${{ matrix.node }}
-    runs-on: ubuntu-latest
+    name: SDK and CLI / ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         node: ["24.11.0", "24"]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
@@ -27,8 +28,7 @@ jobs:
           node-version: ${{ matrix.node }}
           run-install: false
       - run: vp install --frozen-lockfile
-      - run: vp run check
-      - run: vp run test:package
+      - run: vp run verify
       - run: vp run example:check
       - run: vp exec node dist/cli.js check examples/clients.ts
       - run: vp exec node dist/cli.js check examples/proxies.ts

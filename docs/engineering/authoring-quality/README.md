@@ -27,3 +27,9 @@ Linux CI 保留 SDK、CLI、Concord、秘密扫描和 Mihomo 检查。新增 sin
 CI 分别在 Node 24.11.0 与当前 Node 24 安装、构建并执行全套检查，在隔离目录安装实际 tarball，执行 SDK、导出类型、CLI check/explain/build 及 ESM/CJS 配置加载。类型负例同时覆盖源代码与已发布声明，避免打包丢失泛型。既有目标版本不删除或升级。
 
 验收包含 vp run check、vp run test:package、最低 Node 24.11.0 的包验收、精确原生检查、Concord check/trace gaps 及 workflow 语法检查。没有可用内核的平台单独报告，不用其它内核代替。
+
+## 宿主系统与配置路径
+
+SDK/CLI CI 覆盖 Ubuntu 和 macOS，均验证 Node 24.11.0 与当前 Node 24。原生客户端检查继续独立运行，宿主系统矩阵不改变目标目录。Windows 暂无等价的文件权限、锁与原子发布验收，不能据纯配置可生成宣称完整支持。
+
+实际 CLI 测试从不同工作目录读取带空格、中文的配置路径，加载相邻模块，并向带空格、中文的输出路径连续发布。explain 请求文件避免 shell JSON 转义；帮助与非法参数不执行配置顶层代码。安装包验证也覆盖请求文件，避免仅源码入口通过。

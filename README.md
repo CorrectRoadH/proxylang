@@ -36,7 +36,7 @@ npx proxylang --help
 git clone https://github.com/CorrectRoadH/proxylang.git
 cd proxylang
 vp install --frozen-lockfile
-vp pack
+vp run build
 
 # 检查现成的四客户端示例，不读取密码
 vp exec node dist/cli.js check examples/clients.ts
@@ -44,6 +44,8 @@ vp exec node dist/cli.js check examples/clients.ts
 # 用测试密码生成配置，不会启动代理
 DEMO_PASSWORD=example-only vp exec node dist/cli.js build examples/clients.ts --out out/clients
 ```
+
+仓库开发统一使用 Vite+：`vp run dev` 监听构建，`vp run check` 检查源码，`vp run verify` 完成源码与隔离安装包验收。`vp add` / `vp remove` 管理依赖，提交更新后的 `package-lock.json`。
 
 [四客户端示例](examples/clients.ts)展示完整配置；下面从规则开始，逐步写出自己的版本。
 
@@ -207,6 +209,17 @@ PROXY_PASSWORD=example-only npx proxylang build proxy.config.ts --out out
 配置错误提供字段路径和约束提示，例如端口越界会定位到对应规则的条件字段。加载失败会说明是模块缺失、权限不足、语法错误还是执行失败；诊断不会回显原始异常或配置中的秘密。
 
 默认输出是包含节点、策略组和规则的 **fragment**，需要与客户端的入口、DNS 等配置组合。可选 `standalone` 提供本机显式代理配置；生成文件不等于部署或系统接管。
+
+### 从文件解释请求
+
+把请求元数据保存为 UTF-8 JSON，避免 shell 转义：
+
+```sh
+npx proxylang explain proxy.config.ts --target backup --request-file request.json
+npx proxylang build --help
+```
+
+`--request` 与 `--request-file` 二选一。请求文件和输出目录相对调用目录，配置内的相对 import 仍相对配置文件。构建失败会给出受控原因与恢复建议；锁占用时不会自动抢锁。
 
 ## 组合规则集与原生能力
 

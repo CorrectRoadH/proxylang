@@ -31,7 +31,7 @@ vite.config.ts 统一 lint、format、test、pack 配置。受 Concord 管理的
 
 ## CI 与验证边界
 
-GitHub Actions 在 Linux 的 Node 24.11.0 和当前 Node 24 矩阵执行冻结安装、vp run check、CLI 示例检查与示例构建；样例只使用保留地址与固定测试字符串。另一任务使用固定发布版本的 Concord 包，先验证 SHA-256 再安装，执行 check、trace gaps 与 doctor。秘密扫描检查提交历史，不上传扫描中的秘密值。
+GitHub Actions 在 Ubuntu 与 macOS 的 Node 24.11.0 和当前 Node 24 矩阵执行冻结安装、vp run check、CLI 示例检查与示例构建；样例只使用保留地址与固定测试字符串。另一任务使用固定发布版本的 Concord 包，先验证 SHA-256 再安装，执行 check、trace gaps 与 doctor。秘密扫描检查提交历史，不上传扫描中的秘密值。
 
 Mihomo 任务使用固定 1.19.32 Linux 二进制，下载后核对 SHA-256，仅在隔离目录执行配置检查。Stash 没有自动化原生验证，不以 Mihomo 检查代替。
 
@@ -40,3 +40,11 @@ Concord command evidence 是整条命令结果，不是假定每个用例独立�
 Surge 只在准备好精确版本本机应用时运行，Stash 原生验证仍缺失。vp run test:native 需要全部相关内核；也可用 vp test run test/native.test.ts -t 指定内核与版本。隔离安装包验证同时检查 ESM/CJS 配置、CLI check/explain/build，以及源代码与发布声明的类型正反例。详见 [作者体验与持续验收](../authoring-quality/README.md)。
 
 CI 成功不证明 Linux 网关、DNS、节点连通、TUN 或故障接管。构建不发布 npm 包、不部署代理服务。
+
+## 统一 Vite+ 任务
+
+vp run verify 通过 vite.config.ts 的 dependsOn 先执行 check，再运行隔离安装包验收。同一流程仅构建一次，包验收使用该次 dist，不与其它打包任务并发写 dist。任务不缓存验收结果。vp run test:package 仍可单独构建和验收，也保留发布流程的 --keep 参数。
+
+vp run dev 使用 vp pack --watch 监听 SDK/CLI 构建；它不是 Vite 网页服务器，不执行用户代理配置。依赖增删使用 vp add / vp remove，冻结安装使用 vp install --frozen-lockfile。npm 是 package-lock.json 对应后端，保留实际 npm tarball 安装测试。
+
+Node 环境可以通过 vp env current / vp env doctor 检查。最低要求仍为 24.11.0，CI 在最低版本及当前 Node 24 分别执行；不添加覆盖 CI 矩阵的本地固定版本。

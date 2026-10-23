@@ -1,6 +1,16 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  run: {
+    tasks: {
+      verify: {
+        dependsOn: ["check"],
+        command: "vp exec node scripts/verify-package.mjs",
+        cache: false,
+      },
+      dev: { command: "vp pack --watch", cache: false },
+    },
+  },
   fmt: { ignorePatterns: ["docs/**", "memory/**", "AGENTS.md", "concord.config.ts"] },
   lint: {
     ignorePatterns: ["docs/**", "memory/**", "concord.config.ts"],

@@ -89,6 +89,18 @@ try {
     ).action.to,
     "automatic",
   );
+  writeFileSync(join(temp, "请求 信息.json"), '\ufeff{"network":"tcp","domain":"example.com"}');
+  assert.equal(
+    JSON.parse(
+      run(cli, ["explain", "automatic.ts", "--target", "home", "--request-file", "请求 信息.json"]),
+    ).action.to,
+    "automatic",
+  );
+  assert.ok(
+    JSON.parse(run(cli, ["explain", "--help"])).usage.some((line) =>
+      line.includes("--request-file"),
+    ),
+  );
   const automaticOut = join(temp, "automatic-out");
   execFileSync(cli, ["build", "automatic.ts", "--out", automaticOut], {
     cwd: temp,

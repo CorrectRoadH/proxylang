@@ -14,11 +14,42 @@ export type BuildResult = {
   readonly code: string;
   readonly active?: string;
   readonly generation?: string;
+  readonly reason?: "ACCESS_DENIED" | "NO_SPACE" | "READ_ONLY" | "INVALID_DIRECTORY" | "IO_ERROR";
+  readonly hint?: string;
 };
+const buildHints: Readonly<Record<string, string>> = {
+  INVALID_OUTPUT_DIRECTORY: "提供非空输出目录路径",
+  OUTPUT_LOCKED: "确认没有构建正在运行；检查并处理遗留锁后重试，不要删除仍在使用的锁",
+  SECRET_MISSING: "在构建环境提供配置引用的非空秘密变量",
+  SECRET_RESOLUTION_FAILED: "检查秘密解析器；原始异常不会进入构建报告",
+  PUBLISHED_CLEANUP_FAILED: "活动指针已经切换；检查残留锁和临时文件，不要假设发布失败",
+  FAILED_CLEANUP_REQUIRED: "旧活动指针保留；检查本次残留产物和锁后重试",
+};
+function outputFailure(error: unknown): Pick<BuildResult, "reason" | "hint"> {
+  const code =
+    error && typeof error === "object"
+      ? Object.getOwnPropertyDescriptor(error, "code")?.value
+      : undefined;
+  if (code === "EACCES" || code === "EPERM")
+    return { reason: "ACCESS_DENIED", hint: "检查输出目录的写入和遍历权限" };
+  if (code === "ENOSPC" || code === "EDQUOT")
+    return { reason: "NO_SPACE", hint: "释放磁盘空间或调整存储配额后重试" };
+  if (code === "EROFS") return { reason: "READ_ONLY", hint: "选择可写的本地输出目录" };
+  if (["ENOTDIR", "EISDIR", "EEXIST", "UNSAFE_DIRECTORY"].includes(code))
+    return {
+      reason: "INVALID_DIRECTORY",
+      hint: "检查输出根、generations 和 active.json 的文件类型；输出目录不能是符号链接",
+    };
+  return {
+    reason: "IO_ERROR",
+    hint: "检查输出目录及文件系统状态，旧活动配置在发布前失败时保持不变",
+  };
+}
 async function directory(path: string): Promise<void> {
   await mkdir(path, { recursive: true, mode: 0o700 });
   const stat = await lstat(path);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("UNSAFE_DIRECTORY");
+  if (!stat.isDirectory() || stat.isSymbolicLink())
+    throw Object.assign(new Error("UNSAFE_DIRECTORY"), { code: "UNSAFE_DIRECTORY" });
 }
 
 /** All targets publish together by one active.json rename. Config files never go to stdout. */
@@ -30,6 +61,13 @@ export async function buildToDirectory(
   resolveSecret: (token: Secret) => string | undefined = (token) => process.env[token.name],
 ): Promise<BuildResult> {
   if (!compilation.ok) return { published: false, exitCode: 1, code: "COMPILATION_FAILED" };
+  if (typeof output !== "string" || !output.trim())
+    return {
+      published: false,
+      exitCode: 1,
+      code: "INVALID_OUTPUT_DIRECTORY",
+      hint: buildHints.INVALID_OUTPUT_DIRECTORY,
+    };
   const root = resolve(output);
   if (
     compilation.plans.some((plan) =>
@@ -47,6 +85,7 @@ export async function buildToDirectory(
   let published = false;
   let code = "BUILD_FAILED";
   let cleanupFailed = false;
+  let detail: Pick<BuildResult, "reason" | "hint"> = {};
   try {
     await directory(root);
     try {
@@ -54,7 +93,12 @@ export async function buildToDirectory(
       locked = true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST")
-        return { published: false, exitCode: 1, code: "OUTPUT_LOCKED" };
+        return {
+          published: false,
+          exitCode: 1,
+          code: "OUTPUT_LOCKED",
+          hint: buildHints.OUTPUT_LOCKED,
+        };
       throw error;
     }
     const artifacts = render(compilation, resolveSecret);
@@ -104,6 +148,7 @@ export async function buildToDirectory(
     code = "PUBLISHED";
   } catch (error) {
     code = error instanceof RenderError ? error.code : "OUTPUT_FAILED";
+    detail = error instanceof RenderError ? { hint: buildHints[code] } : outputFailure(error);
   } finally {
     if (locked) {
       try {
@@ -124,14 +169,17 @@ export async function buildToDirectory(
       }
     }
   }
+  const resultCode = cleanupFailed
+    ? published
+      ? "PUBLISHED_CLEANUP_FAILED"
+      : "FAILED_CLEANUP_REQUIRED"
+    : code;
   return {
     published,
     exitCode: published ? (cleanupFailed ? 2 : 0) : 1,
-    code: cleanupFailed
-      ? published
-        ? "PUBLISHED_CLEANUP_FAILED"
-        : "FAILED_CLEANUP_REQUIRED"
-      : code,
+    code: resultCode,
+    ...detail,
+    ...(buildHints[resultCode] ? { hint: buildHints[resultCode] } : {}),
     ...(published ? { active: join(root, "active.json"), generation } : {}),
   };
 }

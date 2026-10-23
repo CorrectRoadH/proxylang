@@ -220,3 +220,141 @@ test("CLI 加载失败提供受控原因，不回显异常及 getter 中的秘�
     );
   }
 });
+
+// @feature docs/feature/artifact-publication/cli.md
+test("子命令帮助与非法参数不执行配置", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-help-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const cli = resolve("dist/cli.js");
+  const file = join(root, "config.ts");
+  const marker = join(root, "executed");
+  await writeFile(
+    file,
+    `import {writeFileSync} from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'yes'); throw Error('do-not-print');`,
+  );
+  for (const command of ["check", "explain", "build", "targets"]) {
+    for (const flag of ["--help", "-h"]) {
+      const output = JSON.parse(
+        (await exec(process.execPath, [cli, command, flag], { cwd: root })).stdout,
+      );
+      assert.ok(output.usage.every((line: string) => line.startsWith(`proxylang ${command}`)));
+    }
+  }
+  for (const args of [
+    ["--help", "extra"],
+    ["build", "--help", "extra"],
+    ["build", file, "--out", ""],
+    ["build", file, "--out", "   "],
+    ["build", file, "--out"],
+    ["check", file, "--typo", "yes"],
+    ["explain", file, "--target", "box"],
+    ["explain", file, "--target", "box", "--request", "{}", "--request-file", "request.json"],
+    ["explain", file, "--target", "box", "--target", "box", "--request", "{}"],
+  ])
+    await assert.rejects(exec(process.execPath, [cli, ...args]), (error: unknown) => {
+      const result = error as { code: number; stdout: string; stderr: string };
+      assert.equal(result.code, 1);
+      assert.equal(JSON.parse(result.stdout).code, "INVALID_ARGUMENTS");
+      assert.ok(!(result.stdout + result.stderr).includes("do-not-print"));
+      return true;
+    });
+  assert.ok(!(await readdir(root)).includes("executed"));
+});
+
+// @feature docs/feature/artifact-publication/cli.md
+test("请求文件与中文空格路径跨工作目录运行，连续 build 保留上一批", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-paths-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const folder = join(root, "配置 空间 #1");
+  await mkdir(folder);
+  await writeFile(join(folder, "local.ts"), `export default ${JSON.stringify(fixture())};`);
+  await writeFile(
+    join(folder, "config.ts"),
+    "import config from './local.ts'; export default config;",
+  );
+  await writeFile(join(root, "请求 信息.json"), '\ufeff{"network":"tcp","domain":"example.com"}');
+  const cli = resolve("dist/cli.js");
+  const file = join(folder, "config.ts");
+  const requestArgs = [cli, "explain", file, "--target", "box"];
+  const env = { ...process.env, TEST_PASSWORD: "" };
+  const fromFile = JSON.parse(
+    (
+      await exec(process.execPath, [...requestArgs, "--request-file", "请求 信息.json"], {
+        cwd: root,
+        env,
+      })
+    ).stdout,
+  );
+  const inline = JSON.parse(
+    (
+      await exec(
+        process.execPath,
+        [...requestArgs, "--request", '{"network":"tcp","domain":"example.com"}'],
+        { cwd: root, env },
+      )
+    ).stdout,
+  );
+  assert.deepEqual(fromFile, inline);
+  const out = join(root, "产物 空间");
+  const build = () =>
+    exec(process.execPath, [cli, "build", file, "--out", out], {
+      cwd: root,
+      env: { ...env, TEST_PASSWORD: "path-test-secret" },
+    });
+  const first = JSON.parse((await build()).stdout);
+  const old = JSON.parse(await readFile(join(out, "active.json"), "utf8"));
+  assert.equal(first.published, true);
+  const second = JSON.parse((await build()).stdout);
+  assert.equal(second.published, true);
+  assert.notEqual(second.generation, first.generation);
+  assert.ok((await readFile(join(out, old.artifacts.box), "utf8")).length > 0);
+  for (const [name, content, expected] of [
+    ["missing.json", undefined, "REQUEST_FILE_READ_FAILED"],
+    ["bad.json", "secret-invalid-json", "INVALID_REQUEST"],
+    ["schema.json", '{"network":"bad-secret"}', "INVALID_REQUEST"],
+    ["large.json", "x".repeat(1024 * 1024 + 1), "REQUEST_FILE_TOO_LARGE"],
+    [".", undefined, "REQUEST_FILE_READ_FAILED"],
+  ] as const) {
+    if (content !== undefined) await writeFile(join(root, name), content);
+    await assert.rejects(
+      exec(process.execPath, [...requestArgs, "--request-file", name], { cwd: root, env }),
+      (error: unknown) => {
+        const result = error as { code: number; stdout: string; stderr: string };
+        assert.equal(result.code, 1);
+        assert.equal(JSON.parse(result.stdout).code, expected);
+        assert.ok(!(result.stdout + result.stderr).includes("secret-invalid-json"));
+        assert.ok(!(result.stdout + result.stderr).includes("bad-secret"));
+        return true;
+      },
+    );
+  }
+});
+
+// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+test("构建错误附带可执行提示，空路径不读取秘密，目录错误不泄露路径", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-diagnostics-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const compilation = compile(fixture());
+  let reads = 0;
+  for (const output of ["", "   "]) {
+    const result = await buildToDirectory(compilation, output, () => {
+      reads++;
+      return "secret";
+    });
+    assert.equal(result.code, "INVALID_OUTPUT_DIRECTORY");
+    assert.ok(result.hint);
+  }
+  assert.equal(reads, 0);
+  const blocked = join(root, "private-path-marker");
+  await writeFile(blocked, "file");
+  const failed = await buildToDirectory(compilation, blocked, () => "secret");
+  assert.equal(failed.code, "OUTPUT_FAILED");
+  assert.equal(failed.reason, "INVALID_DIRECTORY");
+  assert.ok(failed.hint);
+  assert.ok(!JSON.stringify(failed).includes("private-path-marker"));
+  const missing = await buildToDirectory(compilation, join(root, "out"), () => undefined);
+  assert.equal(missing.code, "SECRET_MISSING");
+  assert.ok(missing.hint);
+  assert.equal(missing.published, false);
+  assert.ok(!(await readdir(join(root, "out"))).includes(".proxylang-lock"));
+});

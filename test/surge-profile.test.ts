@@ -387,3 +387,22 @@ test("compiled plans are isolated from mutations and fabricated public results",
   fails(bad, "INVALID_INPUT_GRAPH");
   assert.equal(accesses, 0);
 });
+
+// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+test("General preserves author key order rather than schema declaration order", () => {
+  const c = compileSurgeProfile({
+    ...base(),
+    general: {
+      "http-api": { password: secret("CONTROL"), listen: "0.0.0.0:6170" },
+      ipv6: false,
+      loglevel: "notify",
+      "dns-server": ["1.1.1.1"],
+    },
+  });
+  const out = renderSurgeProfile(c, resolve).content;
+  assert.ok(
+    out.includes(
+      "[General]\nhttp-api = control-pass@0.0.0.0:6170\nipv6 = false\nloglevel = notify\ndns-server = 1.1.1.1\n",
+    ),
+  );
+});

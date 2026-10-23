@@ -319,6 +319,16 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
     error("INVALID_SCHEMA");
     return failure();
   }
+  // Zod object parsing follows schema order; native profile ordering follows the author.
+  if (parsed.data.general) {
+    const general = parsed.data.general;
+    parsed.data.general = Object.fromEntries(
+      Object.keys((input as SurgeProfileInput).general!).map((key) => [
+        key,
+        general[key as keyof SurgeGeneral],
+      ]),
+    ) as SurgeGeneral;
+  }
   const p: SurgeProfileInput = deepFreeze(parsed.data);
   if (
     !(p.target.platform === "macos" && p.target.version === "6.10.0") &&

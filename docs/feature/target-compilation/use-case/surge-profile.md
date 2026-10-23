@@ -91,3 +91,7 @@ SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运�
 - [Smart](https://manual.nssurge.com/policy-groups/smart.html)
 - [Process rules](https://manual.nssurge.com/rules/process.html)
 - [General](https://manual.nssurge.com/profile/general.html)
+
+## 声明组合
+
+surgeProfile(input, names?) 保留输入对象字段与数组顺序，仅补齐原生名称映射。公共 names 字典可含其它设备资源；仅选实际资源，优先级为 input.names、公共字典、节点 label、逻辑 ID。未知 input.names 不删除，交编译器拒绝。surgeMembers(nodes, query?) 复用 selectNodes 的地区、供应商、tags 过滤，返回稳定有序的 ref 成员。两工具不读取秘密、不做 I/O。

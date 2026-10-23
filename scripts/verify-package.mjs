@@ -53,6 +53,28 @@ try {
   );
   assert.equal(run(process.execPath, ["nodes.ts"]), "");
   writeFileSync(
+    join(temp, "complete-profile.mjs"),
+    `
+    import assert from 'node:assert/strict';
+    import {readFile, readlink} from 'node:fs/promises';
+    import {buildSurgeProfilesToDirectory, surgeProfile, surgeMembers, proxy, secret} from 'proxylang';
+    const nodes=[proxy.trojan({id:'edge',label:'Edge',region:'SG',server:'192.0.2.1',port:443,password:secret('PASS')})];
+    const profile=surgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes,
+      groups:[{id:'choice',type:'select',members:surgeMembers(nodes,{regions:['SG']})}],rules:[],fallback:{ref:'choice'}},{choice:'Choice',elsewhere:'Unused'});
+    let reads=0;
+    const resolver=()=>{reads++;return 'fixture-pass';};
+    const built=await buildSurgeProfilesToDirectory({first:profile,second:profile},'complete-out',resolver);
+    assert.equal(built.exitCode,0); assert.equal(reads,1);
+    assert.match(await readFile('complete-out/out/first.conf','utf8'),/FINAL,Choice/);
+    const old=await readlink('complete-out/out');
+    reads=0;
+    const failed=await buildSurgeProfilesToDirectory({first:profile,second:{...profile,fallback:{ref:'absent'}}},'complete-out',resolver);
+    assert.equal(failed.published,false); assert.equal(reads,0);
+    assert.equal(await readlink('complete-out/out'),old);
+  `,
+  );
+  assert.equal(run(process.execPath, ["complete-profile.mjs"]), "");
+  writeFileSync(
     join(temp, "type-contracts.ts"),
     readFileSync(join(root, "test/type-contracts.ts"), "utf8").replace(
       '"../src/index.js"',

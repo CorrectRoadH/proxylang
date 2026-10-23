@@ -30,3 +30,6 @@ export type {
   SurgeGroup,
   SurgeTunnel,
 } from "./surge-profile.js";
+
+export { surgeProfile, surgeMembers } from "./surge-compose.js";
+export { buildSurgeProfilesToDirectory } from "./surge-host.js";

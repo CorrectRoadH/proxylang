@@ -33,3 +33,18 @@ export type {
 
 export { surgeProfile, surgeMembers } from "./surge-compose.js";
 export { buildSurgeProfilesToDirectory } from "./surge-host.js";
+
+export {
+  defineProxyGroup,
+  defineRoute,
+  defineSurgeProfile,
+  selectProxies,
+  outbound,
+  ProfileDefinitionError,
+} from "./surge-definitions.js";
+export type {
+  ProxyGroupDefinition,
+  RouteDefinition,
+  SurgeProfileDefinition,
+  Destination,
+} from "./surge-definitions.js";

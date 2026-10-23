@@ -1,5 +1,8 @@
 // @use-case docs/feature/rule-composition/use-case/compose-policy.md
 import {
+  defineProxyGroup,
+  defineRoute,
+  outbound,
   block,
   strategy,
   group,
@@ -92,3 +95,14 @@ export function strategyTypeChecks() {
   // @ts-expect-error Auto is a requirement, not a concrete native implementation.
   strategy({ id: "bad", members: ["edge"], implementations: { surge: group.auto() } });
 }
+
+defineProxyGroup({
+  id: "typed",
+  name: "Typed",
+  algorithm: group.select(),
+  members: [outbound.direct],
+});
+// @ts-expect-error destinations are objects, not string IDs
+defineRoute({ id: "bad", when: surge.match.domain("example.com"), to: "typed" });
+// @ts-expect-error native groups do not silently lower unsupported algorithms
+defineProxyGroup({ id: "bad", name: "Bad", algorithm: group.auto(), members: [] });

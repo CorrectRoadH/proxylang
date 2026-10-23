@@ -74,6 +74,21 @@ try {
   `,
   );
   assert.equal(run(process.execPath, ["complete-profile.mjs"]), "");
+  assert.equal(
+    run(process.execPath, [
+      "--input-type=module",
+      "-e",
+      `
+    import assert from 'node:assert/strict';
+    import {defineProxyGroup,defineRoute,defineSurgeProfile,selectProxies,outbound,group,surge,proxy,secret,compileSurgeProfile} from 'proxylang';
+    const node=proxy.http({id:'edge',server:'192.0.2.1',port:8080,password:secret('PASS')});
+    const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:selectProxies([node],{ids:['edge']})});
+    const input=defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({id:'local',when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
+    assert.equal(compileSurgeProfile(input).ok,true);
+  `,
+    ]),
+    "",
+  );
   writeFileSync(
     join(temp, "type-contracts.ts"),
     readFileSync(join(root, "test/type-contracts.ts"), "utf8").replace(

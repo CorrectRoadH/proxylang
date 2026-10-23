@@ -109,6 +109,33 @@ try {
   assert.equal(surgeResult.published, true);
   assert.equal(surgeResult.profileCount, 1);
   writeFileSync(
+    join(temp, "profile-build.ts"),
+    `
+    import {defineBuild,defineProfile,defineRoute,match,outbound,proxy,secret,defineProxyGroup,group} from 'proxylang';
+    const edge=proxy.trojan({id:'edge',server:'192.0.2.1',port:443,password:secret('PASS')});
+    const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:[edge]});
+    const common={nodes:[edge],groups:[choice],routes:[defineRoute({when:match.ipCidr('2001:db8::/32'),to:choice})],fallback:outbound.direct};
+    export default defineBuild({profiles:{mac:defineProfile({...common,target:{engine:'surge',platform:'macos',version:'6.10.0'}}),linux:defineProfile({...common,target:{engine:'sing-box',platform:'linux',version:'1.12.0'}})},resolveSecret:()=> 'fixture'});
+  `,
+  );
+  const portableResult = JSON.parse(
+    run(process.execPath, [
+      join(temp, "node_modules/proxylang/dist/cli.js"),
+      "profile-build",
+      "profile-build.ts",
+      "--out",
+      "profile-build-out",
+      "--validation",
+    ]),
+  );
+  assert.equal(portableResult.published, true);
+  assert.equal(portableResult.profileCount, 2);
+  assert.match(readFileSync(join(temp, "profile-build-out/out/mac.conf"), "utf8"), /IP-CIDR6/);
+  assert.equal(
+    JSON.parse(readFileSync(join(temp, "profile-build-out/out/linux.json"), "utf8")).route.final,
+    "pl-direct",
+  );
+  writeFileSync(
     join(temp, "type-contracts.ts"),
     readFileSync(join(root, "test/type-contracts.ts"), "utf8").replace(
       '"../src/index.js"',

@@ -8,6 +8,7 @@
 | `proxylang check config.ts` | 加载默认导出配置，检查所有目标与案例，输出诊断、来源和运行前提；不读取秘密。 |
 | `proxylang explain config.ts --target ID --request JSON` | 检查配置后解释请求，输出条件树、首命中或默认动作；目标和请求必填。 |
 | `proxylang explain config.ts --target ID --request-file FILE` | 从 UTF-8 JSON 普通文件读取请求，替代内联 JSON。 |
+| `proxylang profile-build config.ts --out DIRECTORY [--validation]` | 加载 defineBuild 默认导出，整批编译通用 Profile，发布 .conf/.json 到同一 out 指针；沿用 0/1/2 与恢复 hint。 |
 | `proxylang surge-build config.ts --out DIRECTORY [--validation]` | 加载 defineSurgeBuild 默认导出，预检、整批编译/渲染并发布完整 Surge 配置。 |
 | `proxylang build config.ts --out DIRECTORY` | 检查并整批渲染，发布活动指针，输出状态与文件路径；输出目录必填。 |
 | `proxylang --help`、`-h`、子命令帮助或无参数 | 输出 JSON 用法和可信配置提示，不加载配置。 |
@@ -45,3 +46,5 @@ explain 支持 --request-file FILE，替代 --request JSON；两者必须且只�
 这些失败 warnings 为空，预检阶段 profileCount 已固定。validation 缺秘密解析函数 在预检前报 VALIDATION_RESOLVER_REQUIRED。成功及 host 失败保留 warnings/validation/profileCount 和全部原 BuildResult。输出不包含原异常；模块、loader、回调的自行输出不属于此保证，配置约定不得输出。
 
 0/PUBLISHED 表示 published=true；2/PUBLISHED_CLEANUP_FAILED 仍为 published=true 且 active 指向 out。发布前失败为 false/1。PUBLISH_RECOVERY_REQUIRED 原样保留 hint，out 可能缺失，现场需要保留，不补 active、不清理、不重试。CLI 原样透传 exitCode。
+
+profile-build 使用与 surge-build 相同的参数语法、可信模块边界、预检和退出码规则。全部目标编译与端点状态隔离通过后才解析秘密，不自动删除端点状态或迁移平台扩展。

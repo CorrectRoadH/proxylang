@@ -24,3 +24,9 @@ feature: docs/feature/target-compilation/README.md
 ## 作者反馈
 
 defineConfig 对已知 programs 键检查 target 与 case 的 program 引用。schema 错误保留 INVALID_SCHEMA，提供字段路径与受控约束提示，不回显输入值、未知字段名或原始错误文本。动态配置的运行时校验不因类型约束而省略。
+
+## 通用 Profile
+
+defineProfile 声明 target、nodes、groups、routes、fallback 与可选 endpoints。平台扩展位于 surge.config 所构造的 surge 字段或 singBox 字段。构建图保持共享实例身份，深只读快照与原输入隔离。公共结构可编译为 Surge 或 sing-box；专属扩展、选项、算法与端点不能静默移植。
+
+compileProfile 按精确目标适配现有编译器。Surge 递归转换公共 IPv6 CIDR、单项逻辑与命名规则集，保留未知字段供严格校验；无法表达刷新间隔时拒绝。sing-box 拒绝 Surge 条件选项与组顶层健康检查参数，urltest 参数来自算法；name 是显示元数据，逻辑 tag 使用 id。singBox.mode 区分 fragment 与 standalone，独立模式必须提供 listener，片段不冒充完整运行配置。

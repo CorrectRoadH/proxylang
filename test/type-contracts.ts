@@ -1,5 +1,9 @@
 // @use-case docs/feature/rule-composition/use-case/compose-policy.md
 import {
+  defineProfile,
+  type SurgeCondition,
+  type ProxyGroupDefinition,
+  type RouteDefinition,
   defineProxyGroup,
   defineRoute,
   defineRoutes,
@@ -119,3 +123,30 @@ const batch = defineSurgeBuild({
   resolveSecret: (_token, context) => (context.validation ? "fixture" : undefined),
 });
 void runSurgeBuild(batch, "out", { validation: true });
+
+export function profileTypeChecks() {
+  const route: RouteDefinition = defineRoute({
+    when: surge.match.domain("example.com"),
+    to: outbound.direct,
+  });
+  const condition: SurgeCondition = route.when;
+  const choice: ProxyGroupDefinition = defineProxyGroup({
+    id: "choice",
+    name: "Choice",
+    algorithm: group.select(),
+    members: [outbound.direct],
+  });
+  const algorithm: { readonly type: "select" | "surge-smart" } = choice.algorithm;
+  const profile = defineProfile({
+    target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
+    nodes: [],
+    groups: [],
+    routes: defineRoutes({ when: [match.ipCidr("2001:db8::/32")], to: outbound.direct }),
+    fallback: outbound.direct,
+  });
+  // @ts-expect-error Profile nested arrays are immutable.
+  profile.nodes.push({});
+  // @ts-expect-error Target is immutable.
+  profile.target.version = "1.11.0";
+  return { condition, algorithm, profile };
+}

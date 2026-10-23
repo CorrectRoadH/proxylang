@@ -8,6 +8,12 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import {
+  defineBuild,
+  defineProfile,
+  defineRoute,
+  defineProxyGroup,
+  outbound,
+  runBuild,
   compile,
   compileProxyNodes,
   renderProxyNodes,
@@ -551,3 +557,51 @@ for (const [engine, version] of [
     },
   );
 }
+
+// @use-case docs/feature/target-compilation/use-case/build-targets.md
+test.skipIf(!enabled)("portable profile sing-box 1.12.0 standalone native check", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "portable-native-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const endpoint = singbox.tailscale({
+    id: "tailnet",
+    hostname: "fixture",
+    stateDirectory: join(root, "identity"),
+    acceptRoutes: true,
+    bootstrapResolver: "9.9.9.9",
+  });
+  const edge = proxy.trojan({
+    id: "edge",
+    server: "192.0.2.1",
+    port: 443,
+    password: secret("PASS"),
+  });
+  const choice = defineProxyGroup({
+    id: "choice",
+    name: "Choice",
+    algorithm: group.urltest({ url: "https://example.com", intervalSeconds: 60 }),
+    members: [edge],
+  });
+  const profile = defineProfile({
+    target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
+    nodes: [edge],
+    groups: [choice],
+    endpoints: [endpoint],
+    routes: [
+      defineRoute({ when: m.ipCidr("192.168.50.0/24"), to: endpoint }),
+      defineRoute({ when: m.ipCidr("2001:db8::/32"), to: choice }),
+    ],
+    fallback: outbound.direct,
+    singBox: { mode: "standalone", listener: { port: 16902, resolver: "1.1.1.1" } },
+  });
+  const result = await runBuild(
+    defineBuild({ profiles: { linux: profile }, resolveSecret: () => "fixture" }),
+    join(root, "output"),
+  );
+  assert.equal(result.exitCode, 0);
+  await exec(
+    resolve(".cache/native/sing-box-1.12.0"),
+    ["check", "-c", join(root, "output/out/linux.json")],
+    { timeout: 30000, cwd: root },
+  );
+  await assert.rejects(access(endpoint.stateDirectory));
+});

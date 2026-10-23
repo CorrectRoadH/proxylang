@@ -8,22 +8,30 @@ import type {
   SurgeTunnel,
 } from "./surge-profile.js";
 
+import type { ProfileCondition, ProfileDestination } from "./profile.js";
+
 type Builtin = Extract<SurgePolicy, { builtin: string }>;
 export type Destination = ProxyNode | ProxyGroupDefinition | SurgeTunnel | Builtin;
-export type ProxyGroupDefinition = {
+export interface ProxyGroupDefinition<
+  A extends GroupAlgorithm = Extract<GroupAlgorithm, { type: "select" | "surge-smart" }>,
+  D extends ProfileDestination = Destination,
+> {
   readonly type: "proxy-group";
   readonly id: string;
   readonly name: string;
-  readonly algorithm: Extract<GroupAlgorithm, { type: "select" | "surge-smart" }>;
-  readonly members: readonly Destination[];
+  readonly algorithm: A;
+  readonly members: readonly D[];
   readonly url?: string;
   readonly intervalSeconds?: number;
   readonly timeoutSeconds?: number;
-};
-export type RouteDefinition = {
+}
+export type RouteDefinition<
+  C extends ProfileCondition = SurgeCondition,
+  D extends ProfileDestination = Destination,
+> = {
   readonly type: "route";
-  readonly when: SurgeCondition;
-  readonly to: Destination;
+  readonly when: C;
+  readonly to: D;
 };
 export type SurgeProfileDefinition = Omit<SurgeProfileInput, "groups" | "rules" | "fallback"> & {
   readonly groups: readonly ProxyGroupDefinition[];
@@ -41,7 +49,7 @@ const fail = (code: string): never => {
 };
 
 /** Inspect descriptors before any caller spreads or reads input fields. Shared DAGs are legal. */
-function inspect(root: unknown): void {
+export function inspectDefinition(root: unknown): void {
   let edges = 0;
   let objects = 0;
   const visiting = new Set<object>();
@@ -113,10 +121,10 @@ function snapshot<T>(input: T): T {
   return copy(input, 0) as T;
 }
 export function snapshotDefinition<T>(input: T): T {
-  inspect(input);
+  inspectDefinition(input);
   return snapshot(input);
 }
-function exact(value: object, keys: readonly string[]): void {
+export function exactDefinition(value: object, keys: readonly string[]): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("DEFINITION_NOT_DATA");
   if (Object.keys(value).some((key) => !keys.includes(key))) fail("DEFINITION_UNKNOWN_FIELD");
 }
@@ -127,12 +135,27 @@ export const outbound = {
   rejectNoDrop: Object.freeze({ builtin: "REJECT-NO-DROP" } as const),
   rejectTinyGif: Object.freeze({ builtin: "REJECT-TINYGIF" } as const),
 };
-export function defineProxyGroup(input: Omit<ProxyGroupDefinition, "type">): ProxyGroupDefinition {
-  inspect(input);
-  exact(input, ["id", "name", "algorithm", "members", "url", "intervalSeconds", "timeoutSeconds"]);
-  if (!input.algorithm || !["select", "surge-smart"].includes(input.algorithm.type))
+export function defineProxyGroup<A extends GroupAlgorithm, D extends ProfileDestination>(
+  input: Omit<ProxyGroupDefinition<A, D>, "type">,
+): ProxyGroupDefinition<A, D> {
+  inspectDefinition(input);
+  exactDefinition(input, [
+    "id",
+    "name",
+    "algorithm",
+    "members",
+    "url",
+    "intervalSeconds",
+    "timeoutSeconds",
+  ]);
+  if (!input.algorithm || !["select", "surge-smart", "urltest"].includes(input.algorithm.type))
     fail("UNSUPPORTED_GROUP_ALGORITHM");
-  exact(input.algorithm, ["type"]);
+  exactDefinition(
+    input.algorithm,
+    input.algorithm.type === "urltest"
+      ? ["type", "url", "intervalSeconds", "toleranceMs"]
+      : ["type"],
+  );
   if (!Array.isArray(input.members)) fail("INVALID_GROUP_DEFINITION");
   return {
     ...input,
@@ -141,17 +164,19 @@ export function defineProxyGroup(input: Omit<ProxyGroupDefinition, "type">): Pro
     members: [...input.members],
   };
 }
-export function defineRoute(input: Omit<RouteDefinition, "type">): RouteDefinition {
-  inspect(input);
-  exact(input, ["when", "to"]);
+export function defineRoute<C extends ProfileCondition, D extends ProfileDestination>(
+  input: Omit<RouteDefinition<C, D>, "type">,
+): RouteDefinition<C, D> {
+  inspectDefinition(input);
+  exactDefinition(input, ["when", "to"]);
   return { ...input, type: "route" };
 }
-export function defineRoutes(input: {
-  readonly when: readonly SurgeCondition[];
-  readonly to: Destination;
-}): RouteDefinition[] {
-  inspect(input);
-  exact(input, ["when", "to"]);
+export function defineRoutes<C extends ProfileCondition, D extends ProfileDestination>(input: {
+  readonly when: readonly C[];
+  readonly to: D;
+}): RouteDefinition<C, D>[] {
+  inspectDefinition(input);
+  exactDefinition(input, ["when", "to"]);
   if (!Array.isArray(input.when)) fail("INVALID_ROUTE_DEFINITION");
   return input.when.map((when) => ({ type: "route", when, to: input.to }));
 }
@@ -164,8 +189,8 @@ export function selectProxies(
     tags?: readonly string[];
   } = {},
 ): ProxyNode[] {
-  inspect({ nodes, query });
-  exact(query, ["ids", "regions", "providers", "tags"]);
+  inspectDefinition({ nodes, query });
+  exactDefinition(query, ["ids", "regions", "providers", "tags"]);
   if (!Array.isArray(nodes) || nodes.some((node) => !node || typeof node !== "object"))
     fail("DEFINITION_NOT_DATA");
   for (const values of Object.values(query))
@@ -180,8 +205,8 @@ export function selectProxies(
   );
 }
 export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileInput {
-  inspect(input);
-  exact(input, [
+  inspectDefinition(input);
+  exactDefinition(input, [
     "target",
     "managed",
     "general",
@@ -229,7 +254,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
   function lower(destination: Destination): SurgePolicy {
     if (!destination || typeof destination !== "object") fail("INVALID_DESTINATION");
     if ("builtin" in destination) {
-      exact(destination, ["builtin"]);
+      exactDefinition(destination, ["builtin"]);
       if (!Object.values(outbound).some((value) => value.builtin === destination.builtin))
         fail("INVALID_DESTINATION");
       return { builtin: destination.builtin };
@@ -238,7 +263,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
     return { ref: destination.id };
   }
   const groups = input.groups.map((definition) => {
-    exact(definition, [
+    exactDefinition(definition, [
       "type",
       "id",
       "name",
@@ -251,7 +276,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
     if (definition.type !== "proxy-group") fail("INVALID_GROUP_DEFINITION");
     if (!definition.algorithm || !["select", "surge-smart"].includes(definition.algorithm.type))
       fail("UNSUPPORTED_GROUP_ALGORITHM");
-    exact(definition.algorithm, ["type"]);
+    exactDefinition(definition.algorithm, ["type"]);
     if (!Array.isArray(definition.members)) fail("INVALID_GROUP_DEFINITION");
     const { id, url, intervalSeconds, timeoutSeconds } = definition;
     return {
@@ -264,7 +289,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
     };
   });
   const rules = input.routes.map((definition) => {
-    exact(definition, ["type", "when", "to"]);
+    exactDefinition(definition, ["type", "when", "to"]);
     if (definition.type !== "route") fail("INVALID_ROUTE_DEFINITION");
     return { when: definition.when, then: lower(definition.to) };
   });
@@ -274,7 +299,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
 
 type Options = { readonly noResolve?: boolean; readonly extendedMatching?: boolean };
 function condition<T extends SurgeCondition>(value: T): T {
-  inspect(value);
+  inspectDefinition(value);
   return value;
 }
 function atom(
@@ -288,7 +313,7 @@ function atom(
     | "macAddress",
 ) {
   return (value: string, options: Options = {}): SurgeCondition => {
-    inspect(options);
+    inspectDefinition(options);
     return condition({ ...options, type, value });
   };
 }
@@ -301,33 +326,33 @@ export const surgeMatch = {
   processName: atom("processName"),
   macAddress: atom("macAddress"),
   network: (value: "tcp" | "udp", options: Options = {}): SurgeCondition => {
-    inspect(options);
+    inspectDefinition(options);
     return condition({ ...options, type: "network", value });
   },
   port: (from: number, to?: number, options: Options = {}): SurgeCondition => {
-    inspect(options);
+    inspectDefinition(options);
     return condition({ ...options, type: "port", from, ...(to === undefined ? {} : { to }) });
   },
   sourcePort: (from: number, to?: number, options: Options = {}): SurgeCondition => {
-    inspect(options);
+    inspectDefinition(options);
     return condition({ ...options, type: "sourcePort", from, ...(to === undefined ? {} : { to }) });
   },
   all: (conditions: readonly SurgeCondition[], options: Options = {}): SurgeCondition => {
-    inspect({ conditions, options });
+    inspectDefinition({ conditions, options });
     return condition({ ...options, type: "all", conditions: [...conditions] });
   },
   any: (conditions: readonly SurgeCondition[], options: Options = {}): SurgeCondition => {
-    inspect({ conditions, options });
+    inspectDefinition({ conditions, options });
     return condition({ ...options, type: "any", conditions: [...conditions] });
   },
   not: (value: SurgeCondition, options: Options = {}): SurgeCondition => {
-    inspect({ value, options });
+    inspectDefinition({ value, options });
     return condition({ ...options, type: "not", condition: value });
   },
   ruleSet: (
     options: Omit<Extract<SurgeCondition, { type: "ruleSet" }>, "type">,
   ): SurgeCondition => {
-    inspect(options);
+    inspectDefinition(options);
     return condition({ ...options, type: "ruleSet" });
   },
 };

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @concord-file
 // @concord-implements docs/feature/artifact-publication/README.md
+import { runBuild, type BuildDefinition } from "./profile-build.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { open } from "node:fs/promises";
@@ -18,6 +19,7 @@ const failure = (code: string): number => {
   return 1;
 };
 const usages = {
+  "profile-build": ["proxylang profile-build config.ts --out DIRECTORY [--validation]"],
   "surge-build": ["proxylang surge-build config.ts --out DIRECTORY [--validation]"],
   targets: ["proxylang targets"],
   check: ["proxylang check config.ts"],
@@ -93,7 +95,8 @@ async function main(args: string[]): Promise<number> {
     });
     return 0;
   }
-  if (command === "surge-build") return surgeBuildCommand(file, rest);
+  if (command === "surge-build" || command === "profile-build")
+    return surgeBuildCommand(file, rest, command === "profile-build");
   if (!["check", "explain", "build"].includes(command) || !file?.trim() || help(file))
     return failure("INVALID_ARGUMENTS");
   const options = new Map<string, string>();
@@ -182,7 +185,11 @@ async function main(args: string[]): Promise<number> {
 
 // @concord-code
 // @concord-implements docs/feature/artifact-publication/cli.md
-async function surgeBuildCommand(file: string | undefined, args: string[]): Promise<number> {
+async function surgeBuildCommand(
+  file: string | undefined,
+  args: string[],
+  portable: boolean,
+): Promise<number> {
   const invalid = () => {
     print(surgeBuildFailure("INVALID_ARGUMENTS"));
     return 1;
@@ -219,7 +226,9 @@ async function surgeBuildCommand(file: string | undefined, args: string[]): Prom
     print(surgeBuildFailure("PROFILE_DEFINITION_FAILED", validation));
     return 1;
   }
-  const result = await runSurgeBuild(config, output, { validation });
+  const result = portable
+    ? await runBuild(config as unknown as BuildDefinition, output, { validation })
+    : await runSurgeBuild(config, output, { validation });
   print(result);
   return result.exitCode;
 }

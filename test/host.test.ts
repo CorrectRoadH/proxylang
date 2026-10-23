@@ -360,111 +360,114 @@ test("构建错误附带可执行提示，空路径不读取秘密，目录错�
 });
 
 // @use-case docs/feature/artifact-publication/use-case/publish-generation.md
-test("surge-build CLI validates before import and preserves batch results through TS/ESM/CJS", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "surge-build-cli-"));
-  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
-  const cli = resolve("dist/cli.js");
-  const call = async (args: string[]) => {
-    try {
-      const result = await exec(process.execPath, [cli, "surge-build", ...args]);
-      return { status: 0, result: JSON.parse(result.stdout) };
-    } catch (error) {
-      const failure = error as { code: number; stdout: string };
-      return { status: failure.code, result: JSON.parse(failure.stdout) };
-    }
-  };
-  const config = join(root, "config.ts");
-  const marker = join(root, "loaded");
-  await writeFile(
-    config,
-    `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'loaded'); throw Error('private-value');`,
-  );
-  for (const args of [
-    [config, "--out", "--validation"],
-    [config, "--out"],
-    [config, "extra", "--out", root],
-    [config, "--out", root, "--out", root],
-    [config, "--validation", "--validation", "--out", root],
-    [config, "--", "--out", root],
-    [config, "--out", root, "--"],
-    [config, "--out", root, "--unknown"],
-    [config, "--help"],
-  ]) {
-    const response = await call(args);
-    assert.equal(response.status, 1);
-    assert.equal(response.result.code, "INVALID_ARGUMENTS");
-    assert.equal(response.result.profileCount, 0);
-    assert.equal(response.result.validation, false);
-  }
-  assert.ok(!(await readdir(root)).includes("loaded"));
-  assert.equal((await call(["--help"])).status, 0);
-  const load = await call([config, "--out", root, "--validation"]);
-  assert.equal(load.result.code, "PROFILE_DEFINITION_FAILED");
-  assert.equal(load.result.validation, true);
-  assert.ok(!JSON.stringify(load).includes("private-value"));
-  const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, nodes:[], groups:[], rules:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
-  for (const extension of ["ts", "mjs", "cjs"]) {
-    const path = join(root, `valid.${extension}`);
+test.for(["surge-build", "profile-build"])(
+  "%s CLI validates before import and preserves batch results through TS/ESM/CJS",
+  async (command, t) => {
+    const root = await mkdtemp(join(tmpdir(), "surge-build-cli-"));
+    t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+    const cli = resolve("dist/cli.js");
+    const call = async (args: string[]) => {
+      try {
+        const result = await exec(process.execPath, [cli, command, ...args]);
+        return { status: 0, result: JSON.parse(result.stdout) };
+      } catch (error) {
+        const failure = error as { code: number; stdout: string };
+        return { status: failure.code, result: JSON.parse(failure.stdout) };
+      }
+    };
+    const config = join(root, "config.ts");
+    const marker = join(root, "loaded");
     await writeFile(
-      path,
-      `${extension === "cjs" ? "module.exports = " : "export default "}${source}`,
+      config,
+      `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'loaded'); throw Error('private-value');`,
     );
-    const output = join(root, extension);
-    const response = await call([path, "--out", output, "--", "--validation"]);
-    assert.equal(response.status, 0, JSON.stringify({ extension, ...response }));
-    assert.equal(response.result.published, true);
-    assert.equal(response.result.exitCode, 0);
-    assert.equal(response.result.profileCount, 1);
-    assert.deepEqual(response.result.warnings, { WARN: 1 });
-    assert.equal(response.result.active, join(output, "out"));
-    assert.match(await readFile(join(output, "out", "box.conf"), "utf8"), /FINAL,DIRECT/);
-  }
-  // Fault only the filesystem boundary in the real CLI process.
-  for (const kind of ["cleanup", "recovery"]) {
-    const fault = join(root, `${kind}-fault.cjs`);
-    await writeFile(
-      fault,
-      `const fs=require('node:fs/promises'); const {syncBuiltinESMExports}=require('node:module');
+    for (const args of [
+      [config, "--out", "--validation"],
+      [config, "--out"],
+      [config, "extra", "--out", root],
+      [config, "--out", root, "--out", root],
+      [config, "--validation", "--validation", "--out", root],
+      [config, "--", "--out", root],
+      [config, "--out", root, "--"],
+      [config, "--out", root, "--unknown"],
+      [config, "--help"],
+    ]) {
+      const response = await call(args);
+      assert.equal(response.status, 1);
+      assert.equal(response.result.code, "INVALID_ARGUMENTS");
+      assert.equal(response.result.profileCount, 0);
+      assert.equal(response.result.validation, false);
+    }
+    assert.ok(!(await readdir(root)).includes("loaded"));
+    assert.equal((await call(["--help"])).status, 0);
+    const load = await call([config, "--out", root, "--validation"]);
+    assert.equal(load.result.code, "PROFILE_DEFINITION_FAILED");
+    assert.equal(load.result.validation, true);
+    assert.ok(!JSON.stringify(load).includes("private-value"));
+    const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, nodes:[], groups:[], ${command === "surge-build" ? "rules" : "routes"}:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
+    for (const extension of ["ts", "mjs", "cjs"]) {
+      const path = join(root, `valid.${extension}`);
+      await writeFile(
+        path,
+        `${extension === "cjs" ? "module.exports = " : "export default "}${source}`,
+      );
+      const output = join(root, extension);
+      const response = await call([path, "--out", output, "--", "--validation"]);
+      assert.equal(response.status, 0, JSON.stringify({ extension, ...response }));
+      assert.equal(response.result.published, true);
+      assert.equal(response.result.exitCode, 0);
+      assert.equal(response.result.profileCount, 1);
+      assert.deepEqual(response.result.warnings, { WARN: 1 });
+      assert.equal(response.result.active, join(output, "out"));
+      assert.match(await readFile(join(output, "out", "box.conf"), "utf8"), /FINAL,DIRECT/);
+    }
+    // Fault only the filesystem boundary in the real CLI process.
+    for (const kind of ["cleanup", "recovery"]) {
+      const fault = join(root, `${kind}-fault.cjs`);
+      await writeFile(
+        fault,
+        `const fs=require('node:fs/promises'); const {syncBuiltinESMExports}=require('node:module');
       const rename=fs.rename; let calls=0;
       ${kind === "cleanup" ? "fs.rm=async()=>{throw Error('private-fault')};" : "fs.rename=async(...args)=>{if(++calls>1)throw Error('private-fault');return rename(...args)};"}
       syncBuiltinESMExports();`,
-    );
-    const output = join(root, kind);
-    if (kind === "recovery") {
-      await mkdir(join(output, "out"), { recursive: true });
-      await writeFile(join(output, "out", "box.conf"), "legacy");
+      );
+      const output = join(root, kind);
+      if (kind === "recovery") {
+        await mkdir(join(output, "out"), { recursive: true });
+        await writeFile(join(output, "out", "box.conf"), "legacy");
+      }
+      let response;
+      try {
+        await exec(process.execPath, [
+          "--require",
+          fault,
+          cli,
+          command,
+          join(root, "valid.mjs"),
+          "--out",
+          output,
+        ]);
+        assert.fail("fault must affect the CLI exit status");
+      } catch (error) {
+        const failure = error as { code: number; stdout: string };
+        response = { status: failure.code, result: JSON.parse(failure.stdout) };
+      }
+      assert.equal(response.status, kind === "cleanup" ? 2 : 1);
+      assert.equal(response.result.exitCode, response.status);
+      assert.equal(response.result.published, kind === "cleanup");
+      assert.equal(
+        response.result.code,
+        kind === "cleanup" ? "PUBLISHED_CLEANUP_FAILED" : "PUBLISH_RECOVERY_REQUIRED",
+      );
+      if (kind === "cleanup") {
+        assert.equal(response.result.active, join(output, "out"));
+        assert.match(await readFile(join(output, "out", "box.conf"), "utf8"), /FINAL,DIRECT/);
+      } else {
+        assert.equal(response.result.active, undefined);
+        assert.match(response.result.hint, /out may be absent/);
+        assert.ok(!(await readdir(output)).includes("out"));
+        assert.ok((await readdir(output)).includes(".build-lock"));
+      }
     }
-    let response;
-    try {
-      await exec(process.execPath, [
-        "--require",
-        fault,
-        cli,
-        "surge-build",
-        join(root, "valid.mjs"),
-        "--out",
-        output,
-      ]);
-      assert.fail("fault must affect the CLI exit status");
-    } catch (error) {
-      const failure = error as { code: number; stdout: string };
-      response = { status: failure.code, result: JSON.parse(failure.stdout) };
-    }
-    assert.equal(response.status, kind === "cleanup" ? 2 : 1);
-    assert.equal(response.result.exitCode, response.status);
-    assert.equal(response.result.published, kind === "cleanup");
-    assert.equal(
-      response.result.code,
-      kind === "cleanup" ? "PUBLISHED_CLEANUP_FAILED" : "PUBLISH_RECOVERY_REQUIRED",
-    );
-    if (kind === "cleanup") {
-      assert.equal(response.result.active, join(output, "out"));
-      assert.match(await readFile(join(output, "out", "box.conf"), "utf8"), /FINAL,DIRECT/);
-    } else {
-      assert.equal(response.result.active, undefined);
-      assert.match(response.result.hint, /out may be absent/);
-      assert.ok(!(await readdir(output)).includes("out"));
-      assert.ok((await readdir(output)).includes(".build-lock"));
-    }
-  }
-});
+  },
+);

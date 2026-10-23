@@ -23,7 +23,7 @@ export async function publishProfiles(
   if (
     !files.size ||
     files.size > 16 ||
-    [...files.keys()].some((name) => !/^[a-z0-9][a-z0-9-]*\.conf$/.test(name))
+    [...files.keys()].some((name) => !/^[a-z0-9][a-z0-9-]*\.(?:conf|json)$/.test(name))
   )
     throw new Error("INVALID_PROFILE_FILENAMES");
   const root = resolve(surgeDirectory);

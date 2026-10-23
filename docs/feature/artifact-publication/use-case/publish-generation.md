@@ -42,3 +42,9 @@ defineSurgeBuild 固定 profiles 深复制快照与可选 preflight、resolveSec
 预检返回最多1000个大写字母数字下划线警告码，按首次出现顺序计数；异常和非法返回使用固定错误码。秘密回调接收 token 与只读 validation 标志，且仅在整批编译成功后的渲染阶段调用。生产默认惰性读环境；validation 必须提供应用秘密解析函数，不猜测测试秘密。
 
 新入口返回原 BuildResult 全部字段及 warnings、validation、profileCount；预检前错误使用空 warnings，未固定配置前数量为0。原 host 的 active、hint、exitCode 均原样透传；恢复失败不清现场、不补 active、不重试。
+
+## 通用 Profile 批次
+
+defineBuild/runBuild 及 profile-build CLI 复用预检、警告、秘密延迟与退出码协议。新批次快照保留对象别名，全部目标编译后才共享按 token.name 缓存的秘密解析。sing-box 端点状态目录与输出目录相同或互为祖先时，在秘密读取与发布前报 ENDPOINT_STATE_OVERLAP。不证明跨设备状态目录全局独占。
+
+Profile key 与引擎决定 .conf/.json 文件名，整批以 out 单次切换；旧代、恢复现场与 0/1/2 结果不变。旧 Surge/Program API 与 CLI 保持兼容。

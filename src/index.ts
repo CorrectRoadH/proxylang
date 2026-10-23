@@ -52,3 +52,23 @@ export type {
 
 export { defineSurgeBuild, runSurgeBuild } from "./surge-build.js";
 export type { SurgeBuildDefinition, SurgeBuildResult, SurgeBuildContext } from "./surge-build.js";
+
+export {
+  defineProfile,
+  compileProfile,
+  type Profile,
+  type ProfileDefinition,
+  type ProfileCondition,
+  type ProfileDestination,
+  type ProfileCompilation,
+  type SurgeConfig,
+  type DeepReadonly,
+} from "./profile.js";
+
+export {
+  defineBuild,
+  runBuild,
+  type BuildDefinition,
+  type BuildContext,
+  type ProfileBuildResult,
+} from "./profile-build.js";

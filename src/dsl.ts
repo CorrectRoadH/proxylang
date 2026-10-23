@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { surgeConfig } from "./profile.js";
 import { surgeMatch } from "./surge-definitions.js";
 import { proxyBuilder } from "./proxy-builder.js";
 import type {
@@ -141,6 +142,7 @@ export const group = {
   ): Extract<GroupAlgorithm, { type: "urltest" }> => ({ type: "urltest", ...options }),
 };
 export const surge = {
+  config: surgeConfig,
   match: surgeMatch,
   smart: (): Extract<GroupAlgorithm, { type: "surge-smart" }> => ({ type: "surge-smart" }),
   ruleSet: (

@@ -31,27 +31,15 @@ export type {
   SurgeTunnel,
 } from "./surge-profile.js";
 
-export { surgeProfile, surgeMembers } from "./surge-compose.js";
-export { buildSurgeProfilesToDirectory } from "./surge-host.js";
-
 export {
   defineProxyGroup,
   defineRoute,
   defineRoutes,
-  defineSurgeProfile,
   selectProxies,
   outbound,
   ProfileDefinitionError,
 } from "./surge-definitions.js";
-export type {
-  ProxyGroupDefinition,
-  RouteDefinition,
-  SurgeProfileDefinition,
-  Destination,
-} from "./surge-definitions.js";
-
-export { defineSurgeBuild, runSurgeBuild } from "./surge-build.js";
-export type { SurgeBuildDefinition, SurgeBuildResult, SurgeBuildContext } from "./surge-build.js";
+export type { ProxyGroupDefinition, RouteDefinition } from "./surge-definitions.js";
 
 export {
   defineProfile,

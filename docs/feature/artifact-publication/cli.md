@@ -9,7 +9,6 @@
 | `proxylang explain config.ts --target ID --request JSON` | 检查配置后解释请求，输出条件树、首命中或默认动作；目标和请求必填。 |
 | `proxylang explain config.ts --target ID --request-file FILE` | 从 UTF-8 JSON 普通文件读取请求，替代内联 JSON。 |
 | `proxylang profile-build config.ts --out DIRECTORY [--validation]` | 加载 defineBuild 默认导出，整批编译通用 Profile，发布 .conf/.json 到同一 out 指针；沿用 0/1/2 与恢复 hint。 |
-| `proxylang surge-build config.ts --out DIRECTORY [--validation]` | 加载 defineSurgeBuild 默认导出，预检、整批编译/渲染并发布完整 Surge 配置。 |
 | `proxylang build config.ts --out DIRECTORY` | 检查并整批渲染，发布活动指针，输出状态与文件路径；输出目录必填。 |
 | `proxylang --help`、`-h`、子命令帮助或无参数 | 输出 JSON 用法和可信配置提示，不加载配置。 |
 
@@ -39,7 +38,7 @@ explain 支持 --request-file FILE，替代 --request JSON；两者必须且只�
 
 ## Surge 构建入口
 
-参数在加载配置前验证，未知/重复/缺值/额外位置参数拒绝为 INVALID_ARGUMENTS，profileCount=0、warnings={}、validation=false。--out 的值不能以 - 开头，可用 ./ 前缀。-- 只允许在完整 --out DIRECTORY 后且紧接最后一个 --validation，用于 vp 参数转发。surge-build --help/-h 仅单独使用，不加载模块。
+参数在加载配置前验证，未知/重复/缺值/额外位置参数拒绝为 INVALID_ARGUMENTS，profileCount=0、warnings={}、validation=false。--out 的值不能以 - 开头，可用 ./ 前缀。-- 只允许在完整 --out DIRECTORY 后且紧接最后一个 --validation，用于 vp 参数转发。profile-build --help/-h 仅单独使用，不加载模块。
 
 默认导出支持可信 TS/ESM/CJS。加载失败固定 PROFILE_DEFINITION_FAILED、profileCount=0；无效 envelope 固定 INVALID_BUILD_DEFINITION；无效程序化 options 固定 INVALID_BUILD_OPTIONS。预检抛出 PREFLIGHT_FAILED、非法警告返回 INVALID_PREFLIGHT_WARNINGS。
 
@@ -47,4 +46,4 @@ explain 支持 --request-file FILE，替代 --request JSON；两者必须且只�
 
 0/PUBLISHED 表示 published=true；2/PUBLISHED_CLEANUP_FAILED 仍为 published=true 且 active 指向 out。发布前失败为 false/1。PUBLISH_RECOVERY_REQUIRED 原样保留 hint，out 可能缺失，现场需要保留，不补 active、不清理、不重试。CLI 原样透传 exitCode。
 
-profile-build 使用与 surge-build 相同的参数语法、可信模块边界、预检和退出码规则。全部目标编译与端点状态隔离通过后才解析秘密，不自动删除端点状态或迁移平台扩展。
+profile-build 是唯一设备 Profile 构建入口；已移除 surge-build，未知命令在导入配置前拒绝。其参数语法、可信模块边界、预检和退出码遵守上述规则。全部目标编译与端点状态隔离通过后才解析秘密，不自动删除端点状态或迁移平台扩展。

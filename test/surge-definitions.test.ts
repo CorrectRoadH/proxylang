@@ -1,10 +1,10 @@
+import { lowerSurgeProfile, type SurgeDefinitionInput } from "../src/surge-definitions.js";
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 import {
   defineProxyGroup,
   defineRoute,
   defineRoutes,
-  defineSurgeProfile,
   selectProxies,
   outbound,
   ProfileDefinitionError,
@@ -14,11 +14,10 @@ import {
   secret,
   compileSurgeProfile,
   renderSurgeProfile,
-  type SurgeProfileDefinition,
   type SurgeCondition,
 } from "../src/index.js";
 
-function fixture(): SurgeProfileDefinition {
+function fixture(): SurgeDefinitionInput {
   const node = proxy.trojan({
     id: "node",
     label: "Node",
@@ -63,7 +62,7 @@ function rejects(run: () => unknown, code: string) {
 // @use-case docs/feature/target-compilation/use-case/surge-profile.md
 test("object definitions lower in declared order, compile, and detach snapshots", () => {
   const definition = fixture();
-  const lowered = defineSurgeProfile(definition);
+  const lowered = lowerSurgeProfile(definition);
   const compiled = compileSurgeProfile(lowered);
   assert.equal(compiled.ok, true, JSON.stringify(compiled.diagnostics));
   const output = renderSurgeProfile(compiled, () => "fixture").content;
@@ -86,30 +85,30 @@ test("object definitions lower in declared order, compile, and detach snapshots"
 test("references require registered instances and unique resource identities", () => {
   const input = fixture();
   rejects(
-    () => defineSurgeProfile({ ...input, fallback: { ...input.nodes[0]! } }),
+    () => lowerSurgeProfile({ ...input, fallback: { ...input.nodes[0]! } }),
     "UNREGISTERED_DESTINATION_INSTANCE",
   );
   rejects(
-    () => defineSurgeProfile({ ...input, groups: [input.groups[0]!] }),
+    () => lowerSurgeProfile({ ...input, groups: [input.groups[0]!] }),
     "UNREGISTERED_DESTINATION_INSTANCE",
   );
   rejects(
-    () => defineSurgeProfile({ ...input, nodes: [...input.nodes, input.nodes[0]!] }),
+    () => lowerSurgeProfile({ ...input, nodes: [...input.nodes, input.nodes[0]!] }),
     "DUPLICATE_RESOURCE_ID",
   );
   assert.equal(
-    defineSurgeProfile({ ...input, routes: [...input.routes, input.routes[0]!] }).rules.length,
+    lowerSurgeProfile({ ...input, routes: [...input.routes, input.routes[0]!] }).rules.length,
     3,
   );
   rejects(
-    () => defineSurgeProfile({ ...input, names: { choice: "Different" } }),
+    () => lowerSurgeProfile({ ...input, names: { choice: "Different" } }),
     "GROUP_NAME_CONFLICT",
   );
-  const unknown = defineSurgeProfile({ ...input, names: { unknown: "Unknown" } });
+  const unknown = lowerSurgeProfile({ ...input, names: { unknown: "Unknown" } });
   assert.equal(compileSurgeProfile(unknown).ok, false);
   const cyclic = fixture();
   (cyclic.groups[0]!.members as unknown[]).push(cyclic.groups[0]);
-  rejects(() => defineSurgeProfile(cyclic), "DEFINITION_CYCLE");
+  rejects(() => lowerSurgeProfile(cyclic), "DEFINITION_CYCLE");
 });
 test("constructors reject accessors without invoking them or exposing payloads", () => {
   let reads = 0;
@@ -124,7 +123,7 @@ test("constructors reject accessors without invoking them or exposing payloads",
     () => defineProxyGroup(bad as never),
     () => defineRoute(bad as never),
     () => defineRoutes(bad as never),
-    () => defineSurgeProfile(bad as never),
+    () => lowerSurgeProfile(bad as never),
     () => selectProxies([], bad),
     () => surge.match.domain("example.com", bad),
     () => surge.match.all([], bad),
@@ -144,7 +143,7 @@ test("shared object DAG is checked once but expanded output has an independent b
   for (let i = 0; i < 18; i++) condition = surge.match.all([condition, condition]);
   const route = defineRoute({ when: condition, to: outbound.direct });
   rejects(
-    () => defineSurgeProfile({ ...input, routes: [route] }),
+    () => lowerSurgeProfile({ ...input, routes: [route] }),
     "DEFINITION_OUTPUT_BUDGET_EXCEEDED",
   );
   const large = Array.from({ length: 20001 }, () => ({}));
@@ -171,7 +170,7 @@ test("Surge match preserves options, source literals and nested conditions", () 
     surge.match.not(surge.match.domainSuffix("example.org")),
     surge.match.any([surge.match.domain("a.example"), surge.match.domain("b.example")]),
   ];
-  const lowered = defineSurgeProfile({
+  const lowered = lowerSurgeProfile({
     ...input,
     routes: conditions.map((when) => defineRoute({ when, to: outbound.direct })),
   });
@@ -184,7 +183,7 @@ test("route batches preserve empty, duplicate and ordered conditions without IDs
   const b = surge.match.domain("b.example");
   assert.deepEqual(defineRoutes({ when: [], to: outbound.direct }), []);
   const routes = defineRoutes({ when: [a, b, a], to: outbound.direct });
-  const profile = defineSurgeProfile({ ...fixture(), routes });
+  const profile = lowerSurgeProfile({ ...fixture(), routes });
   assert.deepEqual(
     profile.rules.map((rule) => rule.when),
     [a, b, a],

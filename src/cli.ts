@@ -10,7 +10,7 @@ import { tsImport } from "tsx/esm/api";
 import { StaticRuleSetUnknownError } from "./rules.js";
 import { compile, explain, targetCatalog } from "./compiler.js";
 import { buildToDirectory } from "./host.js";
-import { runSurgeBuild, surgeBuildFailure, type SurgeBuildDefinition } from "./surge-build.js";
+import { profileBuildFailure } from "./profile-build.js";
 import { requestSchema } from "./schema.js";
 
 const print = (value: unknown) => process.stdout.write(JSON.stringify(value, null, 2) + "\n");
@@ -20,7 +20,6 @@ const failure = (code: string): number => {
 };
 const usages = {
   "profile-build": ["proxylang profile-build config.ts --out DIRECTORY [--validation]"],
-  "surge-build": ["proxylang surge-build config.ts --out DIRECTORY [--validation]"],
   targets: ["proxylang targets"],
   check: ["proxylang check config.ts"],
   explain: [
@@ -95,8 +94,7 @@ async function main(args: string[]): Promise<number> {
     });
     return 0;
   }
-  if (command === "surge-build" || command === "profile-build")
-    return surgeBuildCommand(file, rest, command === "profile-build");
+  if (command === "profile-build") return profileBuildCommand(file, rest);
   if (!["check", "explain", "build"].includes(command) || !file?.trim() || help(file))
     return failure("INVALID_ARGUMENTS");
   const options = new Map<string, string>();
@@ -185,13 +183,9 @@ async function main(args: string[]): Promise<number> {
 
 // @concord-code
 // @concord-implements docs/feature/artifact-publication/cli.md
-async function surgeBuildCommand(
-  file: string | undefined,
-  args: string[],
-  portable: boolean,
-): Promise<number> {
+async function profileBuildCommand(file: string | undefined, args: string[]): Promise<number> {
   const invalid = () => {
-    print(surgeBuildFailure("INVALID_ARGUMENTS"));
+    print(profileBuildFailure("INVALID_ARGUMENTS"));
     return 1;
   };
   if (!file?.trim() || file.startsWith("-")) return invalid();
@@ -216,19 +210,17 @@ async function surgeBuildCommand(
     } else return invalid();
   }
   if (output === undefined) return invalid();
-  let config: SurgeBuildDefinition;
+  let config: BuildDefinition;
   try {
     const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
     config = (
       loaded.default?.__esModule === true ? loaded.default.default : loaded.default
-    ) as SurgeBuildDefinition;
+    ) as BuildDefinition;
   } catch {
-    print(surgeBuildFailure("PROFILE_DEFINITION_FAILED", validation));
+    print(profileBuildFailure("PROFILE_DEFINITION_FAILED", validation));
     return 1;
   }
-  const result = portable
-    ? await runBuild(config as unknown as BuildDefinition, output, { validation })
-    : await runSurgeBuild(config, output, { validation });
+  const result = await runBuild(config, output, { validation });
   print(result);
   return result.exitCode;
 }

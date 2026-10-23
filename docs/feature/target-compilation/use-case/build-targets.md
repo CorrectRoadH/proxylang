@@ -30,3 +30,5 @@ defineConfig 对已知 programs 键检查 target 与 case 的 program 引用。s
 defineProfile 声明 target、nodes、groups、routes、fallback 与可选 endpoints。平台扩展位于 surge.config 所构造的 surge 字段或 singBox 字段。构建图保持共享实例身份，深只读快照与原输入隔离。公共结构可编译为 Surge 或 sing-box；专属扩展、选项、算法与端点不能静默移植。
 
 compileProfile 按精确目标适配现有编译器。Surge 递归转换公共 IPv6 CIDR、单项逻辑与命名规则集，保留未知字段供严格校验；无法表达刷新间隔时拒绝。sing-box 拒绝 Surge 条件选项与组顶层健康检查参数，urltest 参数来自算法；name 是显示元数据，逻辑 tag 使用 id。singBox.mode 区分 fragment 与 standalone，独立模式必须提供 listener，片段不冒充完整运行配置。
+
+设备 Profile API 只提供统一入口，不保留 Surge authoring/build 旧签名。通用组与路由类型直接描述公共结构及显式平台能力；平台 compile/render 仍可独立使用。

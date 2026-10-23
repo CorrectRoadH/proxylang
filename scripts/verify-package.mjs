@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  copyFileSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -57,18 +65,18 @@ try {
     `
     import assert from 'node:assert/strict';
     import {readFile, readlink} from 'node:fs/promises';
-    import {buildSurgeProfilesToDirectory, surgeProfile, surgeMembers, proxy, secret} from 'proxylang';
+    import {runBuild, defineProfile, defineProxyGroup, group, proxy, secret} from 'proxylang';
     const nodes=[proxy.trojan({id:'edge',label:'Edge',region:'SG',server:'192.0.2.1',port:443,password:secret('PASS')})];
-    const profile=surgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes,
-      groups:[{id:'choice',type:'select',members:surgeMembers(nodes,{regions:['SG']})}],rules:[],fallback:{ref:'choice'}},{choice:'Choice',elsewhere:'Unused'});
+    const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:nodes});
+    const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes,groups:[choice],routes:[],fallback:choice});
     let reads=0;
     const resolver=()=>{reads++;return 'fixture-pass';};
-    const built=await buildSurgeProfilesToDirectory({first:profile,second:profile},'complete-out',resolver);
+    const built=await runBuild({profiles:{first:profile,second:profile},resolveSecret:resolver},'complete-out');
     assert.equal(built.exitCode,0); assert.equal(reads,1);
     assert.match(await readFile('complete-out/out/first.conf','utf8'),/FINAL,Choice/);
     const old=await readlink('complete-out/out');
     reads=0;
-    const failed=await buildSurgeProfilesToDirectory({first:profile,second:{...profile,fallback:{ref:'absent'}}},'complete-out',resolver);
+    const failed=await runBuild({profiles:{first:profile,second:{...profile,fallback:proxy.http({id:'absent',server:'192.0.2.2',port:80,password:secret('PASS')})}},resolveSecret:resolver},'complete-out');
     assert.equal(failed.published,false); assert.equal(reads,0);
     assert.equal(await readlink('complete-out/out'),old);
   `,
@@ -80,34 +88,56 @@ try {
       "-e",
       `
     import assert from 'node:assert/strict';
-    import {defineProxyGroup,defineRoute,defineSurgeProfile,selectProxies,outbound,group,surge,proxy,secret,compileSurgeProfile} from 'proxylang';
+    import {defineProxyGroup,defineRoute,defineProfile,selectProxies,outbound,group,surge,proxy,secret,compileProfile} from 'proxylang';
     const node=proxy.http({id:'edge',server:'192.0.2.1',port:8080,password:secret('PASS')});
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:selectProxies([node],{ids:['edge']})});
-    const input=defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
-    assert.equal(compileSurgeProfile(input).ok,true);
+    const input=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
+    assert.equal(compileProfile(input).ok,true);
+  `,
+    ]),
+    "",
+  );
+  assert.equal(
+    run(process.execPath, [
+      "--input-type=module",
+      "-e",
+      `
+    import * as sdk from 'proxylang';
+    for (const name of ['defineSurgeProfile','defineSurgeBuild','runSurgeBuild','surgeProfile','surgeMembers','buildSurgeProfilesToDirectory','lowerSurgeProfile'])
+      if(name in sdk) throw Error('removed/internal export: '+name);
   `,
     ]),
     "",
   );
   writeFileSync(
-    join(temp, "surge-build.ts"),
-    `
-    import {defineSurgeBuild,defineRoutes,defineSurgeProfile,surge,outbound} from 'proxylang';
-    export default defineSurgeBuild({profiles:{box:defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[],groups:[],routes:defineRoutes({when:[surge.match.domain('example.com')],to:outbound.direct}),fallback:outbound.direct})},resolveSecret:()=> 'fixture'});
-  `,
+    join(temp, "removed-command.mjs"),
+    "import {writeFileSync} from 'node:fs'; writeFileSync('removed-loaded','bad');",
   );
-  const surgeResult = JSON.parse(
+  assert.throws(() =>
     run(process.execPath, [
       join(temp, "node_modules/proxylang/dist/cli.js"),
       "surge-build",
-      "surge-build.ts",
+      "removed-command.mjs",
       "--out",
-      "surge-build-out",
-      "--validation",
+      "removed-out",
     ]),
   );
-  assert.equal(surgeResult.published, true);
-  assert.equal(surgeResult.profileCount, 1);
+  assert.equal(existsSync(join(temp, "removed-loaded")), false);
+  writeFileSync(
+    join(temp, "removed-types.ts"),
+    `
+    // @ts-expect-error removed public type
+    import type {Destination} from 'proxylang';
+    // @ts-expect-error removed public type
+    import type {SurgeProfileDefinition} from 'proxylang';
+    // @ts-expect-error removed public type
+    import type {SurgeBuildDefinition} from 'proxylang';
+    // @ts-expect-error removed public type
+    import type {SurgeBuildContext} from 'proxylang';
+    // @ts-expect-error removed public type
+    import type {SurgeBuildResult} from 'proxylang';
+  `,
+  );
   writeFileSync(
     join(temp, "profile-build.ts"),
     `
@@ -235,6 +265,7 @@ try {
     "config.ts",
     "nodes.ts",
     "type-contracts.ts",
+    "removed-types.ts",
   ]);
   if (process.argv.includes("--keep")) {
     const output = resolve(root, ".cache/release");

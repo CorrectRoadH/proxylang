@@ -1,42 +1,29 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
 import type { GroupAlgorithm, ProxyNode } from "./types.js";
-import type {
-  SurgeCondition,
-  SurgePolicy,
-  SurgeProfileInput,
-  SurgeTunnel,
-} from "./surge-profile.js";
+import type { SurgeCondition, SurgePolicy, SurgeProfileInput } from "./surge-profile.js";
 
 import type { ProfileCondition, ProfileDestination } from "./profile.js";
 
-type Builtin = Extract<SurgePolicy, { builtin: string }>;
-export type Destination = ProxyNode | ProxyGroupDefinition | SurgeTunnel | Builtin;
-export interface ProxyGroupDefinition<
-  A extends GroupAlgorithm = Extract<GroupAlgorithm, { type: "select" | "surge-smart" }>,
-  D extends ProfileDestination = Destination,
-> {
+export interface ProxyGroupDefinition {
   readonly type: "proxy-group";
   readonly id: string;
   readonly name: string;
-  readonly algorithm: A;
-  readonly members: readonly D[];
+  readonly algorithm: GroupAlgorithm;
+  readonly members: readonly ProfileDestination[];
   readonly url?: string;
   readonly intervalSeconds?: number;
   readonly timeoutSeconds?: number;
 }
-export type RouteDefinition<
-  C extends ProfileCondition = SurgeCondition,
-  D extends ProfileDestination = Destination,
-> = {
+export type RouteDefinition = {
   readonly type: "route";
-  readonly when: C;
-  readonly to: D;
+  readonly when: ProfileCondition;
+  readonly to: ProfileDestination;
 };
-export type SurgeProfileDefinition = Omit<SurgeProfileInput, "groups" | "rules" | "fallback"> & {
+export type SurgeDefinitionInput = Omit<SurgeProfileInput, "groups" | "rules" | "fallback"> & {
   readonly groups: readonly ProxyGroupDefinition[];
   readonly routes: readonly RouteDefinition[];
-  readonly fallback: Destination;
+  readonly fallback: ProfileDestination;
 };
 export class ProfileDefinitionError extends Error {
   constructor(readonly code: string) {
@@ -135,9 +122,7 @@ export const outbound = {
   rejectNoDrop: Object.freeze({ builtin: "REJECT-NO-DROP" } as const),
   rejectTinyGif: Object.freeze({ builtin: "REJECT-TINYGIF" } as const),
 };
-export function defineProxyGroup<A extends GroupAlgorithm, D extends ProfileDestination>(
-  input: Omit<ProxyGroupDefinition<A, D>, "type">,
-): ProxyGroupDefinition<A, D> {
+export function defineProxyGroup(input: Omit<ProxyGroupDefinition, "type">): ProxyGroupDefinition {
   inspectDefinition(input);
   exactDefinition(input, [
     "id",
@@ -164,17 +149,15 @@ export function defineProxyGroup<A extends GroupAlgorithm, D extends ProfileDest
     members: [...input.members],
   };
 }
-export function defineRoute<C extends ProfileCondition, D extends ProfileDestination>(
-  input: Omit<RouteDefinition<C, D>, "type">,
-): RouteDefinition<C, D> {
+export function defineRoute(input: Omit<RouteDefinition, "type">): RouteDefinition {
   inspectDefinition(input);
   exactDefinition(input, ["when", "to"]);
   return { ...input, type: "route" };
 }
-export function defineRoutes<C extends ProfileCondition, D extends ProfileDestination>(input: {
-  readonly when: readonly C[];
-  readonly to: D;
-}): RouteDefinition<C, D>[] {
+export function defineRoutes(input: {
+  readonly when: readonly ProfileCondition[];
+  readonly to: ProfileDestination;
+}): RouteDefinition[] {
   inspectDefinition(input);
   exactDefinition(input, ["when", "to"]);
   if (!Array.isArray(input.when)) fail("INVALID_ROUTE_DEFINITION");
@@ -204,7 +187,7 @@ export function selectProxies(
       (!query.tags || query.tags.every((tag) => node.tags?.includes(tag))),
   );
 }
-export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileInput {
+export function lowerSurgeProfile(input: SurgeDefinitionInput) {
   inspectDefinition(input);
   exactDefinition(input, [
     "target",
@@ -225,7 +208,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
     (input.tunnels !== undefined && !Array.isArray(input.tunnels))
   )
     fail("DEFINITION_NOT_DATA");
-  const registry = new Map<string, Destination>();
+  const registry = new Map<string, ProfileDestination>();
   const names: Record<string, string> = Object.assign(Object.create(null), input.names);
   for (const resource of [...input.nodes, ...(input.tunnels ?? []), ...input.groups]) {
     if (!resource || typeof resource !== "object" || typeof resource.id !== "string")
@@ -251,7 +234,7 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
       writable: true,
     });
   }
-  function lower(destination: Destination): SurgePolicy {
+  function lower(destination: ProfileDestination): SurgePolicy {
     if (!destination || typeof destination !== "object") fail("INVALID_DESTINATION");
     if ("builtin" in destination) {
       exactDefinition(destination, ["builtin"]);

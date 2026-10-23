@@ -11,7 +11,7 @@ import {
   type SurgeProfileCompilation,
 } from "./surge-profile.js";
 import {
-  defineSurgeProfile,
+  lowerSurgeProfile,
   exactDefinition,
   inspectDefinition,
   snapshotDefinition,
@@ -19,15 +19,7 @@ import {
   type ProxyGroupDefinition,
   type RouteDefinition,
 } from "./surge-definitions.js";
-import type {
-  Action,
-  Group,
-  GroupAlgorithm,
-  Match,
-  ProxyNode,
-  TailscaleEndpoint,
-  Target,
-} from "./types.js";
+import type { Action, Group, Match, ProxyNode, TailscaleEndpoint, Target } from "./types.js";
 
 export type DeepReadonly<T> = T extends object
   ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
@@ -46,13 +38,9 @@ export type ProfileCondition =
       readonly noResolve?: boolean;
       readonly extendedMatching?: boolean;
     };
-export interface ProfileProxyGroup extends ProxyGroupDefinition<
-  GroupAlgorithm,
-  ProfileDestination
-> {}
 export type ProfileDestination =
   | ProxyNode
-  | ProfileProxyGroup
+  | ProxyGroupDefinition
   | SurgeTunnel
   | TailscaleEndpoint
   | { readonly builtin: "DIRECT" | "REJECT" | "REJECT-DROP" | "REJECT-NO-DROP" | "REJECT-TINYGIF" };
@@ -66,8 +54,8 @@ export type ProfileDefinition = {
         readonly version: string;
       };
   readonly nodes: readonly ProxyNode[];
-  readonly groups: readonly ProxyGroupDefinition<GroupAlgorithm, ProfileDestination>[];
-  readonly routes: readonly RouteDefinition<ProfileCondition, ProfileDestination>[];
+  readonly groups: readonly ProxyGroupDefinition[];
+  readonly routes: readonly RouteDefinition[];
   readonly fallback: ProfileDestination;
   readonly endpoints?: readonly (SurgeTunnel | TailscaleEndpoint)[];
   readonly surge?: DeepReadonly<SurgeConfig>;
@@ -171,7 +159,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
       if (profile.singBox !== undefined) fail("PROFILE_EXTENSION_UNSUPPORTED");
       if (profile.endpoints?.some((endpoint) => endpoint.type === "sing-box-tailscale"))
         fail("PROFILE_ENDPOINT_UNSUPPORTED");
-      const lowered = defineSurgeProfile({
+      const lowered = lowerSurgeProfile({
         target: profile.target,
         ...profile.surge,
         nodes: profile.nodes,
@@ -179,7 +167,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
         groups: profile.groups,
         routes: profile.routes.map((route) => ({ ...route, when: surgeCondition(route.when) })),
         fallback: profile.fallback,
-      } as Parameters<typeof defineSurgeProfile>[0]);
+      } as Parameters<typeof lowerSurgeProfile>[0]);
       const compilation = compileSurgeProfile(lowered);
       return { engine: "surge", ok: compilation.ok, compilation };
     }

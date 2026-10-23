@@ -13,66 +13,53 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
-  buildSurgeProfilesToDirectory,
-  runSurgeBuild,
-  defineSurgeBuild,
-  surgeProfile,
-  surgeMembers,
-  compileSurgeProfile,
+  runBuild,
+  defineBuild,
+  defineProxyGroup,
+  group,
   proxy,
   secret,
-  type SurgeProfileInput,
+  type ProfileDefinition,
+  type ProxyNode,
 } from "../src/index.js";
 import * as publisher from "../src/surge-publish.js";
 
-const input = (): SurgeProfileInput => ({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
-  nodes: [
-    proxy.trojan({
-      id: "edge",
-      label: "Edge",
-      provider: "fixture",
-      region: "SG",
-      server: "192.0.2.1",
-      port: 443,
-      password: secret("PASS"),
-    }),
-  ],
-  groups: [{ id: "choice", type: "select", members: [{ ref: "edge" }] }],
-  rules: [],
-  fallback: { ref: "choice" },
+const missing = proxy.http({
+  id: "missing",
+  server: "192.0.2.2",
+  port: 80,
+  password: secret("PASS"),
 });
+const input = (
+  node: ProxyNode = proxy.trojan({
+    id: "edge",
+    label: "Edge",
+    provider: "fixture",
+    region: "SG",
+    server: "192.0.2.1",
+    port: 443,
+    password: secret("PASS"),
+  }),
+): ProfileDefinition => {
+  const choice = defineProxyGroup({
+    id: "choice",
+    name: "Choice",
+    algorithm: group.select(),
+    members: [node],
+  });
+  return {
+    target: { engine: "surge", platform: "macos", version: "6.10.0" },
+    nodes: [node],
+    groups: [choice],
+    routes: [],
+    fallback: choice,
+  };
+};
 async function workspace(t: { onTestFinished(fn: () => Promise<void>): void }) {
   const root = await mkdtemp(join(tmpdir(), "proxylang-surge-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   return root;
 }
-
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
-test("composition selects shared names without masking unknown explicit mappings; queries preserve order", () => {
-  const profile = input();
-  const composed = surgeProfile(
-    { ...profile, names: { choice: "Explicit" } },
-    { choice: "Shared", unused: "Elsewhere" },
-  );
-  assert.equal(composed.general, profile.general);
-  assert.equal(composed.nodes, profile.nodes);
-  assert.deepEqual(composed.names, { edge: "Edge", choice: "Explicit" });
-  assert.equal(compileSurgeProfile(composed).ok, true);
-  assert.equal(
-    compileSurgeProfile(surgeProfile({ ...profile, names: { unknown: "Bad" } })).ok,
-    false,
-  );
-  const nodes = [
-    ...profile.nodes,
-    { ...profile.nodes[0]!, id: "second", region: "HK" },
-    { ...profile.nodes[0]!, id: "third" },
-  ];
-  assert.deepEqual(surgeMembers(nodes, { regions: ["SG"], providers: ["fixture"] }), [
-    { ref: "edge" },
-    { ref: "third" },
-  ]);
-});
 
 // @use-case docs/feature/artifact-publication/use-case/publish-generation.md
 test("batch compilation precedes all secret reads; rendering shares one snapshot and preserves old files on error", async (t) => {
@@ -85,29 +72,36 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   };
   assert.equal(
     (
-      await buildSurgeProfilesToDirectory(
-        { ...batch, second: { ...input(), fallback: { ref: "absent" } } },
+      await runBuild(
+        {
+          profiles: { ...batch, second: { ...input(), fallback: missing } },
+          resolveSecret: resolver,
+        },
         root,
-        resolver,
       )
     ).code,
-    "COMPILATION_FAILED",
+    "UNREGISTERED_DESTINATION_INSTANCE",
   );
   assert.equal(reads, 0);
   assert.deepEqual(await readdir(root), []);
-  const built = await buildSurgeProfilesToDirectory(batch, root, resolver);
+  const built = await runBuild({ profiles: batch, resolveSecret: resolver }, root);
   assert.equal(built.exitCode, 0);
   assert.equal(reads, 1);
   const old = await readlink(join(root, "out"));
   const before = await readFile(join(root, "out", "first.conf"), "utf8");
-  const second = {
-    ...input(),
-    nodes: [proxy.http({ id: "edge", server: "192.0.2.1", port: 80, password: secret("LATER") })],
-  };
-  const failed = await buildSurgeProfilesToDirectory({ first: input(), second }, root, (token) => {
-    if (token.name === "LATER") throw new Error("must-not-leak");
-    return "fixture-value";
-  });
+  const second = input(
+    proxy.http({ id: "edge", server: "192.0.2.1", port: 80, password: secret("LATER") }),
+  );
+  const failed = await runBuild(
+    {
+      profiles: { first: input(), second },
+      resolveSecret: (token) => {
+        if (token.name === "LATER") throw new Error("must-not-leak");
+        return "fixture-value";
+      },
+    },
+    root,
+  );
   assert.equal(failed.published, false);
   assert.equal(failed.code, "SECRET_RESOLUTION_FAILED");
   assert.ok(!JSON.stringify(failed).includes("must-not-leak"));
@@ -115,11 +109,11 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   assert.equal(await readFile(join(root, "out", "first.conf"), "utf8"), before);
   assert.equal((await readdir(join(root, ".generations"))).length, 1);
   assert.equal(
-    (await buildSurgeProfilesToDirectory(batch, "  ", resolver)).code,
+    (await runBuild({ profiles: batch, resolveSecret: resolver }, "  ")).code,
     "INVALID_OUTPUT_DIRECTORY",
   );
   assert.equal(
-    (await buildSurgeProfilesToDirectory({ "../bad": input() }, root, resolver)).code,
+    (await runBuild({ profiles: { "../bad": input() }, resolveSecret: resolver }, root)).code,
     "INVALID_PROFILE_FILENAMES",
   );
 });
@@ -138,7 +132,7 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const result = await runSurgeBuild(
+  const result = await runBuild(
     { profiles: { first: input() }, resolveSecret: () => "fixture" },
     root,
   );
@@ -160,7 +154,7 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const failed = await runSurgeBuild(
+  const failed = await runBuild(
     { profiles: { first: input() }, resolveSecret: () => "fixture" },
     legacy,
   );
@@ -193,11 +187,11 @@ test("build captures data before callbacks and resolves secrets only after the c
   const profiles = { first: input(), second: input() };
   let reads = 0;
   let preflights = 0;
-  const definition = defineSurgeBuild({
+  const definition = defineBuild({
     profiles,
     preflight: () => {
       preflights++;
-      profiles.second = { ...profiles.second, fallback: { ref: "missing" } };
+      profiles.second = { ...profiles.second, fallback: missing };
       return ["WARNING_A", "WARNING_B", "WARNING_A"];
     },
     resolveSecret: (_token, context) => {
@@ -206,15 +200,15 @@ test("build captures data before callbacks and resolves secrets only after the c
       return "fixture";
     },
   });
-  profiles.first = { ...profiles.first, fallback: { ref: "missing" } };
-  const result = await runSurgeBuild(definition, root, { validation: true });
+  profiles.first = { ...profiles.first, fallback: missing };
+  const result = await runBuild(definition, root, { validation: true });
   assert.equal(result.published, true);
   assert.equal(result.profileCount, 2);
   assert.deepEqual(result.warnings, { WARNING_A: 2, WARNING_B: 1 });
   assert.equal(preflights, 1);
   assert.equal(reads, 1);
   reads = 0;
-  const failed = await runSurgeBuild(
+  const failed = await runBuild(
     {
       profiles,
       resolveSecret: () => {
@@ -224,10 +218,10 @@ test("build captures data before callbacks and resolves secrets only after the c
     },
     root,
   );
-  assert.equal(failed.code, "COMPILATION_FAILED");
+  assert.equal(failed.code, "UNREGISTERED_DESTINATION_INSTANCE");
   assert.equal(reads, 0);
   assert.equal(
-    (await runSurgeBuild({ profiles }, root, { validation: true })).code,
+    (await runBuild({ profiles }, root, { validation: true })).code,
     "VALIDATION_RESOLVER_REQUIRED",
   );
   let getters = 0;
@@ -238,17 +232,17 @@ test("build captures data before callbacks and resolves secrets only after the c
       throw Error("private");
     },
   });
-  assert.equal((await runSurgeBuild(bad as never, root)).code, "INVALID_BUILD_DEFINITION");
+  assert.equal((await runBuild(bad as never, root)).code, "INVALID_BUILD_DEFINITION");
   assert.equal(getters, 0);
   for (const returned of [undefined, null, ["private-token"], Array(1), Array(1001).fill("WARN")]) {
-    const invalid = await runSurgeBuild({ profiles, preflight: () => returned as never }, root);
+    const invalid = await runBuild({ profiles, preflight: () => returned as never }, root);
     assert.equal(invalid.code, "INVALID_PREFLIGHT_WARNINGS");
     assert.equal(invalid.profileCount, 2);
     assert.deepEqual(invalid.warnings, {});
   }
   assert.equal(
     (
-      await runSurgeBuild(
+      await runBuild(
         {
           profiles,
           preflight: () => {

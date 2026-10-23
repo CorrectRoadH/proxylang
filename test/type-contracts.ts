@@ -1,14 +1,15 @@
 // @use-case docs/feature/rule-composition/use-case/compose-policy.md
 import {
   defineProfile,
-  type SurgeCondition,
+  type ProfileCondition,
+  type GroupAlgorithm,
   type ProxyGroupDefinition,
   type RouteDefinition,
   defineProxyGroup,
   defineRoute,
   defineRoutes,
-  defineSurgeBuild,
-  runSurgeBuild,
+  defineBuild,
+  runBuild,
   outbound,
   block,
   strategy,
@@ -118,25 +119,25 @@ const anonymous = defineRoute({ when: surge.match.domain("example.com"), to: out
 defineRoutes({ when: [anonymous.when], to: outbound.direct });
 // @ts-expect-error route identity is intentionally absent
 defineRoute({ id: "removed", when: anonymous.when, to: outbound.direct });
-const batch = defineSurgeBuild({
+const batch = defineBuild({
   profiles: {},
   resolveSecret: (_token, context) => (context.validation ? "fixture" : undefined),
 });
-void runSurgeBuild(batch, "out", { validation: true });
+void runBuild(batch, "out", { validation: true });
 
 export function profileTypeChecks() {
   const route: RouteDefinition = defineRoute({
     when: surge.match.domain("example.com"),
     to: outbound.direct,
   });
-  const condition: SurgeCondition = route.when;
+  const condition: ProfileCondition = route.when;
   const choice: ProxyGroupDefinition = defineProxyGroup({
     id: "choice",
     name: "Choice",
-    algorithm: group.select(),
+    algorithm: group.urltest({ url: "https://example.com", intervalSeconds: 300 }),
     members: [outbound.direct],
   });
-  const algorithm: { readonly type: "select" | "surge-smart" } = choice.algorithm;
+  const algorithm: GroupAlgorithm = choice.algorithm;
   const profile = defineProfile({
     target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
     nodes: [],

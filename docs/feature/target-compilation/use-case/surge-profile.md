@@ -92,20 +92,20 @@ SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运�
 - [Process rules](https://manual.nssurge.com/rules/process.html)
 - [General](https://manual.nssurge.com/profile/general.html)
 
-## 声明组合
-
-surgeProfile(input, names?) 保留输入对象字段与数组顺序，仅补齐原生名称映射。公共 names 字典可含其它设备资源；仅选实际资源，优先级为 input.names、公共字典、节点 label、逻辑 ID。未知 input.names 不删除，交编译器拒绝。surgeMembers(nodes, query?) 复用 selectNodes 的地区、供应商、tags 过滤，返回稳定有序的 ref 成员。两工具不读取秘密、不做 I/O。
-
 ## 对象定义
 
-defineProxyGroup 将逻辑 id、原生 name、algorithm 与对象成员合在一个定义；defineRoute 将 when 与对象目的地 to 合在一个定义。defineSurgeProfile 按显式 nodes/tunnels/groups/routes/fallback 列表降低成现有 SurgeProfileInput，顺序不变，不自动收集依赖。members、to、fallback 必须是登记列表中的同一对象实例；via 保持旧字符串 ID 语义。outbound 提供内置出口，selectProxies 返回稳定的原节点子序列；surge.match 提供完整原生条件构造器。
+defineProxyGroup 将逻辑 id、原生 name、algorithm 与对象成员合在一个定义；defineRoute 将 when 与对象目的地 to 合在一个定义。defineProfile 定义通用数据，内部 lowerSurgeProfile 按显式 nodes/tunnels/groups/routes/fallback 列表降低成 SurgeProfileInput，顺序不变，不自动收集依赖。members、to、fallback 必须是登记列表中的同一对象实例；via 保持旧字符串 ID 语义。outbound 提供内置出口，selectProxies 返回稳定的原节点子序列；surge.match 提供完整原生条件构造器。
 
-旧 policy/slot/use、selectNodes、surgeProfile 与所有编译/发布接口保持兼容。
+公开 authoring 只使用 defineProfile/defineProxyGroup/defineRoute/defineRoutes；无 Surge 专用 authoring 别名。Program DSL 和平台 compiler/render 是独立能力，不属于兼容层。
 
 构造器复制前拒绝 accessor、非数据值及循环图；定义图最多 20000 个唯一对象、100000 条边、64 层。共享子图按身份复用校验，但每条边计数；降低输出克隆前逐值扣除 100000 次出现预算及64层深度预算。
 
-ProfileDefinitionError 只包含固定 code，不输出原输入或异常。重复资源身份、不同实例引用、显示名称冲突和不支持算法拒绝。新接口不读秘密或做 I/O；最终旧编译器仍负责目标及条件的精确语义。
+ProfileDefinitionError 只包含固定 code，不输出原输入或异常。重复资源身份、不同实例引用、显示名称冲突和不支持算法拒绝。新接口不读秘密或做 I/O；最终平台编译器仍负责目标及条件的精确语义。
 
 ## 无 ID 路由与批量声明
 
 RouteDefinition 只包含 type、when、to。defineRoute({when,to}) 定义一条规则；defineRoutes({when:conditions,to}) 按顺序返回多条，空数组返回空数组，不排序、不去重、不折叠为 OR。删除仅用于重复检查的 route id，诊断沿用 rules[index]。旧 rule(id,...) API 不变。
+
+RouteDefinition 的 when/to 直接采用 ProfileCondition/ProfileDestination。
+
+ProxyGroupDefinition 的 algorithm/members 直接采用 GroupAlgorithm/ProfileDestination[]，不使用旧窄类型默认泛型。内部降低函数不经包入口导出。

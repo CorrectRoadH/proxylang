@@ -29,7 +29,7 @@ SDK 拒绝空输出路径，返回 INVALID_OUTPUT_DIRECTORY，不把空字符串
 
 ## 完整 Surge 批次
 
-buildSurgeProfilesToDirectory(profiles, output, resolveSecret?) 接受按声明顺序的设备名到 SurgeProfileInput 普通对象。设备名匹配小写字母数字起始、其后字母数字或连字符；1至16设备，生成 key.conf。空路径拒绝。全部编译成功后才按批次解析秘密并渲染；任一失败不写文件。默认秘密解析函数从环境读取，返回受控 BuildResult，不泄露原始异常。
+runBuild({profiles, resolveSecret?}, output) 接受按声明顺序的设备名到通用 Profile 的普通对象。设备名匹配小写字母数字起始、其后字母数字或连字符；1至16设备，按目标引擎生成 key.conf 或 key.json。空路径拒绝。全部编译成功后才按批次解析秘密并渲染；任一失败不写文件。默认秘密解析函数从环境读取，返回受控 BuildResult，不泄露原始异常。
 
 此入口保留 out 相对符号链接协议：output/.generations/UUID 私有目录与0600文件，一次重命名指针 output/out；output/.build-lock 独占锁不抢占，旧 generation不自动清理。既有 buildToDirectory 的 active.json 协议不变。首次 out 实体目录迁移保留完整备份；指针失败恢复旧目录；恢复失败为 PUBLISH_RECOVERY_REQUIRED，保留锁、备份、新 generation、临时指针，out可能缺失，需人工恢复，不声称旧指针保留。
 
@@ -37,7 +37,7 @@ buildSurgeProfilesToDirectory(profiles, output, resolveSecret?) 接受按声明�
 
 ## 应用构建定义
 
-defineSurgeBuild 固定 profiles 深复制快照与可选 preflight、resolveSecret 回调。纯数据预算沿用既有校验；快照和 envelope 冻结。runSurgeBuild 在预检前固定本批次，原对象及预检闭包修改原输入不改变此次编译。回调由可信应用提供，不能自行输出。
+defineBuild 固定 profiles 深复制快照与可选 preflight、resolveSecret 回调。纯数据预算沿用既有校验；快照和 envelope 冻结。runBuild 在预检前固定本批次，原对象及预检闭包修改原输入不改变此次编译。回调由可信应用提供，不能自行输出。
 
 预检返回最多1000个大写字母数字下划线警告码，按首次出现顺序计数；异常和非法返回使用固定错误码。秘密回调接收 token 与只读 validation 标志，且仅在整批编译成功后的渲染阶段调用。生产默认惰性读环境；validation 必须提供应用秘密解析函数，不猜测测试秘密。
 
@@ -45,6 +45,8 @@ defineSurgeBuild 固定 profiles 深复制快照与可选 preflight、resolveSec
 
 ## 通用 Profile 批次
 
-defineBuild/runBuild 及 profile-build CLI 复用预检、警告、秘密延迟与退出码协议。新批次快照保留对象别名，全部目标编译后才共享按 token.name 缓存的秘密解析。sing-box 端点状态目录与输出目录相同或互为祖先时，在秘密读取与发布前报 ENDPOINT_STATE_OVERLAP。不证明跨设备状态目录全局独占。
+defineBuild/runBuild 及 profile-build CLI 复用预检、警告、秘密延迟与退出码协议。批次快照保留对象别名，全部目标编译后才共享按 token.name 缓存的秘密解析。sing-box 端点状态目录与输出目录相同或互为祖先时，在秘密读取与发布前报 ENDPOINT_STATE_OVERLAP。不证明跨设备状态目录全局独占。
 
-Profile key 与引擎决定 .conf/.json 文件名，整批以 out 单次切换；旧代、恢复现场与 0/1/2 结果不变。旧 Surge/Program API 与 CLI 保持兼容。
+Profile key 与引擎决定 .conf/.json 文件名，整批以 out 单次切换；旧代、恢复现场与 0/1/2 结果不变。仅保留 profile-build 设备构建入口；Program API/CLI 是独立能力。
+
+设备构建只有 defineBuild/runBuild/profile-build 一套实现，不提供 Surge 专用包装 host、旧函数名或 CLI 转发。输出落盘与恢复协议不因 authoring API 收敛而改变。

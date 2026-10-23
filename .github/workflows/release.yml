@@ -1,6 +1,12 @@
 name: Publish npm
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the main version after all CI checks pass
+        type: boolean
+        required: true
+        default: false
   push:
     tags: ["v*"]
 permissions:
@@ -29,10 +35,13 @@ jobs:
       - name: Validate release tag and main ancestry
         env:
           RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_EVENT: ${{ github.event_name }}
         run: |
           vp exec node --input-type=module -e '
             import assert from "node:assert/strict";
             import fs from "node:fs";
+            if (process.env.RELEASE_EVENT === "workflow_dispatch") assert.equal(process.env.RELEASE_REF, "refs/heads/main");
             const pkg = JSON.parse(fs.readFileSync("package.json"));
             const lock = JSON.parse(fs.readFileSync("package-lock.json"));
             if (process.env.RELEASE_TAG) assert.match(process.env.RELEASE_TAG, /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
@@ -47,7 +56,7 @@ jobs:
       - name: Build and test the exact publish tarball
         run: vp run test:package -- --keep
       - name: Publish to npm using trusted publishing
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || inputs.publish
         run: vp exec npx --yes --package=npm@12.2.1 npm publish .cache/release/proxylang-*.tgz --access public --provenance --ignore-scripts --registry https://registry.npmjs.org/
       - name: Verify public version and exact tarball integrity
         run: vp exec node scripts/verify-published.mjs

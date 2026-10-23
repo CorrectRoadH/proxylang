@@ -15,9 +15,17 @@ feature: docs/feature/target-compilation/README.md
 
 ## 公共入口
 
-compileSurgeProfile(input: unknown) 接受 SurgeProfileInput，返回不可变的 SurgeProfileCompilation（ok、artifactKind=surge-profile、diagnostics、bindings）。计划私有保存，不能伪造或修改成功结果。renderSurgeProfile(compilation,resolver) 返回 {artifactKind:'surge-profile',content}。renderSurgeProfiles(compilations,resolver) 先确认整批计划有效，再以整批共享的秘密快照渲染，返回输入顺序相同的产物数组；同名秘密每批仅解析一次。
+`compileSurgeProfile(input: unknown)` 接受 SurgeProfileInput，返回不可变的 SurgeProfileCompilation（ok、artifactKind=surge-profile、diagnostics、bindings）。
 
-目标仅为 Surge macOS 6.10.0 与 iOS 5.21.0；该入口的目标目录独立于既有通用 Program 和节点片段入口，不扩展其它编译器的支持声明。两平台支持已实现的 HTTP/Trojan/AnyTLS/Shadowsocks/VMess 编码，未知协议或参数拒绝。iOS 拒绝 macOS 专属 General、processName 和 macAddress。构建成功不代表目标设备已安装此版本。
+计划私有保存，不能伪造或修改成功结果。
+
+`renderSurgeProfile(compilation, resolveSecret)` 返回 {artifactKind:'surge-profile',content}。
+
+`renderSurgeProfiles(compilations, resolveSecret)` 先确认整批计划有效，再以整批共享的秘密快照渲染，返回输入顺序相同的产物数组；同名秘密每批仅解析一次。
+
+
+
+目标仅为 Surge macOS 6.10.0 与 iOS 5.21.0；该入口的目标目录独立于既有通用 Program 和节点片段入口，不扩展其它编译器的支持声明。两平台支持 HTTP/Trojan/AnyTLS/Shadowsocks/VMess 编码，未知协议或参数拒绝。iOS 拒绝 macOS 专属 General、processName 和 macAddress。构建成功不代表目标设备已安装此版本。
 
 ## 声明结构
 
@@ -25,11 +33,47 @@ compileSurgeProfile(input: unknown) 接受 SurgeProfileInput，返回不可变�
 
 SurgePolicy 是 {ref:string} 或 {builtin:'DIRECT'|'REJECT'|'REJECT-DROP'|'REJECT-NO-DROP'|'REJECT-TINYGIF'}。groups 使用 {id,type:'select'|'smart',members:SurgePolicy[],url?,intervalSeconds?,timeoutSeconds?}。Smart 成员只能为节点/隧道，且不接受 select 测试选项。验证所有资源的完整 via/成员联合图，未知引用、自环、跨节点和组的环、孤立环均拒绝；不把拓扑有效宣称为 UDP 可达证明。
 
-SurgeRule={when:SurgeCondition,then:SurgePolicy}。SurgeCondition 支持 domain/domainSuffix/ipCidr/ipCidr6/sourceIp/processName/macAddress（value:string）、port/sourcePort（from:number,to?:number）、network（value:'tcp'|'udp'）、all/any（conditions）、not（condition）、ruleSet（format:'rule-set'|'domain-set'，url 或 builtin:LAN|SYSTEM 互斥）。sourceIp 接受单 IP 和 CIDR。条件可带 noResolve?:boolean、extendedMatching?:boolean，默认 false；noResolve 仅 IP/ruleSet，extendedMatching 仅域名/ruleSet，其余类型即使显式false也拒绝。顶层选项编码在动作之后，子条件选项编码在括号内。最大逻辑嵌套10层。内建规则集只允许rule-set，同 URL 不能用两种格式。远程规则集不下载并报告未验证warning。fallback 单独生成最后的FINAL；不隐式插入 no-resolve，不排序规则。
+SurgeRule={when:SurgeCondition,then:SurgePolicy}。
 
-managed={url,query?:Record<string,string|Secret>,intervalSeconds,strict}，URL不得含query、fragment或凭据，query用标准URL编码；秘密只在渲染时取得，不使用生成后字符串替换。General为严格已知键对象，覆盖本次声明的DNS、日志、VIF、监听、控制接口、skip/bypass/always-real-ip选项；http-api与external-controller-access均为{password:Secret,listen:string}。枚举、IP/监听、DNS、host-list、URL各按字段类型验证，拒绝未知键及配置注入。Host={pattern,address?,server?} 至少有一个目标，支持域名/通配域名、IP/别名和system/DNS/加密DNS服务器。
+SurgeCondition 支持 domain/domainSuffix/ipCidr/ipCidr6/sourceIp/processName/macAddress（value:string）、port/sourcePort（from:number,to?:number）、network（value:'tcp'|'udp'）、all/any（conditions）、not（condition）、ruleSet（format:'rule-set'|'domain-set'，url 或 builtin:LAN|SYSTEM 互斥）。
 
-tunnels 支持 {id,type:'tailscale',sectionName,authKey:Secret,hostname,dnsServer?,autoAddMagicDnsRule?,idleKeepalive?} 及 {id,type:'wireguard',sectionName,privateKey:Secret,selfIp,dnsServer?,mtu?,peers:[{publicKey,endpoint,allowedIps,presharedKey?:Secret,persistentKeepalive?}]}。dnsServer和allowedIps是字符串数组，selfIp是单IPv4地址。WireGuard public/private/preshared key为32字节base64，endpoint为hostname:port；未知字段拒绝。SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运行身份或连接。输出不得丢弃显式字段。
+sourceIp 接受单 IP 和 CIDR。
+
+条件可带 noResolve?:boolean、extendedMatching?:boolean，默认 false；noResolve 仅 IP/ruleSet，extendedMatching 仅域名/ruleSet，其余类型即使显式false也拒绝。
+
+顶层选项编码在动作之后，子条件选项编码在括号内。
+
+最大逻辑嵌套10层。
+
+内建规则集只允许rule-set，同 URL 不能用两种格式。
+
+远程规则集不下载并报告未验证warning。
+
+fallback 单独生成最后的FINAL；不隐式插入 `no-resolve`，不排序规则。
+
+
+
+managed={url,query?:Record<string,string|Secret>,intervalSeconds,strict}，URL不得含query、fragment或凭据，query用标准URL编码；秘密只在渲染时取得，不使用生成后字符串替换。
+
+General为严格已知键对象，覆盖本次声明的DNS、日志、VIF、监听、控制接口、skip/bypass/always-real-ip选项；http-api与external-controller-access均为{password:Secret,listen:string}。
+
+枚举、IP/监听、DNS、host-list、URL各按字段类型验证，拒绝未知键及配置注入。
+
+Host={pattern,address?,server?} 至少有一个目标，支持域名/通配域名、IP/别名和system/DNS/加密DNS服务器。
+
+
+
+tunnels 支持 {id,type:'tailscale',sectionName,authKey:Secret,hostname,dnsServer?,autoAddMagicDnsRule?,idleKeepalive?} 及 {id,type:'wireguard',sectionName,privateKey:Secret,selfIp,dnsServer?,mtu?,peers:[{publicKey,endpoint,allowedIps,presharedKey?:Secret,persistentKeepalive?}]}。
+
+dnsServer和allowedIps是字符串数组，selfIp是单IPv4地址。
+
+WireGuard public/private/preshared key为32字节base64，endpoint为hostname:port；未知字段拒绝。
+
+SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运行身份或连接。
+
+输出不得丢弃显式字段。
+
+
 
 ## 失败与安全
 

@@ -2,6 +2,9 @@
 import {
   defineProxyGroup,
   defineRoute,
+  defineRoutes,
+  defineSurgeBuild,
+  runSurgeBuild,
   outbound,
   block,
   strategy,
@@ -103,6 +106,16 @@ defineProxyGroup({
   members: [outbound.direct],
 });
 // @ts-expect-error destinations are objects, not string IDs
-defineRoute({ id: "bad", when: surge.match.domain("example.com"), to: "typed" });
+defineRoute({ when: surge.match.domain("example.com"), to: "typed" });
 // @ts-expect-error native groups do not silently lower unsupported algorithms
 defineProxyGroup({ id: "bad", name: "Bad", algorithm: group.auto(), members: [] });
+
+const anonymous = defineRoute({ when: surge.match.domain("example.com"), to: outbound.direct });
+defineRoutes({ when: [anonymous.when], to: outbound.direct });
+// @ts-expect-error route identity is intentionally absent
+defineRoute({ id: "removed", when: anonymous.when, to: outbound.direct });
+const batch = defineSurgeBuild({
+  profiles: {},
+  resolveSecret: (_token, context) => (context.validation ? "fixture" : undefined),
+});
+void runSurgeBuild(batch, "out", { validation: true });

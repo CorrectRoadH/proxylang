@@ -83,12 +83,31 @@ try {
     import {defineProxyGroup,defineRoute,defineSurgeProfile,selectProxies,outbound,group,surge,proxy,secret,compileSurgeProfile} from 'proxylang';
     const node=proxy.http({id:'edge',server:'192.0.2.1',port:8080,password:secret('PASS')});
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:selectProxies([node],{ids:['edge']})});
-    const input=defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({id:'local',when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
+    const input=defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
     assert.equal(compileSurgeProfile(input).ok,true);
   `,
     ]),
     "",
   );
+  writeFileSync(
+    join(temp, "surge-build.ts"),
+    `
+    import {defineSurgeBuild,defineRoutes,defineSurgeProfile,surge,outbound} from 'proxylang';
+    export default defineSurgeBuild({profiles:{box:defineSurgeProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[],groups:[],routes:defineRoutes({when:[surge.match.domain('example.com')],to:outbound.direct}),fallback:outbound.direct})},resolveSecret:()=> 'fixture'});
+  `,
+  );
+  const surgeResult = JSON.parse(
+    run(process.execPath, [
+      join(temp, "node_modules/proxylang/dist/cli.js"),
+      "surge-build",
+      "surge-build.ts",
+      "--out",
+      "surge-build-out",
+      "--validation",
+    ]),
+  );
+  assert.equal(surgeResult.published, true);
+  assert.equal(surgeResult.profileCount, 1);
   writeFileSync(
     join(temp, "type-contracts.ts"),
     readFileSync(join(root, "test/type-contracts.ts"), "utf8").replace(

@@ -37,6 +37,7 @@ export { buildSurgeProfilesToDirectory } from "./surge-host.js";
 export {
   defineProxyGroup,
   defineRoute,
+  defineRoutes,
   defineSurgeProfile,
   selectProxies,
   outbound,
@@ -48,3 +49,6 @@ export type {
   SurgeProfileDefinition,
   Destination,
 } from "./surge-definitions.js";
+
+export { defineSurgeBuild, runSurgeBuild } from "./surge-build.js";
+export type { SurgeBuildDefinition, SurgeBuildResult, SurgeBuildContext } from "./surge-build.js";

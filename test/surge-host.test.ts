@@ -14,6 +14,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   buildSurgeProfilesToDirectory,
+  runSurgeBuild,
+  defineSurgeBuild,
   surgeProfile,
   surgeMembers,
   compileSurgeProfile,
@@ -136,7 +138,10 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const result = await buildSurgeProfilesToDirectory({ first: input() }, root, () => "fixture");
+  const result = await runSurgeBuild(
+    { profiles: { first: input() }, resolveSecret: () => "fixture" },
+    root,
+  );
   assert.equal(result.published, true);
   assert.equal(result.exitCode, 2);
   assert.equal(result.code, "PUBLISHED_CLEANUP_FAILED");
@@ -155,7 +160,10 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const failed = await buildSurgeProfilesToDirectory({ first: input() }, legacy, () => "fixture");
+  const failed = await runSurgeBuild(
+    { profiles: { first: input() }, resolveSecret: () => "fixture" },
+    legacy,
+  );
   assert.equal(failed.published, false);
   assert.equal(failed.exitCode, 1);
   assert.equal(failed.code, "PUBLISH_RECOVERY_REQUIRED");
@@ -176,5 +184,80 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       "utf8",
     ),
     "old",
+  );
+});
+
+// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+test("build captures data before callbacks and resolves secrets only after the complete batch compiles", async (t) => {
+  const root = await workspace(t);
+  const profiles = { first: input(), second: input() };
+  let reads = 0;
+  let preflights = 0;
+  const definition = defineSurgeBuild({
+    profiles,
+    preflight: () => {
+      preflights++;
+      profiles.second = { ...profiles.second, fallback: { ref: "missing" } };
+      return ["WARNING_A", "WARNING_B", "WARNING_A"];
+    },
+    resolveSecret: (_token, context) => {
+      reads++;
+      assert.equal(context.validation, true);
+      return "fixture";
+    },
+  });
+  profiles.first = { ...profiles.first, fallback: { ref: "missing" } };
+  const result = await runSurgeBuild(definition, root, { validation: true });
+  assert.equal(result.published, true);
+  assert.equal(result.profileCount, 2);
+  assert.deepEqual(result.warnings, { WARNING_A: 2, WARNING_B: 1 });
+  assert.equal(preflights, 1);
+  assert.equal(reads, 1);
+  reads = 0;
+  const failed = await runSurgeBuild(
+    {
+      profiles,
+      resolveSecret: () => {
+        reads++;
+        return "fixture";
+      },
+    },
+    root,
+  );
+  assert.equal(failed.code, "COMPILATION_FAILED");
+  assert.equal(reads, 0);
+  assert.equal(
+    (await runSurgeBuild({ profiles }, root, { validation: true })).code,
+    "VALIDATION_RESOLVER_REQUIRED",
+  );
+  let getters = 0;
+  const bad = Object.defineProperty({}, "profiles", {
+    enumerable: true,
+    get() {
+      getters++;
+      throw Error("private");
+    },
+  });
+  assert.equal((await runSurgeBuild(bad as never, root)).code, "INVALID_BUILD_DEFINITION");
+  assert.equal(getters, 0);
+  for (const returned of [undefined, null, ["private-token"], Array(1), Array(1001).fill("WARN")]) {
+    const invalid = await runSurgeBuild({ profiles, preflight: () => returned as never }, root);
+    assert.equal(invalid.code, "INVALID_PREFLIGHT_WARNINGS");
+    assert.equal(invalid.profileCount, 2);
+    assert.deepEqual(invalid.warnings, {});
+  }
+  assert.equal(
+    (
+      await runSurgeBuild(
+        {
+          profiles,
+          preflight: () => {
+            throw Error("private");
+          },
+        },
+        root,
+      )
+    ).code,
+    "PREFLIGHT_FAILED",
   );
 });

@@ -34,3 +34,11 @@ buildSurgeProfilesToDirectory(profiles, output, resolveSecret?) 接受按声明�
 此入口保留 out 相对符号链接协议：output/.generations/UUID 私有目录与0600文件，一次重命名指针 output/out；output/.build-lock 独占锁不抢占，旧 generation不自动清理。既有 buildToDirectory 的 active.json 协议不变。首次 out 实体目录迁移保留完整备份；指针失败恢复旧目录；恢复失败为 PUBLISH_RECOVERY_REQUIRED，保留锁、备份、新 generation、临时指针，out可能缺失，需人工恢复，不声称旧指针保留。
 
 正常发布 true/0；提交后清理失败 true/2且active指向out；提交前失败false/1。清理未发布产物失败为FAILED_CLEANUP_REQUIRED；发布后为PUBLISHED_CLEANUP_FAILED。调用方透传exitCode，不能把true/2称作未发布。不承诺断电事务。测试真实I/O失败、秘密整批缓存、后续profile失败零读取、权限、非法路径与恢复现场。
+
+## 应用构建定义
+
+defineSurgeBuild 固定 profiles 深复制快照与可选 preflight、resolveSecret 回调。纯数据预算沿用既有校验；快照和 envelope 冻结。runSurgeBuild 在预检前固定本批次，原对象及预检闭包修改原输入不改变此次编译。回调由可信应用提供，不能自行输出。
+
+预检返回最多1000个大写字母数字下划线警告码，按首次出现顺序计数；异常和非法返回使用固定错误码。秘密回调接收 token 与只读 validation 标志，且仅在整批编译成功后的渲染阶段调用。生产默认惰性读环境；validation 必须提供应用秘密解析函数，不猜测测试秘密。
+
+新入口返回原 BuildResult 全部字段及 warnings、validation、profileCount；预检前错误使用空 warnings，未固定配置前数量为0。原 host 的 active、hint、exitCode 均原样透传；恢复失败不清现场、不补 active、不重试。

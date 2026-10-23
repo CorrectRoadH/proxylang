@@ -22,7 +22,6 @@ export type ProxyGroupDefinition = {
 };
 export type RouteDefinition = {
   readonly type: "route";
-  readonly id: string;
   readonly when: SurgeCondition;
   readonly to: Destination;
 };
@@ -113,6 +112,10 @@ function snapshot<T>(input: T): T {
   }
   return copy(input, 0) as T;
 }
+export function snapshotDefinition<T>(input: T): T {
+  inspect(input);
+  return snapshot(input);
+}
 function exact(value: object, keys: readonly string[]): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("DEFINITION_NOT_DATA");
   if (Object.keys(value).some((key) => !keys.includes(key))) fail("DEFINITION_UNKNOWN_FIELD");
@@ -140,8 +143,17 @@ export function defineProxyGroup(input: Omit<ProxyGroupDefinition, "type">): Pro
 }
 export function defineRoute(input: Omit<RouteDefinition, "type">): RouteDefinition {
   inspect(input);
-  exact(input, ["id", "when", "to"]);
+  exact(input, ["when", "to"]);
   return { ...input, type: "route" };
+}
+export function defineRoutes(input: {
+  readonly when: readonly SurgeCondition[];
+  readonly to: Destination;
+}): RouteDefinition[] {
+  inspect(input);
+  exact(input, ["when", "to"]);
+  if (!Array.isArray(input.when)) fail("INVALID_ROUTE_DEFINITION");
+  return input.when.map((when) => ({ type: "route", when, to: input.to }));
 }
 export function selectProxies(
   nodes: readonly ProxyNode[],
@@ -251,12 +263,9 @@ export function defineSurgeProfile(input: SurgeProfileDefinition): SurgeProfileI
       ...(timeoutSeconds === undefined ? {} : { timeoutSeconds }),
     };
   });
-  const ids = new Set<string>();
   const rules = input.routes.map((definition) => {
-    exact(definition, ["type", "id", "when", "to"]);
+    exact(definition, ["type", "when", "to"]);
     if (definition.type !== "route") fail("INVALID_ROUTE_DEFINITION");
-    if (ids.has(definition.id)) fail("DUPLICATE_ROUTE_ID");
-    ids.add(definition.id);
     return { when: definition.when, then: lower(definition.to) };
   });
   const { routes: _routes, groups: _groups, fallback, ...rest } = input;

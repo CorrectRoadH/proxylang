@@ -9,6 +9,7 @@ import { tsImport } from "tsx/esm/api";
 import { StaticRuleSetUnknownError } from "./rules.js";
 import { compile, explain, targetCatalog } from "./compiler.js";
 import { buildToDirectory } from "./host.js";
+import { runSurgeBuild, surgeBuildFailure, type SurgeBuildDefinition } from "./surge-build.js";
 import { requestSchema } from "./schema.js";
 
 const print = (value: unknown) => process.stdout.write(JSON.stringify(value, null, 2) + "\n");
@@ -17,6 +18,7 @@ const failure = (code: string): number => {
   return 1;
 };
 const usages = {
+  "surge-build": ["proxylang surge-build config.ts --out DIRECTORY [--validation]"],
   targets: ["proxylang targets"],
   check: ["proxylang check config.ts"],
   explain: [
@@ -91,6 +93,7 @@ async function main(args: string[]): Promise<number> {
     });
     return 0;
   }
+  if (command === "surge-build") return surgeBuildCommand(file, rest);
   if (!["check", "explain", "build"].includes(command) || !file?.trim() || help(file))
     return failure("INVALID_ARGUMENTS");
   const options = new Map<string, string>();
@@ -176,6 +179,51 @@ async function main(args: string[]): Promise<number> {
   print({ ...built, diagnostics: result.diagnostics });
   return built.exitCode;
 }
+
+// @concord-code
+// @concord-implements docs/feature/artifact-publication/cli.md
+async function surgeBuildCommand(file: string | undefined, args: string[]): Promise<number> {
+  const invalid = () => {
+    print(surgeBuildFailure("INVALID_ARGUMENTS"));
+    return 1;
+  };
+  if (!file?.trim() || file.startsWith("-")) return invalid();
+  let output: string | undefined;
+  let validation = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--out" && output === undefined) {
+      const value = args[++i];
+      if (!value?.trim() || value.startsWith("-")) return invalid();
+      output = value;
+    } else if (arg === "--validation" && !validation) validation = true;
+    else if (
+      arg === "--" &&
+      output !== undefined &&
+      !validation &&
+      i === args.length - 2 &&
+      args[i + 1] === "--validation"
+    ) {
+      validation = true;
+      i++;
+    } else return invalid();
+  }
+  if (output === undefined) return invalid();
+  let config: SurgeBuildDefinition;
+  try {
+    const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
+    config = (
+      loaded.default?.__esModule === true ? loaded.default.default : loaded.default
+    ) as SurgeBuildDefinition;
+  } catch {
+    print(surgeBuildFailure("PROFILE_DEFINITION_FAILED", validation));
+    return 1;
+  }
+  const result = await runSurgeBuild(config, output, { validation });
+  print(result);
+  return result.exitCode;
+}
+
 try {
   process.exitCode = await main(process.argv.slice(2));
 } catch (cause) {

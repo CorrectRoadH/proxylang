@@ -17,3 +17,16 @@ export type { CaseResult } from "./compiler.js";
 export type { ProxyBuilder } from "./proxy-builder.js";
 export { compileProxyNodes, renderProxyNodes } from "./proxy-fragments.js";
 export type { ProxyNodeInput, ProxyNodeCompilation, ProxyNodeArtifact } from "./proxy-fragments.js";
+export { compileSurgeProfile, renderSurgeProfile, renderSurgeProfiles } from "./surge-profile.js";
+export type {
+  SurgeProfileInput,
+  SurgeProfileCompilation,
+  SurgeProfileArtifact,
+  SurgeCondition,
+  SurgePolicy,
+  SurgeRule,
+  SurgeGeneral,
+  SurgeHost,
+  SurgeGroup,
+  SurgeTunnel,
+} from "./surge-profile.js";

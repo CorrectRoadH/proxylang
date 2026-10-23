@@ -25,3 +25,5 @@ constitutionRefs:
 - [按协议定义代理与有状态端点](use-case/define-proxies.md)
 
 - [将 provider 节点接入原生配置](use-case/provider-nodes.md)
+
+- [构建完整 Surge 配置](use-case/surge-profile.md)

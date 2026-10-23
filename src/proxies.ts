@@ -29,7 +29,7 @@ export function nodeIsTcpOnly(node: ProxyNode, engine: Engine): boolean {
 }
 export function validateProxyOptions(
   node: ProxyNode,
-  target: Target,
+  target: Pick<Target, "engine" | "id"> & Partial<Omit<Target, "engine" | "id">>,
   diagnostics: Diagnostic[],
 ): void {
   const tls = "tls" in node ? node.tls : undefined;

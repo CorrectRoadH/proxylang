@@ -109,7 +109,23 @@ const routing = sequence(
 
 `slot` 是普通 TypeScript 函数，表示模板的出口参数；`route` 引用具体节点或组。编辑器会检查字面量槽位名称、缺失或多余的绑定，并沿嵌套块与模板保留提示。`defineConfig` 也会检查目标与案例引用的程序名称。动态输入仍由 `check` 验证。
 
-### 2. 一个出口，显式选择平台策略
+### 2. 一个出口，共享算法意图
+
+自动择优可以只声明一次，让各平台选择实现：
+
+```ts
+const automatic = strategy({
+  id: "automatic",
+  members: ["edge"],
+  algorithm: group.auto(),
+});
+```
+
+Surge 使用 Smart，sing-box 与 Mihomo 使用 URLTest。`auto` 允许评分和切换时机不同；`check` 会显示声明的算法与实际实现。默认 URLTest 使用 `https://www.gstatic.com/generate_204`、180 秒周期和 50 毫秒容差。Stash 当前不支持 `auto`。
+
+要求固定机制时使用 `algorithm: group.select()` 或 `algorithm: group.urltest({ url: "https://example.com/probe" })`；目标不能满足就报错。也可以给 `auto` 添加 `implementations`，明确覆写某个平台的实现。
+
+原有显式平台配置仍然支持：
 
 规则引用 `adaptive`，节点成员与出口名称可以共用，具体选路算法由每个平台独立声明。
 

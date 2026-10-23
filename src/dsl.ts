@@ -18,6 +18,7 @@ import type {
   Use,
   GroupAlgorithm,
   Strategy,
+  StrategyDefinition,
   TailscaleEndpoint,
 } from "./types.js";
 
@@ -126,19 +127,20 @@ export function selectNodes(
     .map((node) => node.id);
 }
 
-/** A shared strategy explicitly chooses an algorithm for each engine. */
-export const strategy = (definition: Omit<Strategy, "type">): Strategy => ({
+/** A shared strategy declares an algorithm or explicitly selects native implementations. */
+export const strategy = (definition: StrategyDefinition): Strategy => ({
   type: "strategy",
   ...definition,
 });
 export const group = {
-  select: (): GroupAlgorithm => ({ type: "select" }),
+  auto: (): { readonly type: "auto" } => ({ type: "auto" }),
+  select: (): Extract<GroupAlgorithm, { type: "select" }> => ({ type: "select" }),
   urltest: (
     options: Omit<Extract<GroupAlgorithm, { type: "urltest" }>, "type">,
-  ): GroupAlgorithm => ({ type: "urltest", ...options }),
+  ): Extract<GroupAlgorithm, { type: "urltest" }> => ({ type: "urltest", ...options }),
 };
 export const surge = {
-  smart: (): GroupAlgorithm => ({ type: "surge-smart" }),
+  smart: (): Extract<GroupAlgorithm, { type: "surge-smart" }> => ({ type: "surge-smart" }),
   ruleSet: (
     options: Omit<Extract<NativeRuleSet, { engine: "surge" }>, "type" | "engine" | "format"> & {
       format?: "rule-set" | "domain-set";

@@ -5,6 +5,7 @@ export const targetCatalog = deepFreeze([
   {
     engine: "sing-box",
     version: "1.11.0",
+    autoGroup: "urltest",
     platforms: ["linux", "macos"],
     protocols: ["trojan", "http", "shadowsocks", "vmess", "vless"],
     endpoints: [],
@@ -15,6 +16,7 @@ export const targetCatalog = deepFreeze([
   {
     engine: "sing-box",
     version: "1.12.0",
+    autoGroup: "urltest",
     platforms: ["linux", "macos"],
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess", "vless"],
     endpoints: ["sing-box-tailscale"],
@@ -25,6 +27,7 @@ export const targetCatalog = deepFreeze([
   {
     engine: "surge",
     version: "6.10.0",
+    autoGroup: "surge-smart",
     platforms: ["macos"],
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess"],
     endpoints: [],
@@ -35,6 +38,7 @@ export const targetCatalog = deepFreeze([
   {
     engine: "mihomo",
     version: "1.19.32",
+    autoGroup: "urltest",
     platforms: ["linux", "macos"],
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess", "vless"],
     endpoints: [],
@@ -45,6 +49,7 @@ export const targetCatalog = deepFreeze([
   {
     engine: "stash",
     version: "4.2.1",
+    autoGroup: null,
     platforms: ["macos"],
     protocols: ["trojan", "http", "anytls", "shadowsocks", "vmess"],
     endpoints: [],

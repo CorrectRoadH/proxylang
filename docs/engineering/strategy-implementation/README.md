@@ -12,17 +12,17 @@ kind: engineering
 
 把 it-infra 的 Smart/AI/DEV 选路作为真实消费者，先打通策略定义、精确目标选择、编译和消费方生成。规则、Tailscale 和数据集的完整语法按研究提案继续设计，不能把未实现功能宣称完成。不迁移生产发布入口或改写未知平台字段。
 
-通用性按行为契约判断，不按当前后端数量判断。顺序规则、布尔条件、模板参数、直连/拒绝、节点引用、手动选择是通用。URL 测速的共同参数可以通用，但运行期调度与连接切换不承诺完全相同；平台额外字段不得自动填成另一种机制。Surge Smart 的真实连接评分与重试是专属算法。
+通用性按行为契约判断，不按当前后端数量判断。顺序规则、布尔条件、模板参数、直连/拒绝、节点引用、手动选择是通用。URL 测速的共同参数可以通用，但运行期调度与连接切换不承诺完全相同；平台额外字段不得自动填成另一种机制。Surge Smart 是自动选择算法家族的一种原生实现，其评分与重试参数仍由平台拥有。
 
 ## 确定的语法
 
 新增 `strategy({ id, members, implementations })` 作为 Group 的一个变体，type 为 strategy。members 仍是稳定资源 ID 数组；implementations 是可选 surge、sing-box、mihomo 与 stash 字段组成的严格对象，至少一个分支。每分支是结构化 GroupAlgorithm，包含 type: select / urltest / surge-smart。
 
-构造器 `group.select()` 返回 select 算法；`group.urltest({url, intervalSeconds?, toleranceMs?})` 返回通用 urltest 算法；`surge.smart()` 返回 surge-smart。`strategy` 返回可放入 Program.groups 的对象，规则仍使用 route(id)。禁止原生文本、未知键、回调或自动算法替代。
+构造器 `group.select()` 返回 select 算法；`group.urltest({url, intervalSeconds?, toleranceMs?})` 返回通用 urltest 算法；`surge.smart()` 返回 surge-smart。`strategy` 返回可放入 Program.groups 的对象，规则仍使用 route(id)。禁止原生文本、未知键、回调或未声明的算法替代。
 
 urltest 继续保持 URL 必填、禁止认证和 fragment、默认 intervalSeconds=180、toleranceMs=50；sing-box 编码 idle_timeout=30m、interrupt_exist_connections=false。Surge 的测速 URL 是成员或全局配置，组内 url 参数无效；因此通用 urltest 在 Surge 报 GROUP_UNSUPPORTED，不自动改变全局或节点 URL。Surge Smart 成员必须全是节点，不能含组。所有可选路径与 via 继续参与资源图和 TCP-only 校验。
 
-既有 select/urltest Group 数据形式保持合法；既有 smart 数据形式继续报 GROUP_UNSUPPORTED，不偷偷改变旧契约。Surge Smart 只能由明确的新 surge-smart 算法生成。urltest 仍只在已具备正确编码的目标支持。通用语法不等于所有后端都有实现。
+既有 select/urltest Group 数据形式保持合法；既有 smart 数据形式继续报 GROUP_UNSUPPORTED，不偷偷改变旧契约。Surge Smart 可由显式 surge-smart 实现或通用 auto 的目标适配器生成。urltest 仍只在已具备正确编码的目标支持。通用语法不等于所有后端都有实现。
 
 ## 编译与证据
 
@@ -56,7 +56,7 @@ nativeName 必须非空、无首尾空白，为单行可打印 Unicode，禁止�
 
 ## 为什么把边界放在这里
 
-共同抽象的是“这条规则交给哪个出口”和“哪些节点可以参与选择”。Smart 的真实连接评分与 URLTest 的主动测试没有同一套算法参数，因此共享 strategy 的身份与成员，在 implementations 中保留算法差异。作者明确选择两种实现，编译器负责把选择兑现并留下证据。
+共同抽象包括出口、候选成员与算法要求。Smart 的真实连接评分与 URLTest 的主动测试没有同一套算法参数，因此 auto 家族允许原生实现差异，固定 urltest 要求则保留其参数约束。作者明确选择两种实现，编译器负责把选择兑现并留下证据。
 
 这也决定了诊断等级：展示 label 不输出可以 warning，作者可以 warningsAsErrors；缺少算法实现、版本不支持或匹配行为无法保持必须 error。只警告后继续输出，会把不完整转换误当成有效配置。用户显式选择 URLTest 分支则属于声明的行为，不产生“自动降级”告警。
 
@@ -65,3 +65,9 @@ nativeName 必须非空、无首尾空白，为单行可打印 Unicode，禁止�
 原生语义依据：[Surge Smart](https://manual.nssurge.com/policy-groups/smart.html)、[Surge URL Test](https://manual.nssurge.com/policy-groups/url-test.html)、[sing-box URLTest](https://sing-box.sagernet.org/configuration/outbound/urltest/)。
 
 Mihomo / Stash 的 YAML 策略片段及名称约束见[后端契约](../clash-backends/README.md)。Stash 的节点测速资源不同于组级 URL，当前只接入 select。
+
+## 通用算法入口
+
+strategy 支持 algorithm 与可选 implementations；旧 implementations-only 模式保持行为不变。group.auto() 表示按质量与可用性自动选择，精确目标目录决定默认 Smart/URLTest 实现。group.select()/group.urltest() 则要求指定机制。
+
+具体归属、默认参数、覆写约束及公共类型见 [已定设计](../../design/portable-capabilities/plans/semantic-adapters/README.md)。前文 implementations-only 语法是保留的显式模式，不再要求每个通用策略重复平台分支。

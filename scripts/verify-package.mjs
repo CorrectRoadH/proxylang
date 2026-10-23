@@ -59,7 +59,51 @@ try {
       '"proxylang"',
     ),
   );
+  writeFileSync(
+    join(temp, "automatic.ts"),
+    `
+    import {defineConfig, strategy, group, direct, route, rule, match, secret} from 'proxylang';
+    export default defineConfig({
+      programs:{home:{engine:'sing-box',nodes:[{id:'edge',type:'trojan',server:'192.0.2.1',port:443,password:secret('AUTO_PASS')}],
+        groups:[strategy({id:'automatic',members:['edge'],algorithm:group.auto()})],
+        routing:[rule('web',match.domain('example.com'),route('automatic'))],fallback:direct()}},
+      targets:[{id:'home',program:'home',engine:'sing-box',platform:'linux',version:'1.12.0'}],
+    });
+  `,
+  );
   const cli = join(temp, "node_modules/.bin/proxylang");
+  const automatic = JSON.parse(run(cli, ["check", "automatic.ts"]));
+  assert.equal(automatic.ok, true);
+  assert.deepEqual(automatic.targets[0].strategySelections[0].requestedAlgorithm, { type: "auto" });
+  assert.equal(automatic.targets[0].strategySelections[0].algorithm.type, "urltest");
+  assert.equal(
+    JSON.parse(
+      run(cli, [
+        "explain",
+        "automatic.ts",
+        "--target",
+        "home",
+        "--request",
+        '{"network":"tcp","domain":"example.com"}',
+      ]),
+    ).action.to,
+    "automatic",
+  );
+  const automaticOut = join(temp, "automatic-out");
+  execFileSync(cli, ["build", "automatic.ts", "--out", automaticOut], {
+    cwd: temp,
+    env: { ...process.env, AUTO_PASS: "package-test-only" },
+    stdio: "pipe",
+  });
+  const automaticPointer = JSON.parse(readFileSync(join(automaticOut, "active.json"), "utf8"));
+  const automaticManifest = JSON.parse(
+    readFileSync(join(automaticOut, automaticPointer.manifest), "utf8"),
+  );
+  assert.deepEqual(
+    automaticManifest.targets[0].strategySelections,
+    automatic.targets[0].strategySelections,
+  );
+
   assert.equal(JSON.parse(run(cli, ["check", "config.ts"])).ok, true);
   assert.equal(
     JSON.parse(

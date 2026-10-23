@@ -15,7 +15,7 @@ feature: docs/feature/target-compilation/README.md
 
 ## 行为与边界
 
-strategy 持有稳定 id、非空 members 和 implementations。group.select 与 group.urltest 是通用算法声明，surge.smart 是 Surge 专属算法。通用表示有明确的行为模型，不代表每个后端已经支持；例如 Surge 后端不能直接编码组级 URLTest 测试地址，就拒绝该组合。
+strategy 持有稳定 id、非空 members，以及通用 algorithm 或显式 implementations。group.select、group.auto 与 group.urltest 是通用算法声明；surge.smart 指定 Surge 原生实现。通用表示有明确的行为模型，不代表每个后端已经支持；例如 Surge 后端不能直接编码组级 URLTest 测试地址，就拒绝该组合。
 
 作者可以为同一 strategy 声明 Surge Smart 和 sing-box URLTest。这是两种明确选定的实现，不承诺评分、切换时机或连接连续性等价。目标依据 engine 选择实现，再按 platform 和精确 version 检查能力。不同版本可以引用不同平台程序；不会靠捕获编译错误去尝试另一种算法。
 
@@ -26,3 +26,15 @@ compileStrategyGroups 是独立的迁移边界，只接收 target、真实节点
 ## 验收条件
 
 同一策略在 Surge 6.10.0 输出 smart，在 sing-box 1.11.0 与 1.12.0 输出 urltest；成员顺序一致。非法未选分支仍报错，目标计划互不污染。名字注入、最终名字重复、缺失引用、循环和空成员被拒绝；完整编译保留 TCP-only 与 via 限制。原生解析检查与静态语义测试独立记录，不以解析通过证明备份设备可用。
+
+## 通用算法与平台实现
+
+algorithm: group.auto() 声明按质量与可用性自动选择的算法家族。Surge macOS 6.10.0 默认使用 Smart；sing-box 1.11.0/1.12.0 与 Mihomo 1.19.32 使用 URLTest；Stash 4.2.1 暂不支持。具体评分、探测与切换时机允许不同，不保证相同节点或零中断。
+
+默认 URLTest 使用 https://www.gstatic.com/generate_204，周期 180 秒、容差 50 毫秒。编译不访问探测地址。algorithm: group.urltest(...) 要求固定 URLTest 及参数，不能替换成 Smart；group.select() 要求手动选择。
+
+implementations 可覆写通用算法的目标实现。auto 仅允许 Smart 或 URLTest；select 仅允许 select；urltest 仅允许归一化参数相同的 URLTest。不满足要求报 ALGORITHM_CONTRACT_MISMATCH，未选分支也检查。原 implementations-only 模式保持原行为，缺失分支仍报错。未知调优参数报 INVALID_SCHEMA。
+
+通用模式的 strategySelections 增加归一化 requestedAlgorithm 和 implementationSource（default 或 override）；algorithm 仍记录实际实现。旧模式不增加这两个字段。所有对象深冻结，check 与 manifest 保留证据。explain 返回策略 ID，不预测原生客户端最终选择的节点。
+
+结构、类型、默认映射、成员限制、固定参数、未选分支、安装包和原生配置检查分别验收。完整设计见 [通用语义与平台实现边界](../../../design/portable-capabilities/plans/semantic-adapters/README.md)。

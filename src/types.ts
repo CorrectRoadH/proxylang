@@ -156,22 +156,30 @@ export type GroupAlgorithm =
       readonly intervalSeconds?: number;
       readonly toleranceMs?: number;
     };
-export type Strategy = {
-  readonly type: "strategy";
+export type PortableAlgorithm =
+  | { readonly type: "auto" }
+  | Extract<GroupAlgorithm, { readonly type: "select" | "urltest" }>;
+export type StrategyImplementations = {
+  readonly surge?: GroupAlgorithm;
+  readonly "sing-box"?: GroupAlgorithm;
+  readonly mihomo?: GroupAlgorithm;
+  readonly stash?: GroupAlgorithm;
+};
+export type StrategyDefinition = {
   readonly id: string;
   readonly members: readonly string[];
-  readonly implementations: {
-    readonly surge?: GroupAlgorithm;
-    readonly "sing-box"?: GroupAlgorithm;
-    readonly mihomo?: GroupAlgorithm;
-    readonly stash?: GroupAlgorithm;
-  };
-};
+} & (
+  | { readonly algorithm: PortableAlgorithm; readonly implementations?: StrategyImplementations }
+  | { readonly algorithm?: never; readonly implementations: StrategyImplementations }
+);
+export type Strategy = StrategyDefinition & { readonly type: "strategy" };
 export type StrategySelection = {
   readonly id: string;
   readonly engine: Engine;
   readonly algorithm: GroupAlgorithm;
   readonly members: readonly string[];
+  readonly requestedAlgorithm?: PortableAlgorithm;
+  readonly implementationSource?: "default" | "override";
 };
 export type ConcreteGroup =
   | { readonly id: string; readonly type: "select"; readonly members: readonly string[] }

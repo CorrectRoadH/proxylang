@@ -187,12 +187,7 @@ export function compile(input: unknown): Compilation {
       continue;
     }
     const originalProgram = config.programs[target.program];
-    const lowered = lowerStrategies(
-      originalProgram?.groups ?? [],
-      target.engine,
-      diagnostics,
-      path,
-    );
+    const lowered = lowerStrategies(originalProgram?.groups ?? [], target, diagnostics, path);
     const program = originalProgram ? { ...originalProgram, groups: lowered.groups } : undefined;
     if (!program) {
       error("MISSING_PROGRAM", path, "目标引用的程序不存在", target.id);

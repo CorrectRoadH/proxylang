@@ -12,7 +12,7 @@ constitutionRefs:
 
 用户为独立平台程序选择引擎、平台和精确版本；共享规则不抹平平台专属机制。目录明确协议、组和 DNS 编码能力，未知组合拒绝。
 
-影响流量行为的不支持项为 error；可省略的展示标签为 warning，可提升为 error。不能删除规则或把 smart 自动替换成 urltest。作者可用 strategy 显式为同一出口指定 Surge Smart 与 sing-box URLTest，目标计划记录实际选择。编译不读秘密、不写盘，所有目标从不可变输入生成带来源映射的计划。
+影响流量行为的不支持项为 error；可省略的展示标签为 warning，可提升为 error。不能删除规则或把固定机制擅自替换。显式 group.auto() 声明允许平台选用 Smart 或 URLTest 的算法家族；group.urltest() 仍要求固定探测机制与参数。作者可用 strategy 显式为同一出口指定 Surge Smart 与 sing-box URLTest，目标计划记录实际选择。编译不读秘密、不写盘，所有目标从不可变输入生成带来源映射的计划。
 
 ## 用户故事
 

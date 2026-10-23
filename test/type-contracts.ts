@@ -1,6 +1,9 @@
 // @use-case docs/feature/rule-composition/use-case/compose-policy.md
 import {
   block,
+  strategy,
+  group,
+  surge,
   defineConfig,
   direct,
   match,
@@ -70,4 +73,22 @@ export function authoringTypeChecks(dynamicConfig: Config, dynamicRules: Entry[]
       { id: "bad", program: "typo", request: { network: "tcp" }, expect: { action: direct() } },
     ],
   });
+}
+
+// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+export function strategyTypeChecks() {
+  strategy({ id: "auto", members: ["edge"], algorithm: group.auto() });
+  strategy({ id: "manual", members: ["edge"], algorithm: group.select() });
+  strategy({
+    id: "probe",
+    members: ["edge"],
+    algorithm: group.urltest({ url: "https://example.com" }),
+  });
+  strategy({ id: "legacy", members: ["edge"], implementations: { surge: surge.smart() } });
+  // @ts-expect-error A strategy must declare an algorithm or implementations.
+  strategy({ id: "empty", members: ["edge"] });
+  // @ts-expect-error A native Smart implementation is not a portable algorithm requirement.
+  strategy({ id: "bad", members: ["edge"], algorithm: surge.smart() });
+  // @ts-expect-error Auto is a requirement, not a concrete native implementation.
+  strategy({ id: "bad", members: ["edge"], implementations: { surge: group.auto() } });
 }

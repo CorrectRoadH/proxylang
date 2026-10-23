@@ -13,24 +13,74 @@ import type {
   Group,
   Strategy,
   StrategySelection,
+  GroupAlgorithm,
+  PortableAlgorithm,
+  Target,
 } from "./types.js";
+
+function satisfiesAlgorithm(requested: PortableAlgorithm, actual: GroupAlgorithm): boolean {
+  if (requested.type === "auto") return actual.type === "urltest" || actual.type === "surge-smart";
+  if (requested.type === "select") return actual.type === "select";
+  return (
+    actual.type === "urltest" &&
+    actual.url === requested.url &&
+    (actual.intervalSeconds ?? 180) === (requested.intervalSeconds ?? 180) &&
+    (actual.toleranceMs ?? 50) === (requested.toleranceMs ?? 50)
+  );
+}
 
 export function lowerStrategies(
   groups: readonly Group[],
-  engine: Engine,
+  target: Pick<Target, "engine" | "platform" | "version">,
   diagnostics: Diagnostic[],
   path: string,
 ): { groups: ConcreteGroup[]; selections: StrategySelection[] } {
   const selected: ConcreteGroup[] = [];
   const selections: StrategySelection[] = [];
+  const { engine } = target;
+  const descriptor = targetCatalog.find(
+    (d) =>
+      d.engine === engine &&
+      d.version === target.version &&
+      (d.platforms as readonly string[]).includes(target.platform),
+  );
   for (const group of groups) {
     if (group.type !== "strategy") {
       selected.push(group);
       continue;
     }
-    const algorithm = group.implementations[engine];
+    const requested = group.algorithm;
+    if (
+      requested &&
+      Object.values(group.implementations ?? {}).some(
+        (implementation) => implementation && !satisfiesAlgorithm(requested, implementation),
+      )
+    ) {
+      diagnostics.push({
+        severity: "error",
+        code: "ALGORITHM_CONTRACT_MISMATCH",
+        path: `${path}.groups.${group.id}.implementations`,
+        message: "平台实现不满足声明的通用算法或固定参数",
+      });
+      continue;
+    }
+    const override = group.implementations?.[engine];
+    let algorithm: GroupAlgorithm | undefined = override;
+    if (!algorithm && requested) {
+      if (requested.type !== "auto") algorithm = requested;
+      else if (descriptor?.autoGroup === "surge-smart") algorithm = { type: "surge-smart" };
+      else if (descriptor?.autoGroup === "urltest")
+        algorithm = {
+          type: "urltest",
+          url: "https://www.gstatic.com/generate_204",
+          intervalSeconds: 180,
+          toleranceMs: 50,
+        };
+    }
     const code = !algorithm
-      ? "STRATEGY_IMPLEMENTATION_MISSING"
+      ? requested
+        ? "GROUP_UNSUPPORTED"
+        : "STRATEGY_IMPLEMENTATION_MISSING"
       : algorithm.type === "surge-smart" && engine !== "surge"
         ? "ALGORITHM_ENGINE_MISMATCH"
         : undefined;
@@ -44,7 +94,18 @@ export function lowerStrategies(
       continue;
     }
     selected.push({ id: group.id, members: group.members, ...algorithm! });
-    selections.push({ id: group.id, engine, algorithm: algorithm!, members: group.members });
+    selections.push({
+      id: group.id,
+      engine,
+      algorithm: algorithm!,
+      members: group.members,
+      ...(requested
+        ? {
+            requestedAlgorithm: requested,
+            implementationSource: override ? ("override" as const) : ("default" as const),
+          }
+        : {}),
+    });
   }
   return { groups: selected, selections };
 }
@@ -176,7 +237,7 @@ export function compileStrategyGroups(input: unknown): StrategyGroupCompilation 
     error("INVALID_NATIVE_NAME", "names", "最终名称与目标内建策略冲突");
   if (new Set(nativeNames.values()).size !== nativeNames.size)
     error("DUPLICATE_NATIVE_NAME", "names", "最终节点和策略名称必须唯一");
-  const { groups, selections } = lowerStrategies(strategies, target.engine, diagnostics, "$");
+  const { groups, selections } = lowerStrategies(strategies, target, diagnostics, "$");
   const all = new Set(ids);
   for (const g of groups) {
     if (!(descriptor.groups as readonly string[]).includes(g.type))

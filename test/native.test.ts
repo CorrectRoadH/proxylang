@@ -157,6 +157,7 @@ for (const [engine, version] of [
             engine: engine as Engine,
             nodes,
             groups: [
+              strategy({ id: "portable", members: ["edge"], algorithm: group.auto() }),
               strategy({
                 id: "adaptive",
                 members: ["edge"],
@@ -256,6 +257,7 @@ test.skipIf(!enabled)(
             },
           ],
           groups: [
+            strategy({ id: "portable", members: ["edge"], algorithm: group.auto() }),
             strategy({
               id: "adaptive",
               members: ["edge"],

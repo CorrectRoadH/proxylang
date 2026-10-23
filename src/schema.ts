@@ -3,7 +3,16 @@
 import { z } from "zod";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
-import type { Config, Entry, Match, Policy, Request, GroupAlgorithm, Strategy } from "./types.js";
+import type {
+  Config,
+  Entry,
+  Match,
+  Policy,
+  Request,
+  GroupAlgorithm,
+  Strategy,
+  PortableAlgorithm,
+} from "./types.js";
 
 export const idSchema = z
   .string()
@@ -260,28 +269,44 @@ const url = z
       return false;
     }
   });
+const urltestAlgorithmSchema = z.strictObject({
+  type: z.literal("urltest"),
+  url,
+  intervalSeconds: z.number().int().min(1).max(86400).default(180),
+  toleranceMs: z.number().int().min(0).max(60000).default(50),
+});
 export const algorithmSchema: z.ZodType<GroupAlgorithm> = z.union([
   z.strictObject({ type: z.enum(["select", "surge-smart"]) }),
-  z.strictObject({
-    type: z.literal("urltest"),
-    url,
-    intervalSeconds: z.number().int().min(1).max(86400).default(180),
-    toleranceMs: z.number().int().min(0).max(60000).default(50),
-  }),
+  urltestAlgorithmSchema,
 ]);
-export const strategySchema: z.ZodType<Strategy> = z.strictObject({
+const portableAlgorithmSchema: z.ZodType<PortableAlgorithm> = z.union([
+  z.strictObject({ type: z.enum(["select", "auto"]) }),
+  urltestAlgorithmSchema,
+]);
+const implementationsSchema = z.strictObject({
+  surge: algorithmSchema.optional(),
+  "sing-box": algorithmSchema.optional(),
+  mihomo: algorithmSchema.optional(),
+  stash: algorithmSchema.optional(),
+});
+const strategyBase = {
   type: z.literal("strategy"),
   id: idSchema,
   members,
-  implementations: z
-    .strictObject({
-      surge: algorithmSchema.optional(),
-      "sing-box": algorithmSchema.optional(),
-      mihomo: algorithmSchema.optional(),
-      stash: algorithmSchema.optional(),
-    })
-    .refine((v) => !!v.surge || !!v["sing-box"] || !!v.mihomo || !!v.stash),
-});
+};
+export const strategySchema: z.ZodType<Strategy> = z.union([
+  z.strictObject({
+    ...strategyBase,
+    algorithm: portableAlgorithmSchema,
+    implementations: implementationsSchema.optional(),
+  }),
+  z.strictObject({
+    ...strategyBase,
+    implementations: implementationsSchema.refine(
+      (v) => !!v.surge || !!v["sing-box"] || !!v.mihomo || !!v.stash,
+    ),
+  }),
+]);
 const groupSchema = z.union([
   strategySchema,
   z.strictObject({ type: z.enum(["select", "smart"]), id: idSchema, members }),

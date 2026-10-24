@@ -108,7 +108,9 @@ test("sing-box refuses Surge extensions and top-level group probes; urltest live
       ...base,
       routes: [
         defineRoute({
-          when: surge.match.domain("example.com", { extendedMatching: true }),
+          when: surge.match.domain("example.com", {
+            sources: ["destination", "tlsSni", "httpHost"],
+          }),
           to: base.fallback,
         }),
       ],
@@ -146,7 +148,7 @@ test("mixed builds compile everything before one shared secret read and publish 
   const profiles = { mac: defineProfile(fixture()), linux: defineProfile(fixture("sing-box")) };
   const build = defineBuild({
     profiles,
-    resolveSecret: () => {
+    secrets: () => {
       reads++;
       return "fixture-password";
     },
@@ -170,7 +172,7 @@ test("mixed builds compile everything before one shared secret read and publish 
   const invalid = await runBuild(
     {
       profiles: { mac: build.profiles.mac!, bad: { ...fixture("sing-box"), surge: {} } },
-      resolveSecret: () => {
+      secrets: () => {
         reads++;
         return "private";
       },
@@ -205,7 +207,7 @@ test("endpoint state overlap is rejected before secrets or filesystem publicatio
     const result = await runBuild(
       {
         profiles: { linux: defineProfile(profile as ProfileDefinition) },
-        resolveSecret: () => {
+        secrets: () => {
           reads++;
           return "fixture";
         },

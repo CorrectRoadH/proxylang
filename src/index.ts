@@ -66,3 +66,5 @@ export {
 } from "./profile-build.js";
 
 export { proxyId } from "./proxy-id.js";
+
+export { secrets, type SecretsInput } from "./secret-inputs.js";

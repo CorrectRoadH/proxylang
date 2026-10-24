@@ -45,3 +45,5 @@ Profile构建先验证envelope与validation 秘密解析函数，再preflight、
 ## 最小调用
 
 在包含约定配置的示例目录运行 `node ../../dist/cli.js check`，例如 `examples/home`。检查不需要秘密。build需要配置outDir和应用实际凭据。实际运行证据通过测试或工程Memory独立记录。
+
+0.7.0 构建秘密入口为 `secrets: secrets({ values, env, validation })`；旧回调字段移除，完整行为见[秘密值声明](secret-inputs.md)。

@@ -35,3 +35,5 @@ constitutionRefs:
 - [通用匹配、DNS 与代理身份](portable-authoring.md)
 
 - [通用条件选项与外部规则函数](match-options.md)
+
+- [域名来源选择](domain-sources.md)：0.7.0 公共编写接口与能力边界。

@@ -215,7 +215,7 @@ test("a later unresolved static route reads no secrets and preserves the previou
   const root = await mkdtemp(join(tmpdir(), "profile-fragments-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const profile = defineProfile(fixture());
-  const good = await runBuild({ profiles: { one: profile }, resolveSecret: () => "fixture" }, root);
+  const good = await runBuild({ profiles: { one: profile }, secrets: () => "fixture" }, root);
   assert.equal(good.exitCode, 0);
   const old = await readlink(join(root, "out"));
   const text = await readFile(join(root, "out/one.conf"), "utf8");
@@ -223,7 +223,7 @@ test("a later unresolved static route reads no secrets and preserves the previou
   const bad = await runBuild(
     {
       profiles: { one: profile, two: { ...profile, fallback: "missing" } },
-      resolveSecret: () => {
+      secrets: () => {
         reads++;
         return "fixture";
       },

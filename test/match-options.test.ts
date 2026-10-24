@@ -33,7 +33,9 @@ function profileText(when: ProfileCondition) {
 }
 // @use-case docs/feature/target-compilation/use-case/build-targets.md
 test("extended matching uses each observed source without overriding destination", () => {
-  const condition = match.domainSuffix("example.com", { extendedMatching: true });
+  const condition = match.domainSuffix("example.com", {
+    sources: ["destination", "tlsSni", "httpHost"],
+  });
   for (const request of [
     { domain: "other.net", tlsSni: "sub.example.com" },
     { domain: "other.net", httpHost: "example.com" },
@@ -48,7 +50,7 @@ test("extended matching uses each observed source without overriding destination
     false,
   );
   assert.equal(
-    evaluate(match.domain("example.com", { extendedMatching: false }), {
+    evaluate(match.domain("example.com", { sources: ["destination"] }), {
       network: "tcp",
       httpHost: "example.com",
     }).matched,
@@ -101,7 +103,10 @@ test("CIDR preserves entry-specific defaults and explicit false on both address 
 });
 // @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
 test("engine functions bind routes directly and retain snapshots and resource identity", () => {
-  const input = { url: "https://example.com/rules", extendedMatching: true };
+  const input = {
+    url: "https://example.com/rules",
+    sources: ["destination", "tlsSni", "httpHost"] as const,
+  };
   const condition = surge.ruleSet(input);
   const route = surge.ruleSet({ ...input, to: outbound.direct });
   assert.deepEqual(route.when, condition);
@@ -119,7 +124,10 @@ test("engine functions bind routes directly and retain snapshots and resource id
   );
   input.url = "https://example.com/changed";
   assert.equal(condition.url, "https://example.com/rules");
-  assert.equal(condition.id, surge.ruleSet({ extendedMatching: true, url: condition.url }).id);
+  assert.equal(
+    condition.id,
+    surge.ruleSet({ sources: ["destination", "tlsSni", "httpHost"], url: condition.url }).id,
+  );
   assert.ok(compileProfile({ ...base, routes: [route] }).ok);
   assert.equal(mihomo.ruleProvider, mihomo.ruleSet);
   assert.equal(

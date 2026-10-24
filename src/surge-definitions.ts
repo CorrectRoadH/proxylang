@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
+import type { DomainSource } from "./types.js";
 import type { GroupAlgorithm, ProxyNode } from "./types.js";
 import type { SurgeCondition, SurgePolicy, SurgeProfileInput } from "./surge-profile.js";
 
@@ -284,7 +285,7 @@ export function lowerSurgeProfile(input: SurgeDefinitionInput) {
   return snapshot({ ...rest, names, groups, rules, fallback: lower(fallback) });
 }
 
-type Options = { readonly noResolve?: boolean; readonly extendedMatching?: boolean };
+type Options = { readonly noResolve?: boolean; readonly sources?: readonly DomainSource[] };
 function condition<T extends SurgeCondition>(value: T): T {
   inspectDefinition(value);
   return value;

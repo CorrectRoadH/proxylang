@@ -1,5 +1,11 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
+import {
+  domainSourcesSchema,
+  supportsDomainSources,
+  extendedDomainSources,
+} from "./domain-sources.js";
+import type { DomainSource } from "./types.js";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 import { z } from "zod";
@@ -181,7 +187,10 @@ const groupSchema = z.strictObject({
   timeoutSeconds: z.number().int().positive().max(3600).optional(),
 });
 export type SurgeGroup = z.infer<typeof groupSchema>;
-type ConditionOptions = { readonly noResolve?: boolean; readonly extendedMatching?: boolean };
+type ConditionOptions = {
+  readonly noResolve?: boolean;
+  readonly sources?: readonly DomainSource[];
+};
 export type SurgeCondition = ConditionOptions &
   (
     | {
@@ -207,7 +216,7 @@ export type SurgeCondition = ConditionOptions &
         readonly intervalSeconds?: number;
       }
   );
-const options = { noResolve: z.boolean().optional(), extendedMatching: z.boolean().optional() };
+const options = { noResolve: z.boolean().optional(), sources: domainSourcesSchema.optional() };
 const atom = (type: string, value: z.ZodType<string>) =>
   z.strictObject({ type: z.literal(type), value, ...options });
 const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
@@ -419,8 +428,10 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
     }
     if (c.noResolve !== undefined && !["ipCidr", "ipCidr6", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
-    if (c.extendedMatching !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
+    if (c.sources !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
+    if (c.sources !== undefined && !supportsDomainSources(c.sources, "surge"))
+      error("MATCH_OPTION_UNSUPPORTED");
     if (p.target.platform === "ios" && ["processName", "macAddress"].includes(c.type))
       error("PLATFORM_RULE_UNSUPPORTED");
     if (c.type === "all" || c.type === "any")
@@ -464,7 +475,7 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
 function conditionOptions(c: SurgeCondition): string[] {
   return [
     ...(c.noResolve ? ["no-resolve"] : []),
-    ...(c.extendedMatching ? ["extended-matching"] : []),
+    ...(extendedDomainSources(c.sources) ? ["extended-matching"] : []),
     ...(c.type === "ruleSet" && c.intervalSeconds !== undefined
       ? [`update-interval=${c.intervalSeconds}`]
       : []),

@@ -188,7 +188,7 @@ test("rule options retain their own scope and no-resolve is never inserted impli
   const when: SurgeCondition = {
     type: "all",
     conditions: [
-      { type: "domain", value: "x.example", extendedMatching: true },
+      { type: "domain", value: "x.example", sources: ["destination", "tlsSni", "httpHost"] },
       { type: "ipCidr", value: "10.0.0.0/8", noResolve: true },
     ],
   };
@@ -210,7 +210,7 @@ test("rule options retain their own scope and no-resolve is never inserted impli
   assert.ok(out.includes("IP-CIDR6,fd00::/8,DIRECT\n"));
   for (const invalid of [
     { type: "domain", value: "x.example", noResolve: false },
-    { type: "port", from: 22, extendedMatching: true },
+    { type: "port", from: 22, sources: ["destination", "tlsSni", "httpHost"] },
     { type: "port", from: 99, to: 22 },
     { type: "ipCidr", value: "fd00::/8" },
   ])

@@ -120,7 +120,7 @@ defineRoutes({ when: [anonymous.when], to: outbound.direct });
 defineRoute({ id: "removed", when: anonymous.when, to: outbound.direct });
 const batch = defineBuild({
   profiles: {},
-  resolveSecret: (_token, context) => (context.validation ? "fixture" : undefined),
+  secrets: (_token, context) => (context.validation ? "fixture" : undefined),
 });
 void runBuild(batch, "out", { validation: true });
 
@@ -186,4 +186,16 @@ export function nativeRouteTypeChecks() {
     fallback: outbound.direct,
   });
   return routed;
+}
+
+export function sourceAndSecretTypes() {
+  match.domain("example.com", { sources: ["destination", "tlsSni", "httpHost"] });
+  // @ts-expect-error Retired boolean option is not a public input.
+  match.domain("example.com", { extendedMatching: true });
+  // @ts-expect-error Only named domain sources are accepted.
+  match.domain("example.com", { sources: ["sniff"] });
+  // @ts-expect-error CIDR has no domain sources.
+  match.ipCidr("192.0.2.0/24", { sources: ["destination"] });
+  // @ts-expect-error Retired callback field must fail at compile time too.
+  defineBuild({ profiles: {}, resolveSecret: () => "old" });
 }

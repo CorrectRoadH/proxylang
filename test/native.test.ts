@@ -593,7 +593,7 @@ test.skipIf(!enabled)("portable profile sing-box 1.12.0 standalone native check"
     singBox: { mode: "standalone", listener: { port: 16902, resolver: "1.1.1.1" } },
   });
   const result = await runBuild(
-    defineBuild({ profiles: { linux: profile }, resolveSecret: () => "fixture" }),
+    defineBuild({ profiles: { linux: profile }, secrets: () => "fixture" }),
     join(root, "output"),
   );
   assert.equal(result.exitCode, 0);

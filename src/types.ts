@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+export type DomainSource = "destination" | "tlsSni" | "httpHost";
 export type Network = "tcp" | "udp";
 export type NamedRuleSet = { readonly type: "ruleSet"; readonly id: string; readonly when: Match };
 export type NativeRuleSet = {
@@ -12,7 +13,7 @@ export type NativeRuleSet = {
       readonly format: "rule-set" | "domain-set";
       readonly intervalSeconds?: number;
       readonly noResolve?: boolean;
-      readonly extendedMatching?: boolean;
+      readonly sources?: readonly DomainSource[];
     }
   | {
       readonly engine: "sing-box";
@@ -31,7 +32,7 @@ export type Match =
   | NativeRuleSet
   | {
       readonly type: "domain" | "domainSuffix";
-      readonly extendedMatching?: boolean;
+      readonly sources?: readonly DomainSource[];
       readonly value: string;
     }
   | { readonly type: "ipCidr"; readonly value: string; readonly noResolve?: boolean }

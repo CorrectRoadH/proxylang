@@ -77,12 +77,12 @@ try {
     const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[nodes],groups:[choice],routes:[],fallback:choice});
     let reads=0;
     const resolver=()=>{reads++;return 'fixture-pass';};
-    const built=await runBuild({profiles:{first:profile,second:profile},resolveSecret:resolver},'complete-out');
+    const built=await runBuild({profiles:{first:profile,second:profile},secrets:resolver},'complete-out');
     assert.equal(built.exitCode,0); assert.equal(reads,1);
     assert.match(await readFile('complete-out/out/first.conf','utf8'),/FINAL,Choice/);
     const old=await readlink('complete-out/out');
     reads=0;
-    const failed=await runBuild({profiles:{first:profile,second:{...profile,fallback:proxy.http({id:'absent',server:'192.0.2.2',port:80,password:secret('PASS')})}},resolveSecret:resolver},'complete-out');
+    const failed=await runBuild({profiles:{first:profile,second:{...profile,fallback:proxy.http({id:'absent',server:'192.0.2.2',port:80,password:secret('PASS')})}},secrets:resolver},'complete-out');
     assert.equal(failed.published,false); assert.equal(reads,0);
     assert.equal(await readlink('complete-out/out'),old);
   `,
@@ -147,11 +147,11 @@ try {
   writeFileSync(
     join(temp, "profile-build.ts"),
     `
-    import {defineBuild,defineProfile,defineRoute,match,outbound,proxy,secret,defineProxyGroup,group} from 'proxylang';
+    import {defineBuild,defineProfile,defineRoute,match,outbound,proxy,secret,secrets,defineProxyGroup,group} from 'proxylang';
     const edge=proxy.trojan({id:'edge',server:'192.0.2.1',port:443,password:secret('PASS')});
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:[edge]});
     const common={proxies:[[edge]],groups:[choice],routes:[defineRoute({when:match.ipCidr('2001:db8::/32'),to:choice})],fallback:outbound.direct};
-    export default defineBuild({profiles:{mac:defineProfile({...common,target:{engine:'surge',platform:'macos',version:'6.10.0'}}),linux:defineProfile({...common,target:{engine:'sing-box',platform:'linux',version:'1.12.0'}})},resolveSecret:()=> 'fixture'});
+    export default defineBuild({profiles:{mac:defineProfile({...common,target:{engine:'surge',platform:'macos',version:'6.10.0'}}),linux:defineProfile({...common,target:{engine:'sing-box',platform:'linux',version:'1.12.0'}})},secrets:secrets({env:['PASS'],validation:{PASS:'fixture'}})});
   `,
   );
   activate("profile-build.ts", "profile-build-out");

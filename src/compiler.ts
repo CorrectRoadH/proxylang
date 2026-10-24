@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { supportsDomainSources } from "./domain-sources.js";
 import { collectNativeRuleSets, lowerRuleSets, validateRuleSets } from "./rulesets.js";
 import { StaticRuleSetUnknownError } from "./rules.js";
 import type { NativeRuleSet, Match } from "./types.js";
@@ -281,9 +282,7 @@ export function compile(input: unknown): Compilation {
           error("LOGICAL_DEPTH", rule.id, "Surge 逻辑条件最多嵌套 10 层", target.id);
     const checkOptions = (condition: Match): void => {
       if (
-        ("extendedMatching" in condition &&
-          condition.extendedMatching === true &&
-          target.engine !== "surge") ||
+        ("sources" in condition && !supportsDomainSources(condition.sources, target.engine)) ||
         (condition.type === "ipCidr" &&
           condition.noResolve !== undefined &&
           target.engine === "sing-box")

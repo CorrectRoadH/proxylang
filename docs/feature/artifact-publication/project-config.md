@@ -82,7 +82,7 @@ Profile 的 check 新增 `checkBuild(input)` 程序化函数，验证 defineBuil
 
 失败退出1。
 
-不调用 preflight/resolveSecret、不渲染、不创建输出目录/锁/指针。
+不调用 preflight/secrets、不渲染、不创建输出目录/锁/指针。
 
 不验证运行时秘密可用性，不承诺回调执行结果。
 
@@ -145,3 +145,5 @@ Profile批次失败不读秘密、发布0/1/2与恢复hint原样。
 ## 设计审查收敛
 
 独立 GPT-6.1 Sol 静态审查 CONDITIONAL：调用 cwd 与回调 chdir 隔离、根配置的 CI 发布保护和请求错误优先级三项已明确。checkBuild 公共结果也按上文固定。实际测试与发布验收独立于设计审查。
+
+0.7.0 构建秘密入口为 `secrets: secrets({ values, env, validation })`；旧回调字段移除，完整行为见[秘密值声明](secret-inputs.md)。

@@ -413,7 +413,7 @@ test("project build CLI validates before import and preserves batch results thro
   const load = await call(["--validation"]);
   assert.equal(load.result.code, "CONFIG_LOAD_FAILED");
   assert.ok(!JSON.stringify(load).includes("private-value"));
-  const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, proxies:[], groups:[], routes:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
+  const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, proxies:[], groups:[], routes:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], secrets:()=> 'fixture'})`;
   for (const extension of ["ts", "mjs", "cjs"]) {
     const path = join(root, `valid.${extension}`);
     await writeFile(

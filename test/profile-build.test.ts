@@ -75,7 +75,7 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
       await runBuild(
         {
           profiles: { ...batch, second: { ...input(), fallback: missing } },
-          resolveSecret: resolver,
+          secrets: resolver,
         },
         root,
       )
@@ -84,7 +84,7 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   );
   assert.equal(reads, 0);
   assert.deepEqual(await readdir(root), []);
-  const built = await runBuild({ profiles: batch, resolveSecret: resolver }, root);
+  const built = await runBuild({ profiles: batch, secrets: resolver }, root);
   assert.equal(built.exitCode, 0);
   assert.equal(reads, 1);
   const old = await readlink(join(root, "out"));
@@ -95,7 +95,7 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   const failed = await runBuild(
     {
       profiles: { first: input(), second },
-      resolveSecret: (token) => {
+      secrets: (token) => {
         if (token.name === "LATER") throw new Error("must-not-leak");
         return "fixture-value";
       },
@@ -109,11 +109,11 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   assert.equal(await readFile(join(root, "out", "first.conf"), "utf8"), before);
   assert.equal((await readdir(join(root, ".generations"))).length, 1);
   assert.equal(
-    (await runBuild({ profiles: batch, resolveSecret: resolver }, "  ")).code,
+    (await runBuild({ profiles: batch, secrets: resolver }, "  ")).code,
     "INVALID_OUTPUT_DIRECTORY",
   );
   assert.equal(
-    (await runBuild({ profiles: { "../bad": input() }, resolveSecret: resolver }, root)).code,
+    (await runBuild({ profiles: { "../bad": input() }, secrets: resolver }, root)).code,
     "INVALID_PROFILE_FILENAMES",
   );
 });
@@ -132,10 +132,7 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const result = await runBuild(
-    { profiles: { first: input() }, resolveSecret: () => "fixture" },
-    root,
-  );
+  const result = await runBuild({ profiles: { first: input() }, secrets: () => "fixture" }, root);
   assert.equal(result.published, true);
   assert.equal(result.exitCode, 2);
   assert.equal(result.code, "PUBLISHED_CLEANUP_FAILED");
@@ -154,10 +151,7 @@ test("public result distinguishes committed cleanup failure and failed legacy re
       },
     }),
   );
-  const failed = await runBuild(
-    { profiles: { first: input() }, resolveSecret: () => "fixture" },
-    legacy,
-  );
+  const failed = await runBuild({ profiles: { first: input() }, secrets: () => "fixture" }, legacy);
   assert.equal(failed.published, false);
   assert.equal(failed.exitCode, 1);
   assert.equal(failed.code, "PUBLISH_RECOVERY_REQUIRED");
@@ -194,7 +188,7 @@ test("build captures data before callbacks and resolves secrets only after the c
       profiles.second = { ...profiles.second, fallback: missing };
       return ["WARNING_A", "WARNING_B", "WARNING_A"];
     },
-    resolveSecret: (_token, context) => {
+    secrets: (_token, context) => {
       reads++;
       assert.equal(context.validation, true);
       return "fixture";
@@ -211,7 +205,7 @@ test("build captures data before callbacks and resolves secrets only after the c
   const failed = await runBuild(
     {
       profiles,
-      resolveSecret: () => {
+      secrets: () => {
         reads++;
         return "fixture";
       },
@@ -222,7 +216,7 @@ test("build captures data before callbacks and resolves secrets only after the c
   assert.equal(reads, 0);
   assert.equal(
     (await runBuild({ profiles }, root, { validation: true })).code,
-    "VALIDATION_RESOLVER_REQUIRED",
+    "VALIDATION_SECRETS_REQUIRED",
   );
   let getters = 0;
   const bad = Object.defineProperty({}, "profiles", {

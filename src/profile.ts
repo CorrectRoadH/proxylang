@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/build-targets.md
+import type { DomainSource } from "./types.js";
 import { dnsRulesSchema } from "./dns.js";
 import type { DnsRule } from "./types.js";
 import { isIP } from "node:net";
@@ -35,13 +36,13 @@ export type ProfileCondition =
       readonly type: "all" | "any";
       readonly conditions: readonly ProfileCondition[];
       readonly noResolve?: boolean;
-      readonly extendedMatching?: boolean;
+      readonly sources?: readonly DomainSource[];
     }
   | {
       readonly type: "not";
       readonly condition: ProfileCondition;
       readonly noResolve?: boolean;
-      readonly extendedMatching?: boolean;
+      readonly sources?: readonly DomainSource[];
     };
 export type ProfileDestination =
   | string
@@ -239,7 +240,7 @@ function surgeCondition(condition: ProfileCondition, depth = 0): SurgeCondition 
       url: value.url,
       ...(value.intervalSeconds !== undefined ? { intervalSeconds: value.intervalSeconds } : {}),
       ...(value.noResolve !== undefined ? { noResolve: value.noResolve } : {}),
-      ...(value.extendedMatching !== undefined ? { extendedMatching: value.extendedMatching } : {}),
+      ...(value.sources !== undefined ? { sources: value.sources } : {}),
     };
   }
   if (condition.type === "all" || condition.type === "any") {

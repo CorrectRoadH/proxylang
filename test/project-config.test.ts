@@ -52,7 +52,7 @@ test("checkBuild shares batch validation without callbacks, secrets or output wr
       calls++;
       throw Error("private");
     },
-    resolveSecret: () => {
+    secrets: () => {
       calls++;
       throw Error("private");
     },
@@ -133,7 +133,7 @@ test("CLI requires local convention, rejects retired syntax before import, and p
   assert.equal((await call(root, ["check"])).json.reason, "MODULE_NOT_FOUND");
   await writeFile(
     join(root, name),
-    `export default {profiles:{mac:${JSON.stringify(profile)}},resolveSecret:()=>{throw Error('secret')},preflight:()=>{throw Error('callback')}};`,
+    `export default {profiles:{mac:${JSON.stringify(profile)}},secrets:()=>{throw Error('secret')},preflight:()=>{throw Error('callback')}};`,
   );
   assert.equal((await call(root, ["check"])).json.code, "CHECKED");
   assert.equal((await call(root, ["build"])).json.code, "OUTPUT_DIRECTORY_REQUIRED");
@@ -165,14 +165,14 @@ test("CLI import and SDK callbacks cannot redirect the captured output root", as
   };
   await writeFile(
     join(root, name),
-    `process.chdir(${JSON.stringify(changed)}); export default {outDir:'output',profiles:{mac:${JSON.stringify(withSecret)}},preflight:()=>{process.chdir(${JSON.stringify(root)});return []},resolveSecret:()=>{process.chdir(${JSON.stringify(changed)});return 'fixture'}};`,
+    `process.chdir(${JSON.stringify(changed)}); export default {outDir:'output',profiles:{mac:${JSON.stringify(withSecret)}},preflight:()=>{process.chdir(${JSON.stringify(root)});return []},secrets:()=>{process.chdir(${JSON.stringify(changed)});return 'fixture'}};`,
   );
   const result = await call(root, ["build"]);
   assert.equal(result.status, 0, result.stdout);
   assert.equal(result.json.active, join(root, "output/out"));
   assert.match(await readFile(join(root, "output/out/mac.conf"), "utf8"), /FINAL,DIRECT/);
   assert.deepEqual(await readdir(changed), []);
-  const source = `import {runBuild} from ${JSON.stringify(sdk)}; const result=await runBuild({outDir:'ignored',profiles:{mac:${JSON.stringify(withSecret)}},preflight:()=>{process.chdir(${JSON.stringify(changed)});return []},resolveSecret:()=>{process.chdir(${JSON.stringify(changed)});return 'fixture'}},'sdk-output'); console.log(JSON.stringify(result));`;
+  const source = `import {runBuild} from ${JSON.stringify(sdk)}; const result=await runBuild({outDir:'ignored',profiles:{mac:${JSON.stringify(withSecret)}},preflight:()=>{process.chdir(${JSON.stringify(changed)});return []},secrets:()=>{process.chdir(${JSON.stringify(changed)});return 'fixture'}},'sdk-output'); console.log(JSON.stringify(result));`;
   const direct = await exec(process.execPath, ["--input-type=module", "-e", source], { cwd: root });
   assert.equal(JSON.parse(direct.stdout).active, join(root, "sdk-output/out"));
   assert.match(await readFile(join(root, "sdk-output/out/mac.conf"), "utf8"), /FINAL,DIRECT/);

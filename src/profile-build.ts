@@ -107,13 +107,13 @@ export function checkBuild(input: BuildDefinition): ProfileCheckResult {
 async function publish(
   profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
   output: string,
-  resolver: (token: Secret) => string | undefined,
+  readSecret: (token: Secret) => string | undefined,
 ): Promise<BuildResult> {
   try {
     const checked = compileBatch(profiles, output);
     if (!checked.ok) return { published: false, exitCode: 1, code: checked.code };
     const { entries, compiled } = checked;
-    const read = secretReader(resolver);
+    const read = secretReader(readSecret);
     const files = new Map<string, string>();
     for (const [index, profile] of compiled.entries()) {
       if (profile.engine === "invalid") throw new Error();
@@ -158,7 +158,7 @@ export type BuildDefinition = {
   readonly outDir?: string;
   readonly profiles: Readonly<Record<string, Profile | ProfileDefinition>>;
   readonly preflight?: () => readonly string[];
-  readonly resolveSecret?: (token: Secret, context: BuildContext) => string | undefined;
+  readonly secrets?: (token: Secret, context: BuildContext) => string | undefined;
 };
 export type ProfileBuildResult = BuildResult & {
   readonly warnings: Readonly<Record<string, number>>;
@@ -189,7 +189,7 @@ function record(
 /** Capture data and callback references before application preflight can change its source. */
 export function defineBuild(input: BuildDefinition): BuildDefinition {
   try {
-    record(input, ["profiles", "preflight", "resolveSecret", "outDir"]);
+    record(input, ["profiles", "preflight", "secrets", "outDir"]);
     if (
       input.outDir !== undefined &&
       (typeof input.outDir !== "string" ||
@@ -199,7 +199,7 @@ export function defineBuild(input: BuildDefinition): BuildDefinition {
     )
       throw new Error();
     record(input.profiles);
-    for (const callback of [input.preflight, input.resolveSecret])
+    for (const callback of [input.preflight, input.secrets])
       if (callback !== undefined && typeof callback !== "function") throw new Error();
     return Object.freeze({
       ...(input.outDir === undefined ? {} : { outDir: input.outDir }),
@@ -207,7 +207,7 @@ export function defineBuild(input: BuildDefinition): BuildDefinition {
         Record<string, Profile | ProfileDefinition>
       >,
       ...(input.preflight === undefined ? {} : { preflight: input.preflight }),
-      ...(input.resolveSecret === undefined ? {} : { resolveSecret: input.resolveSecret }),
+      ...(input.secrets === undefined ? {} : { secrets: input.secrets }),
     });
   } catch {
     throw new ProfileDefinitionError("INVALID_BUILD_DEFINITION");
@@ -246,7 +246,7 @@ export async function runBuild(
   const failure = (code: string) => profileBuildFailure(code, validation, profileCount);
   if (typeof output !== "string" || !output.trim()) return failure("INVALID_OUTPUT_DIRECTORY");
   output = resolve(root, output);
-  if (validation && !definition.resolveSecret) return failure("VALIDATION_RESOLVER_REQUIRED");
+  if (validation && !definition.secrets) return failure("VALIDATION_SECRETS_REQUIRED");
   let codes: readonly string[];
   try {
     codes = definition.preflight ? definition.preflight() : [];
@@ -267,11 +267,11 @@ export async function runBuild(
   const warnings: Record<string, number> = {};
   for (const code of codes) warnings[code] = (warnings[code] ?? 0) + 1;
   const context = Object.freeze({ validation });
-  const resolver = definition.resolveSecret;
+  const readSecret = definition.secrets;
   const result = await publish(
     definition.profiles,
     output,
-    resolver ? (token) => resolver(token, context) : (token) => process.env[token.name],
+    readSecret ? (token) => readSecret(token, context) : (token) => process.env[token.name],
   );
   return { ...result, warnings, validation, profileCount };
 }

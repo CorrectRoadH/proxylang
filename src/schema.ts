@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { domainSourcesSchema } from "./domain-sources.js";
 import { dnsRulesSchema } from "./dns.js";
 import { z } from "zod";
 import { isIP } from "node:net";
@@ -82,7 +83,7 @@ export const nativeRuleSetSchema = z.discriminatedUnion("engine", [
     format: z.enum(["rule-set", "domain-set"]),
     intervalSeconds: updateInterval.optional(),
     noResolve: z.boolean().optional(),
-    extendedMatching: z.boolean().optional(),
+    sources: domainSourcesSchema.optional(),
   }),
   z.strictObject({
     ...remoteBase,
@@ -105,12 +106,12 @@ export const matchSchema: z.ZodType<Match> = z.lazy(() =>
     z.strictObject({
       type: z.literal("domain"),
       value: domain,
-      extendedMatching: z.boolean().optional(),
+      sources: domainSourcesSchema.optional(),
     }),
     z.strictObject({
       type: z.literal("domainSuffix"),
       value: domain,
-      extendedMatching: z.boolean().optional(),
+      sources: domainSourcesSchema.optional(),
     }),
     z.strictObject({ type: z.literal("ipCidr"), value: cidr, noResolve: z.boolean().optional() }),
     atom("sourceIp", z.union([ip, cidr])),

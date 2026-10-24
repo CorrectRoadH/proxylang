@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { domainIdentityFields, domainSourcesSchema } from "./domain-sources.js";
+import type { DomainSource } from "./types.js";
 import { dnsRulesSchema } from "./dns.js";
 import type { DnsRule } from "./types.js";
 import { createHash } from "node:crypto";
@@ -54,14 +56,24 @@ export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet =>
   ...definition,
   type: "ruleSet",
 });
-type DomainOptions = { readonly extendedMatching?: boolean };
+type DomainOptions = { readonly sources?: readonly DomainSource[] };
 type IpOptions = { readonly noResolve?: boolean };
 function options<T extends DomainOptions | IpOptions>(value: T, keys: readonly string[]): T {
   inspectDefinition(value);
   exactDefinition(value, keys);
-  if (Object.values(value).some((v) => v !== undefined && typeof v !== "boolean"))
+  if (
+    "sources" in value &&
+    value.sources !== undefined &&
+    !domainSourcesSchema.safeParse(value.sources).success
+  )
+    throw new ProfileDefinitionError("INVALID_DOMAIN_SOURCES");
+  if (
+    Object.entries(value).some(
+      ([key, v]) => key !== "sources" && v !== undefined && typeof v !== "boolean",
+    )
+  )
     throw new ProfileDefinitionError("INVALID_MATCH_OPTIONS");
-  return { ...value };
+  return snapshotDefinition(value);
 }
 export const match = {
   processName: (value: string): { readonly type: "processName"; readonly value: string } => {
@@ -72,12 +84,12 @@ export const match = {
   domain: (value: string, opts: DomainOptions = {}) => ({
     type: "domain" as const,
     value,
-    ...options(opts, ["extendedMatching"]),
+    ...options(opts, ["sources"]),
   }),
   domainSuffix: (value: string, opts: DomainOptions = {}) => ({
     type: "domainSuffix" as const,
     value,
-    ...options(opts, ["extendedMatching"]),
+    ...options(opts, ["sources"]),
   }),
   ipCidr: (value: string, opts: IpOptions = {}) => ({
     type: "ipCidr" as const,
@@ -124,7 +136,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
       "format",
       "intervalSeconds",
       "noResolve",
-      "extendedMatching",
+      "sources",
       "behavior",
       "to",
     ]);
@@ -135,11 +147,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
       "url",
       "format",
       "intervalSeconds",
-      ...(engine === "surge"
-        ? ["noResolve", "extendedMatching"]
-        : engine === "mihomo"
-          ? ["behavior"]
-          : []),
+      ...(engine === "surge" ? ["noResolve", "sources"] : engine === "mihomo" ? ["behavior"] : []),
     ]);
     const parsed = nativeRuleSetSchema.safeParse({
       ...(engine === "surge" ? { format: "rule-set" } : {}),
@@ -153,13 +161,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
     const id =
       resource.id ??
       `ruleset-${createHash("sha256")
-        .update(
-          JSON.stringify(
-            Object.entries(fields)
-              .filter(([, value]) => value !== undefined)
-              .sort(([a], [b]) => a.localeCompare(b)),
-          ),
-        )
+        .update(JSON.stringify(domainIdentityFields(fields)))
         .digest("hex")
         .slice(0, 16)}`;
     const when = snapshotDefinition({ ...parsed.data, id }) as NativeFor<E>;

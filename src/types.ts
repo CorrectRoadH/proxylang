@@ -81,9 +81,6 @@ export type ProxyBase = {
   readonly via?: string;
   readonly tcpFastOpen?: boolean;
   readonly label?: string;
-  readonly region?: string;
-  readonly provider?: string;
-  readonly tags?: readonly string[];
 };
 export type ProxyTLS = {
   readonly serverName: string;

@@ -30,9 +30,9 @@ IP server 分别输出1.11 udp 地址或1.12 udp server。DoH 使用1.11 https a
 
 ## 身份与消费方
 
-SDK 导出 proxyId(provider,label)，保留 node- 前缀与 sha256(JSON.stringify([provider,label])) 前 16 位算法，大小写保持原值。输入为非空字符串，失败使用固定错误，不回显值。它只生成 ID，不猜地区或规范化供应商名。
+SDK 导出 proxyId(namespace,label)，保留 node- 前缀与 sha256(JSON.stringify([namespace,label])) 前 16 位算法，大小写保持原值。输入为非空字符串，失败使用固定错误，不回显值。它只生成 ID，不猜地区或规范化供应商名。
 
-消费方删除 node-identity.ts；provider 协议工厂显式传 region，使用 proxyId 生成稳定 ID，provider metadata 继续为原小写标识。groups.ts 引用同一 proxyId。避免新增只有转发作用的 metadata 包装。
+消费方使用 proxyId 生成稳定 ID，groups.ts 引用同一 proxyId。地区与供应商归属由应用维护，协议对象不携带业务属性；详见[代理业务信息](business-data.md)。
 
 hosts.ts 改为 dns.ts，数组类型 DnsRule，移到设备 Profile 顶层 dns。既有列表模式、DNS 服务器、顺序全部保留。settings.ts 的 Surge General 仍为明确平台扩展，不扩展此次任务至完整 DNS 系统或所有 General 字段。
 

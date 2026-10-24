@@ -35,7 +35,6 @@ export {
   defineProxyGroup,
   defineRoute,
   defineRoutes,
-  selectProxies,
   outbound,
   ProfileDefinitionError,
 } from "./surge-definitions.js";

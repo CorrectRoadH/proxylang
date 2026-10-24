@@ -1,6 +1,7 @@
 // @use-case docs/feature/rule-composition/use-case/compose-policy.md
 import {
   defineProfile,
+  proxy,
   type ProfileCondition,
   type GroupAlgorithm,
   type ProxyGroupDefinition,
@@ -198,4 +199,19 @@ export function sourceAndSecretTypes() {
   match.ipCidr("192.0.2.0/24", { sources: ["destination"] });
   // @ts-expect-error Retired callback field must fail at compile time too.
   defineBuild({ profiles: {}, resolveSecret: () => "old" });
+}
+
+export function proxyBusinessBoundary() {
+  const node = {
+    id: "edge",
+    server: "192.0.2.1",
+    port: 443,
+    password: { type: "env" as const, name: "PASS" },
+  };
+  // @ts-expect-error Business fields belong to the application.
+  proxy.trojan({ ...node, region: "SG" });
+  // @ts-expect-error Supplier identity is not a protocol option.
+  proxy.trojan({ ...node, provider: "supplier" });
+  // @ts-expect-error Business tags do not belong to protocol inputs.
+  proxy.trojan({ ...node, tags: ["ai"] });
 }

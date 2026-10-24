@@ -34,8 +34,6 @@ const input = (
   node: ProxyNode = proxy.trojan({
     id: "edge",
     label: "Edge",
-    provider: "fixture",
-    region: "SG",
     server: "192.0.2.1",
     port: 443,
     password: secret("PASS"),

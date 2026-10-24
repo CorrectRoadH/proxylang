@@ -5,7 +5,6 @@ import {
   defineProxyGroup,
   defineRoute,
   defineRoutes,
-  selectProxies,
   outbound,
   ProfileDefinitionError,
   proxy,
@@ -24,7 +23,6 @@ function fixture(): SurgeDefinitionInput {
     server: "192.0.2.1",
     port: 443,
     password: secret("PASS"),
-    region: "SG",
   });
   const smart = defineProxyGroup({
     id: "smart",
@@ -75,12 +73,6 @@ test("object definitions lower in declared order, compile, and detach snapshots"
   (definition.routes[0]!.when as { value: string }).value = "changed.example";
   assert.equal(lowered.nodes[0]!.server, "192.0.2.1");
   assert.deepEqual(lowered.rules[0]!.when, { type: "domain", value: "example.com" });
-  assert.deepEqual(
-    selectProxies(definition.nodes, { ids: ["node"], regions: ["SG"] }),
-    definition.nodes,
-  );
-  assert.equal(selectProxies(definition.nodes)[0], definition.nodes[0]);
-  assert.deepEqual(selectProxies(definition.nodes, { ids: ["missing"] }), []);
 });
 test("references require registered instances and unique resource identities", () => {
   const input = fixture();
@@ -124,7 +116,6 @@ test("constructors reject accessors without invoking them or exposing payloads",
     () => defineRoute(bad as never),
     () => defineRoutes(bad as never),
     () => lowerSurgeProfile(bad as never),
-    () => selectProxies([], bad),
     () => surge.match.domain("example.com", bad),
     () => surge.match.all([], bad),
     () => surge.match.ruleSet(bad as never),
@@ -147,14 +138,20 @@ test("shared object DAG is checked once but expanded output has an independent b
     "DEFINITION_OUTPUT_BUDGET_EXCEEDED",
   );
   const large = Array.from({ length: 20001 }, () => ({}));
-  rejects(() => selectProxies(large as never), "DEFINITION_OBJECT_BUDGET_EXCEEDED");
   rejects(
-    () => selectProxies(Array(100001).fill(input.nodes[0])),
+    () => defineRoute({ when: large as never, to: outbound.direct }),
+    "DEFINITION_OBJECT_BUDGET_EXCEEDED",
+  );
+  rejects(
+    () => defineRoute({ when: Array(100001).fill(input.nodes[0]) as never, to: outbound.direct }),
     "DEFINITION_EDGE_BUDGET_EXCEEDED",
   );
   let nested: unknown = {};
   for (let i = 0; i < 64; i++) nested = { child: nested };
-  rejects(() => selectProxies([nested] as never), "DEFINITION_DEPTH_EXCEEDED");
+  rejects(
+    () => defineRoute({ when: nested as never, to: outbound.direct }),
+    "DEFINITION_DEPTH_EXCEEDED",
+  );
 });
 test("Surge match preserves options, source literals and nested conditions", () => {
   const input = fixture();

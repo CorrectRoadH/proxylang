@@ -313,7 +313,7 @@ const vless = proxy.vless({
 });
 ```
 
-把这些值放进程序的 `nodes`，便可用 `route("ss")` 或策略组的 `members: ["ss", "vmess"]` 引用。还提供 `proxy.trojan`、`proxy.anytls`、`proxy.http`；已有对象声明仍可用。节点可带 `region`、`provider`、`tags`，供 `selectNodes` 组合筛选；`via` 引用另一个节点或组，声明拨号链。
+把这些值放进程序的 `nodes`，便可用 `route("ss")` 或策略组的 `members: ["ss", "vmess"]` 引用。还提供 `proxy.trojan`、`proxy.anytls`、`proxy.http`；已有对象声明仍可用。地区、供应商等业务信息由应用维护，通过普通数组选择代理或 ID；`via` 引用另一个节点或组，声明拨号链。
 
 TLS 的 `serverName` 是证书身份，WebSocket 的 `host` 是 HTTP Host，二者明确分开。省略 `tls` 表示不启用 TLS，省略 `transport` 表示普通 TCP。VMess 当前固定 AEAD／AES-128-GCM；VMess 与 VLESS 暂只允许 TCP 规则，不能作为覆盖 UDP 的 fallback。SS 支持三种 AEAD 方法及 TCP／UDP。
 

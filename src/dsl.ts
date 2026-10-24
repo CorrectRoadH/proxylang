@@ -242,28 +242,6 @@ export const defineConfig = <const T extends Config>(
   },
 ): T => config;
 
-/** Filtering is stable: catalogue order determines initial selector order. */
-// @concord-code
-// @concord-implements docs/feature/rule-composition/use-case/select-resources.md
-export function selectNodes(
-  nodes: readonly ProxyNode[],
-  query: {
-    regions?: readonly string[];
-    providers?: readonly string[];
-    tags?: readonly string[];
-  } = {},
-): string[] {
-  return nodes
-    .filter(
-      (node) =>
-        (!query.regions || (node.region !== undefined && query.regions.includes(node.region))) &&
-        (!query.providers ||
-          (node.provider !== undefined && query.providers.includes(node.provider))) &&
-        (!query.tags || query.tags.every((tag) => node.tags?.includes(tag))),
-    )
-    .map((node) => node.id);
-}
-
 /** A shared strategy declares an algorithm or explicitly selects native implementations. */
 export const strategy = (definition: StrategyDefinition): Strategy => ({
   type: "strategy",

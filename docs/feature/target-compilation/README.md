@@ -37,3 +37,5 @@ constitutionRefs:
 - [通用条件选项与外部规则函数](match-options.md)
 
 - [域名来源选择](domain-sources.md)：0.7.0 公共编写接口与能力边界。
+
+代理连接声明与应用业务信息的边界见[代理业务信息](business-data.md)。

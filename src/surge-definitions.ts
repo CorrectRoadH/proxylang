@@ -1,7 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
 import type { DomainSource } from "./types.js";
-import type { GroupAlgorithm, ProxyNode } from "./types.js";
+import type { GroupAlgorithm } from "./types.js";
 import type { SurgeCondition, SurgePolicy, SurgeProfileInput } from "./surge-profile.js";
 
 import type { ProfileCondition, ProfileDestination } from "./profile.js";
@@ -163,30 +163,6 @@ export function defineRoutes(input: {
   exactDefinition(input, ["when", "to"]);
   if (!Array.isArray(input.when)) fail("INVALID_ROUTE_DEFINITION");
   return input.when.map((when) => ({ type: "route", when, to: input.to }));
-}
-export function selectProxies(
-  nodes: readonly ProxyNode[],
-  query: {
-    ids?: readonly string[];
-    regions?: readonly string[];
-    providers?: readonly string[];
-    tags?: readonly string[];
-  } = {},
-): ProxyNode[] {
-  inspectDefinition({ nodes, query });
-  exactDefinition(query, ["ids", "regions", "providers", "tags"]);
-  if (!Array.isArray(nodes) || nodes.some((node) => !node || typeof node !== "object"))
-    fail("DEFINITION_NOT_DATA");
-  for (const values of Object.values(query))
-    if (values !== undefined && !Array.isArray(values)) fail("DEFINITION_NOT_DATA");
-  return nodes.filter(
-    (node) =>
-      (!query.ids || query.ids.includes(node.id)) &&
-      (!query.regions || (node.region !== undefined && query.regions.includes(node.region))) &&
-      (!query.providers ||
-        (node.provider !== undefined && query.providers.includes(node.provider))) &&
-      (!query.tags || query.tags.every((tag) => node.tags?.includes(tag))),
-  );
 }
 export function lowerSurgeProfile(input: SurgeDefinitionInput) {
   inspectDefinition(input);

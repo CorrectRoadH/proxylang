@@ -94,7 +94,7 @@ SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运�
 
 ## 对象定义
 
-defineProxyGroup 将逻辑 id、原生 name、algorithm 与对象成员合在一个定义；defineRoute 将 when 与对象目的地 to 合在一个定义。defineProfile 定义通用数据，内部 lowerSurgeProfile 按显式 nodes/tunnels/groups/routes/fallback 列表降低成 SurgeProfileInput，顺序不变，不自动收集依赖。members、to、fallback 必须是登记列表中的同一对象实例；via 保持旧字符串 ID 语义。outbound 提供内置出口，selectProxies 返回稳定的原节点子序列；surge.match 提供完整原生条件构造器。
+defineProxyGroup 将逻辑 id、原生 name、algorithm 与对象成员合在一个定义；defineRoute 将 when 与对象目的地 to 合在一个定义。defineProfile 定义通用数据，内部 lowerSurgeProfile 按显式 nodes/tunnels/groups/routes/fallback 列表降低成 SurgeProfileInput，顺序不变，不自动收集依赖。members、to、fallback 必须是登记列表中的同一对象实例；via 保持旧字符串 ID 语义。outbound 提供内置出口，应用通过普通数组选择原节点子序列；surge.match 提供完整原生条件构造器。
 
 公开 authoring 只使用 defineProfile/defineProxyGroup/defineRoute/defineRoutes；无 Surge 专用 authoring 别名。Program DSL 和平台 compiler/render 是独立能力，不属于兼容层。
 

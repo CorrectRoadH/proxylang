@@ -9,7 +9,6 @@ import {
   reject,
   route,
   rule,
-  selectNodes,
   use,
   type Config,
   type Match,
@@ -181,15 +180,7 @@ test("cases 是首命中与出口回归，不匹配会阻止整批编译", () =>
 });
 
 // @use-case docs/feature/rule-composition/use-case/select-resources.md
-test("selectNodes 使用元数据且稳定排序，空组不成立", () => {
-  const nodes = [
-    { ...trojan, id: "second", region: "SG", tags: ["ai"] },
-    { ...trojan, id: "first", region: "US", tags: ["ai"] },
-  ];
-  assert.deepEqual(selectNodes(nodes, { regions: ["US", "SG"], tags: ["ai"] }), [
-    "second",
-    "first",
-  ]);
+test("空选择组不能编译", () => {
   assert.equal(
     compile(fixture([], { groups: [{ id: "empty", type: "select", members: [] }] })).ok,
     false,

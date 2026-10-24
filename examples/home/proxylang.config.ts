@@ -3,7 +3,6 @@ import {
   direct,
   route,
   secret,
-  selectNodes,
   use,
   type Group,
   type Program,
@@ -21,8 +20,6 @@ const nodes: readonly ProxyNode[] = [
     port: 443,
     password: secret("DEMO_PASSWORD"),
     serverName: "sg.example",
-    region: "SG",
-    provider: "demo",
   },
   {
     id: "us",
@@ -31,8 +28,6 @@ const nodes: readonly ProxyNode[] = [
     port: 443,
     password: secret("DEMO_PASSWORD"),
     serverName: "us.example",
-    region: "US",
-    provider: "demo",
   },
   {
     id: "residential",
@@ -42,16 +37,18 @@ const nodes: readonly ProxyNode[] = [
     username: secret("DEMO_USER"),
     password: secret("DEMO_PASSWORD"),
     via: "relay",
-    region: "US",
-    provider: "residential",
   },
 ];
 const groups: readonly Group[] = [
-  { id: "proxy", type: "select", members: selectNodes(nodes, { providers: ["demo"] }) },
+  {
+    id: "proxy",
+    type: "select",
+    members: nodes.filter((node) => node.type === "trojan").map((node) => node.id),
+  },
   {
     id: "ai",
     type: "select",
-    members: selectNodes(nodes, { providers: ["demo"], regions: ["SG", "US"] }),
+    members: nodes.filter((node) => ["sg", "us"].includes(node.id)).map((node) => node.id),
   },
   { id: "relay", type: "select", members: ["sg"] },
 ];

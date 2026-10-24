@@ -72,7 +72,7 @@ try {
     import assert from 'node:assert/strict';
     import {readFile, readlink} from 'node:fs/promises';
     import {runBuild, defineProfile, defineProxyGroup, group, proxy, secret} from 'proxylang';
-    const nodes=[proxy.trojan({id:'edge',label:'Edge',region:'SG',server:'192.0.2.1',port:443,password:secret('PASS')})];
+    const nodes=[proxy.trojan({id:'edge',label:'Edge',server:'192.0.2.1',port:443,password:secret('PASS')})];
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:nodes});
     const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[nodes],groups:[choice],routes:[],fallback:choice});
     let reads=0;
@@ -94,9 +94,9 @@ try {
       "-e",
       `
     import assert from 'node:assert/strict';
-    import {defineProxyGroup,defineRoute,defineProfile,selectProxies,outbound,group,surge,proxy,secret,compileProfile} from 'proxylang';
+    import {defineProxyGroup,defineRoute,defineProfile,outbound,group,surge,proxy,secret,compileProfile} from 'proxylang';
     const node=proxy.http({id:'edge',server:'192.0.2.1',port:8080,password:secret('PASS')});
-    const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:selectProxies([node],{ids:['edge']})});
+    const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:[node].filter(node=>node.id==='edge')});
     const input=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[[node]],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
     assert.equal(compileProfile(input).ok,true);
   `,
@@ -109,7 +109,7 @@ try {
       "-e",
       `
     import * as sdk from 'proxylang';
-    for (const name of ['defineSurgeProfile','defineSurgeBuild','runSurgeBuild','surgeProfile','surgeMembers','buildSurgeProfilesToDirectory','lowerSurgeProfile'])
+    for (const name of ['selectNodes','selectProxies','defineSurgeProfile','defineSurgeBuild','runSurgeBuild','surgeProfile','surgeMembers','buildSurgeProfilesToDirectory','lowerSurgeProfile'])
       if(name in sdk) throw Error('removed/internal export: '+name);
   `,
     ]),

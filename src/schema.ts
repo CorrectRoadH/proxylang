@@ -168,12 +168,6 @@ const nodeBase = {
   via: idSchema.optional(),
   tcpFastOpen: z.boolean().optional(),
   label: z.string().min(1).max(256).optional(),
-  region: z
-    .string()
-    .regex(/^[A-Z]{2}$/)
-    .optional(),
-  provider: idSchema.optional(),
-  tags: z.array(idSchema).refine(unique).optional(),
 };
 const tlsSchema = z.strictObject({
   serverName: domain,
@@ -431,8 +425,14 @@ export function assertData(value: unknown): void {
     )
       throw new Error("INPUT_OBJECT");
     ancestors.add(v);
-    for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(v))) {
-      if (descriptor.get || descriptor.set) throw new Error("INPUT_ACCESSOR");
+    for (const key of Reflect.ownKeys(v)) {
+      const descriptor = Object.getOwnPropertyDescriptor(v, key)!;
+      if (
+        typeof key !== "string" ||
+        !("value" in descriptor) ||
+        (!descriptor.enumerable && !(Array.isArray(v) && key === "length"))
+      )
+        throw new Error("INPUT_OBJECT");
       visit(descriptor.value, depth + 1);
     }
     ancestors.delete(v);

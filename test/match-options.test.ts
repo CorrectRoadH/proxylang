@@ -34,7 +34,7 @@ function profileText(when: ProfileCondition) {
 // @use-case docs/feature/target-compilation/use-case/build-targets.md
 test("extended matching uses each observed source without overriding destination", () => {
   const condition = match.domainSuffix("example.com", {
-    sources: ["destination", "tlsSni", "httpHost"],
+    includeSniffed: true,
   });
   for (const request of [
     { domain: "other.net", tlsSni: "sub.example.com" },
@@ -50,7 +50,7 @@ test("extended matching uses each observed source without overriding destination
     false,
   );
   assert.equal(
-    evaluate(match.domain("example.com", { sources: ["destination"] }), {
+    evaluate(match.domain("example.com", { includeSniffed: false }), {
       network: "tcp",
       httpHost: "example.com",
     }).matched,
@@ -105,7 +105,7 @@ test("CIDR preserves entry-specific defaults and explicit false on both address 
 test("engine functions bind routes directly and retain snapshots and resource identity", () => {
   const input = {
     url: "https://example.com/rules",
-    sources: ["destination", "tlsSni", "httpHost"] as const,
+    includeSniffed: true,
   };
   const condition = surge.ruleSet(input);
   const route = surge.ruleSet({ ...input, to: outbound.direct });
@@ -124,10 +124,7 @@ test("engine functions bind routes directly and retain snapshots and resource id
   );
   input.url = "https://example.com/changed";
   assert.equal(condition.url, "https://example.com/rules");
-  assert.equal(
-    condition.id,
-    surge.ruleSet({ sources: ["destination", "tlsSni", "httpHost"], url: condition.url }).id,
-  );
+  assert.equal(condition.id, surge.ruleSet({ includeSniffed: true, url: condition.url }).id);
   assert.ok(compileProfile({ ...base, routes: [route] }).ok);
   assert.equal(mihomo.ruleProvider, mihomo.ruleSet);
   assert.equal(

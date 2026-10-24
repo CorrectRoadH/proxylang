@@ -162,9 +162,9 @@ export function evaluate(condition: Match, request: Request): ConditionTrace {
   switch (condition.type) {
     case "domain":
     case "domainSuffix": {
-      const domains = (condition.sources ?? ["destination"]).map((source) =>
-        source === "destination" ? request.domain : request[source],
-      );
+      const domains = condition.includeSniffed
+        ? [request.domain, request.tlsSni, request.httpHost]
+        : [request.domain];
       present = domains.some((value) => value !== undefined);
       matched = domains.some(
         (value) =>

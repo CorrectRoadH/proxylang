@@ -1,6 +1,5 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
-import type { DomainSource } from "./types.js";
 import type { GroupAlgorithm } from "./types.js";
 import type { SurgeCondition, SurgePolicy, SurgeProfileInput } from "./surge-profile.js";
 
@@ -261,13 +260,32 @@ export function lowerSurgeProfile(input: SurgeDefinitionInput) {
   return snapshot({ ...rest, names, groups, rules, fallback: lower(fallback) });
 }
 
-type Options = { readonly noResolve?: boolean; readonly sources?: readonly DomainSource[] };
+type Options = { readonly noResolve?: boolean; readonly includeSniffed?: never };
+type DomainOptions = { readonly noResolve?: boolean; readonly includeSniffed?: boolean };
 function condition<T extends SurgeCondition>(value: T): T {
   inspectDefinition(value);
+  const fields =
+    value.type === "ruleSet"
+      ? ["format", "url", "builtin", "intervalSeconds"]
+      : value.type === "all" || value.type === "any"
+        ? ["conditions"]
+        : value.type === "not"
+          ? ["condition"]
+          : value.type === "port" || value.type === "sourcePort"
+            ? ["from", "to"]
+            : ["value"];
+  exactDefinition(value, [
+    "type",
+    "noResolve",
+    ...fields,
+    ...(["domain", "domainSuffix", "ruleSet"].includes(value.type) ? ["includeSniffed"] : []),
+  ]);
+  if (value.includeSniffed !== undefined && typeof value.includeSniffed !== "boolean")
+    throw new ProfileDefinitionError("INVALID_MATCH_OPTIONS");
   return value;
 }
-function atom(
-  type:
+function atom<
+  K extends
     | "domain"
     | "domainSuffix"
     | "ipCidr"
@@ -275,10 +293,17 @@ function atom(
     | "sourceIp"
     | "processName"
     | "macAddress",
-) {
-  return (value: string, options: Options = {}): SurgeCondition => {
-    inspectDefinition(options);
-    return condition({ ...options, type, value });
+>(type: K) {
+  return (
+    value: string,
+    options?: K extends "domain" | "domainSuffix" ? DomainOptions : Options,
+  ): SurgeCondition => {
+    inspectDefinition(options ?? {});
+    exactDefinition(options ?? {}, [
+      "noResolve",
+      ...(["domain", "domainSuffix"].includes(type) ? ["includeSniffed"] : []),
+    ]);
+    return condition({ ...options, type, value } as SurgeCondition);
   };
 }
 export const surgeMatch = {

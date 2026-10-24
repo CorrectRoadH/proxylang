@@ -1,6 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/use-case/compose-native-rule-sets.md
-import { domainIdentityFields } from "./domain-sources.js";
+import { domainIdentityFields } from "./match-identity.js";
 import type {
   Diagnostic,
   Entry,

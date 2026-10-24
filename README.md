@@ -405,6 +405,8 @@ DEMO_PASSWORD=example-only DEMO_UUID=11111111-2222-4333-8444-555555555555 \
 
 支持域名、IP、端口、网络类型与逻辑条件，节点协议包括 Trojan、HTTP、AnyTLS、Shadowsocks、VMess、VLESS，具体能力按目标版本检查。未知版本和影响路由行为的不支持项报错；可省略的展示信息报 warning，可用 `warningsAsErrors` 提升为错误。
 
+需要额外匹配 TLS SNI 和 HTTP Host 时，使用 `match.domainSuffix("example.com", { includeSniffed: true })`。原域名仍参与匹配；Surge 编译为 `extended-matching`。其他引擎的嗅探通常优先使用识别域名，不能等价为多来源 OR，因此拒绝此选项的 `true`。它不改变连接目的地址。详见[匹配语义](docs/feature/target-compilation/domain-sources.md)。
+
 Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。完整配置的节点地址暂限 IP，独立 Surge 节点片段支持域名。HTTP、VMess、VLESS 及经过它们的代理链按 TCP-only 检查；AnyTLS 目前仅在 Surge 放行 UDP。远程节点订阅、MAC/进程匹配和 TUN 尚未实现。完整限制见 [SDK 细则](docs/implementation-v0.md)和 [Mihomo / Stash 转换边界](docs/engineering/clash-backends/README.md)。
 
 配置文件是可信的 TypeScript 代码；构建产物包含密码，旧构建也会保留。凭据与产物管理见[构建契约](docs/feature/artifact-publication/use-case/publish-generation.md)。

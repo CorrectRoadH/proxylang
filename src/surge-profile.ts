@@ -1,11 +1,5 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
-import {
-  domainSourcesSchema,
-  supportsDomainSources,
-  extendedDomainSources,
-} from "./domain-sources.js";
-import type { DomainSource } from "./types.js";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 import { z } from "zod";
@@ -187,38 +181,42 @@ const groupSchema = z.strictObject({
   timeoutSeconds: z.number().int().positive().max(3600).optional(),
 });
 export type SurgeGroup = z.infer<typeof groupSchema>;
-type ConditionOptions = {
-  readonly noResolve?: boolean;
-  readonly sources?: readonly DomainSource[];
-};
-export type SurgeCondition = ConditionOptions &
-  (
-    | {
-        readonly type:
-          | "domain"
-          | "domainSuffix"
-          | "ipCidr"
-          | "ipCidr6"
-          | "sourceIp"
-          | "processName"
-          | "macAddress";
-        readonly value: string;
-      }
-    | { readonly type: "port" | "sourcePort"; readonly from: number; readonly to?: number }
-    | { readonly type: "network"; readonly value: "tcp" | "udp" }
-    | { readonly type: "all" | "any"; readonly conditions: readonly SurgeCondition[] }
-    | { readonly type: "not"; readonly condition: SurgeCondition }
-    | {
-        readonly type: "ruleSet";
-        readonly format: "rule-set" | "domain-set";
-        readonly url?: string;
-        readonly builtin?: "LAN" | "SYSTEM";
-        readonly intervalSeconds?: number;
-      }
-  );
-const options = { noResolve: z.boolean().optional(), sources: domainSourcesSchema.optional() };
+type NoSniff = { readonly includeSniffed?: never };
+export type SurgeCondition = { readonly noResolve?: boolean } & (
+  | {
+      readonly type: "domain" | "domainSuffix";
+      readonly value: string;
+      readonly includeSniffed?: boolean;
+    }
+  | (NoSniff & {
+      readonly type: "ipCidr" | "ipCidr6" | "sourceIp" | "processName" | "macAddress";
+      readonly value: string;
+    })
+  | (NoSniff & {
+      readonly type: "port" | "sourcePort";
+      readonly from: number;
+      readonly to?: number;
+    })
+  | (NoSniff & { readonly type: "network"; readonly value: "tcp" | "udp" })
+  | (NoSniff & { readonly type: "all" | "any"; readonly conditions: readonly SurgeCondition[] })
+  | (NoSniff & { readonly type: "not"; readonly condition: SurgeCondition })
+  | {
+      readonly type: "ruleSet";
+      readonly format: "rule-set" | "domain-set";
+      readonly url?: string;
+      readonly builtin?: "LAN" | "SYSTEM";
+      readonly intervalSeconds?: number;
+      readonly includeSniffed?: boolean;
+    }
+);
+const options = { noResolve: z.boolean().optional() };
+const domainOptions = { ...options, includeSniffed: z.boolean().optional() };
 const atom = (type: string, value: z.ZodType<string>) =>
-  z.strictObject({ type: z.literal(type), value, ...options });
+  z.strictObject({
+    type: z.literal(type),
+    value,
+    ...(["domain", "domainSuffix"].includes(type) ? domainOptions : options),
+  });
 const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
   () =>
     z.union([
@@ -251,7 +249,7 @@ const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
           url: url.optional(),
           builtin: z.enum(["LAN", "SYSTEM"]).optional(),
           intervalSeconds: z.number().int().min(60).max(2147483647).optional(),
-          ...options,
+          ...domainOptions,
         })
         .refine((v) => (v.url !== undefined) !== (v.builtin !== undefined)),
     ]) as z.ZodType<SurgeCondition>,
@@ -428,10 +426,8 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
     }
     if (c.noResolve !== undefined && !["ipCidr", "ipCidr6", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
-    if (c.sources !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
+    if (c.includeSniffed !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
-    if (c.sources !== undefined && !supportsDomainSources(c.sources, "surge"))
-      error("MATCH_OPTION_UNSUPPORTED");
     if (p.target.platform === "ios" && ["processName", "macAddress"].includes(c.type))
       error("PLATFORM_RULE_UNSUPPORTED");
     if (c.type === "all" || c.type === "any")
@@ -475,7 +471,7 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
 function conditionOptions(c: SurgeCondition): string[] {
   return [
     ...(c.noResolve ? ["no-resolve"] : []),
-    ...(extendedDomainSources(c.sources) ? ["extended-matching"] : []),
+    ...("includeSniffed" in c && c.includeSniffed ? ["extended-matching"] : []),
     ...(c.type === "ruleSet" && c.intervalSeconds !== undefined
       ? [`update-interval=${c.intervalSeconds}`]
       : []),

@@ -3,6 +3,7 @@ import {
   defineProfile,
   proxy,
   type ProfileCondition,
+  type SurgeCondition,
   type GroupAlgorithm,
   type ProxyGroupDefinition,
   type RouteDefinition,
@@ -190,13 +191,13 @@ export function nativeRouteTypeChecks() {
 }
 
 export function sourceAndSecretTypes() {
-  match.domain("example.com", { sources: ["destination", "tlsSni", "httpHost"] });
+  match.domain("example.com", { includeSniffed: true });
   // @ts-expect-error Retired boolean option is not a public input.
   match.domain("example.com", { extendedMatching: true });
   // @ts-expect-error Only named domain sources are accepted.
   match.domain("example.com", { sources: ["sniff"] });
   // @ts-expect-error CIDR has no domain sources.
-  match.ipCidr("192.0.2.0/24", { sources: ["destination"] });
+  match.ipCidr("192.0.2.0/24", { includeSniffed: false });
   // @ts-expect-error Retired callback field must fail at compile time too.
   defineBuild({ profiles: {}, resolveSecret: () => "old" });
 }
@@ -214,4 +215,28 @@ export function proxyBusinessBoundary() {
   proxy.trojan({ ...node, provider: "supplier" });
   // @ts-expect-error Business tags do not belong to protocol inputs.
   proxy.trojan({ ...node, tags: ["ai"] });
+}
+
+export function sniffedTypes() {
+  // @ts-expect-error Sniffed matching is a boolean.
+  match.domain("example.com", { includeSniffed: "yes" });
+  // @ts-expect-error IP conditions cannot include domain observations.
+  surge.match.ipCidr("192.0.2.0/24", { includeSniffed: false });
+  // @ts-expect-error Process conditions cannot include domain observations.
+  surge.match.processName("app", { includeSniffed: false });
+  // @ts-expect-error Logical wrappers cannot include domain observations.
+  surge.match.not(surge.match.domain("example.com"), { includeSniffed: false });
+  // @ts-expect-error Direct SurgeCondition obeys the same restriction.
+  const raw: SurgeCondition = {
+    type: "ipCidr",
+    value: "192.0.2.0/24",
+    includeSniffed: false,
+  };
+  const wrapped: ProfileCondition = {
+    type: "not",
+    condition: match.domain("example.com"),
+    // @ts-expect-error Profile logical conditions obey the same restriction.
+    includeSniffed: false,
+  };
+  return [raw, wrapped];
 }

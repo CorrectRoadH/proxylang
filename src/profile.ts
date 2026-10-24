@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/build-targets.md
-import type { DomainSource } from "./types.js";
+import { validateRuleSets } from "./rulesets.js";
+import type { Diagnostic, Entry } from "./types.js";
 import { dnsRulesSchema } from "./dns.js";
 import type { DnsRule } from "./types.js";
 import { isIP } from "node:net";
@@ -36,13 +37,11 @@ export type ProfileCondition =
       readonly type: "all" | "any";
       readonly conditions: readonly ProfileCondition[];
       readonly noResolve?: boolean;
-      readonly sources?: readonly DomainSource[];
     }
   | {
       readonly type: "not";
       readonly condition: ProfileCondition;
       readonly noResolve?: boolean;
-      readonly sources?: readonly DomainSource[];
     };
 export type ProfileDestination =
   | string
@@ -240,7 +239,7 @@ function surgeCondition(condition: ProfileCondition, depth = 0): SurgeCondition 
       url: value.url,
       ...(value.intervalSeconds !== undefined ? { intervalSeconds: value.intervalSeconds } : {}),
       ...(value.noResolve !== undefined ? { noResolve: value.noResolve } : {}),
-      ...(value.sources !== undefined ? { sources: value.sources } : {}),
+      ...(value.includeSniffed !== undefined ? { includeSniffed: value.includeSniffed } : {}),
     };
   }
   if (condition.type === "all" || condition.type === "any") {
@@ -266,6 +265,29 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
     const profile = defineProfile(input);
     // Budget the eventual expansion before any recursive lowering, without losing aliases.
     snapshotDefinition(profile.routes.map((route) => route.when));
+    const ruleSets: Entry[] = [];
+    const collectRuleSets = (condition: ProfileCondition): void => {
+      if (
+        condition.type === "nativeRuleSet" ||
+        (condition.type === "ruleSet" && "when" in condition)
+      ) {
+        const parsed = matchSchema.safeParse(condition);
+        if (!parsed.success) return fail("PROFILE_CONDITION_UNSUPPORTED");
+        ruleSets.push({
+          type: "rule",
+          id: `ruleset-${ruleSets.length}`,
+          when: parsed.data,
+          then: { type: "direct" },
+        });
+      } else if (condition.type === "all" || condition.type === "any")
+        condition.conditions.forEach(collectRuleSets);
+      else if (condition.type === "not") collectRuleSets(condition.condition);
+    };
+    profile.routes.forEach((route) => collectRuleSets(route.when));
+    const ruleSetDiagnostics: Diagnostic[] = [];
+    validateRuleSets(ruleSets, profile.target.engine, ruleSetDiagnostics, "routes");
+    const ruleSetError = ruleSetDiagnostics.find((diagnostic) => diagnostic.severity === "error");
+    if (ruleSetError) return fail(ruleSetError.code);
     const nodes = profile.proxies.filter(
       (proxy): proxy is DeepReadonly<ProxyNode> => !isEndpoint(proxy),
     );

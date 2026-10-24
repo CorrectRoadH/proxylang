@@ -1,7 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
-import { domainIdentityFields, domainSourcesSchema } from "./domain-sources.js";
-import type { DomainSource } from "./types.js";
+import { domainIdentityFields } from "./match-identity.js";
 import { dnsRulesSchema } from "./dns.js";
 import type { DnsRule } from "./types.js";
 import { createHash } from "node:crypto";
@@ -52,26 +51,17 @@ export function dnsRule(pattern: string | readonly string[], server: string): Dn
   return batch ? checked.data : checked.data[0]!;
 }
 
-export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet => ({
-  ...definition,
-  type: "ruleSet",
-});
-type DomainOptions = { readonly sources?: readonly DomainSource[] };
+export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet => {
+  inspectDefinition(definition);
+  exactDefinition(definition, ["id", "when"]);
+  return snapshotDefinition({ ...definition, type: "ruleSet" });
+};
+type DomainOptions = { readonly includeSniffed?: boolean };
 type IpOptions = { readonly noResolve?: boolean };
 function options<T extends DomainOptions | IpOptions>(value: T, keys: readonly string[]): T {
   inspectDefinition(value);
   exactDefinition(value, keys);
-  if (
-    "sources" in value &&
-    value.sources !== undefined &&
-    !domainSourcesSchema.safeParse(value.sources).success
-  )
-    throw new ProfileDefinitionError("INVALID_DOMAIN_SOURCES");
-  if (
-    Object.entries(value).some(
-      ([key, v]) => key !== "sources" && v !== undefined && typeof v !== "boolean",
-    )
-  )
+  if (Object.values(value).some((v) => v !== undefined && typeof v !== "boolean"))
     throw new ProfileDefinitionError("INVALID_MATCH_OPTIONS");
   return snapshotDefinition(value);
 }
@@ -84,12 +74,12 @@ export const match = {
   domain: (value: string, opts: DomainOptions = {}) => ({
     type: "domain" as const,
     value,
-    ...options(opts, ["sources"]),
+    ...options(opts, ["includeSniffed"]),
   }),
   domainSuffix: (value: string, opts: DomainOptions = {}) => ({
     type: "domainSuffix" as const,
     value,
-    ...options(opts, ["sources"]),
+    ...options(opts, ["includeSniffed"]),
   }),
   ipCidr: (value: string, opts: IpOptions = {}) => ({
     type: "ipCidr" as const,
@@ -136,7 +126,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
       "format",
       "intervalSeconds",
       "noResolve",
-      "sources",
+      "includeSniffed",
       "behavior",
       "to",
     ]);
@@ -147,7 +137,11 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
       "url",
       "format",
       "intervalSeconds",
-      ...(engine === "surge" ? ["noResolve", "sources"] : engine === "mihomo" ? ["behavior"] : []),
+      ...(engine === "surge"
+        ? ["noResolve", "includeSniffed"]
+        : engine === "mihomo"
+          ? ["behavior"]
+          : []),
     ]);
     const parsed = nativeRuleSetSchema.safeParse({
       ...(engine === "surge" ? { format: "rule-set" } : {}),

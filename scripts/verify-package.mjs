@@ -133,6 +133,8 @@ try {
     join(temp, "removed-types.ts"),
     `
     // @ts-expect-error removed public type
+    import type {DomainSource} from 'proxylang';
+    // @ts-expect-error removed public type
     import type {Destination} from 'proxylang';
     // @ts-expect-error removed public type
     import type {SurgeProfileDefinition} from 'proxylang';

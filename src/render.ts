@@ -1,6 +1,5 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
-import { extendedDomainSources } from "./domain-sources.js";
 import { dnsCondition, dohUrl } from "./dns.js";
 import { stringify } from "yaml";
 import { secretReader } from "./secrets.js";
@@ -217,9 +216,7 @@ function surgeOptions(condition: Match): string {
     ...(condition.type === "nativeRuleSet" && condition.engine === "surge" && condition.noResolve
       ? ["no-resolve"]
       : []),
-    ...("sources" in condition && extendedDomainSources(condition.sources)
-      ? ["extended-matching"]
-      : []),
+    ...("includeSniffed" in condition && condition.includeSniffed ? ["extended-matching"] : []),
   ]
     .map((value) => `,${value}`)
     .join("");

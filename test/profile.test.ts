@@ -109,7 +109,7 @@ test("sing-box refuses Surge extensions and top-level group probes; urltest live
       routes: [
         defineRoute({
           when: surge.match.domain("example.com", {
-            sources: ["destination", "tlsSni", "httpHost"],
+            includeSniffed: true,
           }),
           to: base.fallback,
         }),

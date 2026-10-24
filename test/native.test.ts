@@ -143,6 +143,12 @@ for (const [engine, version] of [
         ...(version !== "1.11.0" ? [{ ...trojan, id: "anytls", type: "anytls" as const }] : []),
       ];
       const conditions = [
+        ...(engine === "surge"
+          ? [
+              m.domain("sniff.example", { includeSniffed: true }),
+              m.all(m.domainSuffix("sniff.example", { includeSniffed: true }), m.port(443)),
+            ]
+          : []),
         m.domain("example.com"),
         m.domainSuffix("example.org"),
         m.ipCidr("192.0.2.0/24"),

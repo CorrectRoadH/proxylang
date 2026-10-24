@@ -39,7 +39,7 @@ SurgeCondition 支持 domain/domainSuffix/ipCidr/ipCidr6/sourceIp/processName/ma
 
 sourceIp 接受单 IP 和 CIDR。
 
-条件可带 noResolve?:boolean、sources?:readonly DomainSource[]，默认 false；noResolve 仅 IP/ruleSet，extendedMatching 仅域名/ruleSet，其余类型即使显式false也拒绝。
+条件可带 noResolve?:boolean、includeSniffed?:boolean；noResolve 仅 IP/ruleSet，includeSniffed 仅域名/ruleSet，其余类型即使显式 false 也拒绝。includeSniffed 未提供与 false 不生成 extended-matching，true 纳入 TLS SNI/HTTP Host。
 
 顶层选项编码在动作之后，子条件选项编码在括号内。
 
@@ -110,4 +110,4 @@ RouteDefinition 的 when/to 直接采用 ProfileCondition/ProfileDestination。
 
 ProxyGroupDefinition 的 algorithm/members 直接采用 GroupAlgorithm/ProfileDestination[]，不使用旧窄类型默认泛型。内部降低函数不经包入口导出。
 
-0.7.0 删除旧 extendedMatching 字段；来源组合校验和渲染遵守[域名来源](../domain-sources.md)。
+includeSniffed 的校验和渲染遵守[嗅探域名参与匹配](../domain-sources.md)。

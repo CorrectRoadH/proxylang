@@ -122,6 +122,9 @@ const generalSchema = z.strictObject({
   "proxy-restricted-to-lan": z.boolean().optional(),
 });
 export type SurgeGeneral = z.infer<typeof generalSchema>;
+/** Internal fragment validation; caller must inspect data descriptors before invoking. */
+export const validateSurgeGeneral = (input: unknown): boolean =>
+  generalSchema.safeParse(input).success;
 const hostSchema = z
   .strictObject({
     pattern: hostPattern,

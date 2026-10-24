@@ -104,13 +104,12 @@ export function strategyTypeChecks() {
   strategy({ id: "bad", members: ["edge"], implementations: { surge: group.auto() } });
 }
 
-defineProxyGroup({
+const typedGroup = defineProxyGroup({
   id: "typed",
   name: "Typed",
   algorithm: group.select(),
   members: [outbound.direct],
 });
-// @ts-expect-error destinations are objects, not string IDs
 defineRoute({ when: surge.match.domain("example.com"), to: "typed" });
 // @ts-expect-error native groups do not silently lower unsupported algorithms
 defineProxyGroup({ id: "bad", name: "Bad", algorithm: group.auto(), members: [] });
@@ -140,14 +139,30 @@ export function profileTypeChecks() {
   const algorithm: GroupAlgorithm = choice.algorithm;
   const profile = defineProfile({
     target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
-    nodes: [],
+    proxies: [],
     groups: [],
     routes: defineRoutes({ when: [match.ipCidr("2001:db8::/32")], to: outbound.direct }),
     fallback: outbound.direct,
   });
   // @ts-expect-error Profile nested arrays are immutable.
-  profile.nodes.push({});
+  profile.proxies.push({});
   // @ts-expect-error Target is immutable.
   profile.target.version = "1.11.0";
   return { condition, algorithm, profile };
+}
+
+export function compositionTypeChecks() {
+  const profile = defineProfile({
+    target: { engine: "surge", platform: "macos", version: "6.10.0" },
+    proxies: [[], [[]]],
+    groups: [[typedGroup]],
+    routes: [[anonymous], []],
+    fallback: "typed",
+    surge: { general: [{ ipv6: true }, [{ loglevel: "notify" }]], hosts: [[], []] },
+  });
+  // @ts-expect-error Profile no longer has a separate nodes field.
+  defineProfile({ ...profile, nodes: [] });
+  // @ts-expect-error Profile no longer has a separate endpoints field.
+  defineProfile({ ...profile, endpoints: [] });
+  return profile;
 }

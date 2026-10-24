@@ -583,9 +583,8 @@ test.skipIf(!enabled)("portable profile sing-box 1.12.0 standalone native check"
   });
   const profile = defineProfile({
     target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
-    nodes: [edge],
+    proxies: [edge, endpoint],
     groups: [choice],
-    endpoints: [endpoint],
     routes: [
       defineRoute({ when: m.ipCidr("192.168.50.0/24"), to: endpoint }),
       defineRoute({ when: m.ipCidr("2001:db8::/32"), to: choice }),

@@ -68,7 +68,7 @@ try {
     import {runBuild, defineProfile, defineProxyGroup, group, proxy, secret} from 'proxylang';
     const nodes=[proxy.trojan({id:'edge',label:'Edge',region:'SG',server:'192.0.2.1',port:443,password:secret('PASS')})];
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:nodes});
-    const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes,groups:[choice],routes:[],fallback:choice});
+    const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[nodes],groups:[choice],routes:[],fallback:choice});
     let reads=0;
     const resolver=()=>{reads++;return 'fixture-pass';};
     const built=await runBuild({profiles:{first:profile,second:profile},resolveSecret:resolver},'complete-out');
@@ -91,7 +91,7 @@ try {
     import {defineProxyGroup,defineRoute,defineProfile,selectProxies,outbound,group,surge,proxy,secret,compileProfile} from 'proxylang';
     const node=proxy.http({id:'edge',server:'192.0.2.1',port:8080,password:secret('PASS')});
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:selectProxies([node],{ids:['edge']})});
-    const input=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},nodes:[node],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
+    const input=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[[node]],groups:[choice],routes:[defineRoute({when:surge.match.domain('example.com'),to:outbound.direct})],fallback:choice});
     assert.equal(compileProfile(input).ok,true);
   `,
     ]),
@@ -144,7 +144,7 @@ try {
     import {defineBuild,defineProfile,defineRoute,match,outbound,proxy,secret,defineProxyGroup,group} from 'proxylang';
     const edge=proxy.trojan({id:'edge',server:'192.0.2.1',port:443,password:secret('PASS')});
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:[edge]});
-    const common={nodes:[edge],groups:[choice],routes:[defineRoute({when:match.ipCidr('2001:db8::/32'),to:choice})],fallback:outbound.direct};
+    const common={proxies:[[edge]],groups:[choice],routes:[defineRoute({when:match.ipCidr('2001:db8::/32'),to:choice})],fallback:outbound.direct};
     export default defineBuild({profiles:{mac:defineProfile({...common,target:{engine:'surge',platform:'macos',version:'6.10.0'}}),linux:defineProfile({...common,target:{engine:'sing-box',platform:'linux',version:'1.12.0'}})},resolveSecret:()=> 'fixture'});
   `,
   );

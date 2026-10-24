@@ -5,6 +5,9 @@ import { compile, type Compilation } from "./compiler.js";
 import { deepFreeze, matchSchema } from "./schema.js";
 import {
   compileSurgeProfile,
+  validateSurgeGeneral,
+  type SurgeGeneral,
+  type SurgeHost,
   type SurgeCondition,
   type SurgeProfileInput,
   type SurgeTunnel,
@@ -39,12 +42,18 @@ export type ProfileCondition =
       readonly extendedMatching?: boolean;
     };
 export type ProfileDestination =
+  | string
   | ProxyNode
   | ProxyGroupDefinition
   | SurgeTunnel
   | TailscaleEndpoint
   | { readonly builtin: "DIRECT" | "REJECT" | "REJECT-DROP" | "REJECT-NO-DROP" | "REJECT-TINYGIF" };
-export type SurgeConfig = Pick<SurgeProfileInput, "managed" | "general" | "hosts" | "names">;
+export type Fragments<T> = readonly (T | Fragments<T>)[];
+export type ProfileProxy = ProxyNode | SurgeTunnel | TailscaleEndpoint;
+export type SurgeConfig = DeepReadonly<Pick<SurgeProfileInput, "managed" | "names">> & {
+  readonly general?: DeepReadonly<SurgeGeneral> | Fragments<DeepReadonly<SurgeGeneral>>;
+  readonly hosts?: Fragments<DeepReadonly<SurgeHost>>;
+};
 export type ProfileDefinition = {
   readonly target:
     | SurgeProfileInput["target"]
@@ -53,18 +62,24 @@ export type ProfileDefinition = {
         readonly platform: "macos" | "linux";
         readonly version: string;
       };
-  readonly nodes: readonly ProxyNode[];
-  readonly groups: readonly ProxyGroupDefinition[];
-  readonly routes: readonly RouteDefinition[];
+  readonly proxies: Fragments<ProfileProxy>;
+  readonly groups: Fragments<ProxyGroupDefinition>;
+  readonly routes: Fragments<RouteDefinition>;
   readonly fallback: ProfileDestination;
-  readonly endpoints?: readonly (SurgeTunnel | TailscaleEndpoint)[];
-  readonly surge?: DeepReadonly<SurgeConfig>;
+  readonly surge?: SurgeConfig;
   readonly singBox?: {
     readonly mode: "fragment" | "standalone";
     readonly listener?: { readonly port: number; readonly resolver: string };
   };
 };
-export type Profile = DeepReadonly<ProfileDefinition>;
+export type Profile = DeepReadonly<
+  Omit<ProfileDefinition, "proxies" | "groups" | "routes" | "surge"> & {
+    readonly proxies: readonly ProfileProxy[];
+    readonly groups: readonly ProxyGroupDefinition[];
+    readonly routes: readonly RouteDefinition[];
+    readonly surge?: Pick<SurgeProfileInput, "managed" | "general" | "hosts" | "names">;
+  }
+>;
 export type ProfileCompilation =
   | {
       readonly engine: "surge";
@@ -81,23 +96,14 @@ export function snapshotProfile<T>(input: T): DeepReadonly<T> {
   inspectDefinition(input);
   return deepFreeze(structuredClone(input)) as DeepReadonly<T>;
 }
-export function surgeConfig(input: SurgeConfig): DeepReadonly<SurgeConfig> {
+export function surgeConfig(input: SurgeConfig): SurgeConfig {
   inspectDefinition(input);
   exactDefinition(input, ["managed", "general", "hosts", "names"]);
-  return snapshotProfile(input);
+  return snapshotProfile(input as unknown) as SurgeConfig;
 }
 export function defineProfile(input: ProfileDefinition | Profile): Profile {
   inspectDefinition(input);
-  exactDefinition(input, [
-    "target",
-    "nodes",
-    "groups",
-    "routes",
-    "fallback",
-    "endpoints",
-    "surge",
-    "singBox",
-  ]);
+  exactDefinition(input, ["target", "proxies", "groups", "routes", "fallback", "surge", "singBox"]);
   exactDefinition(input.target, ["engine", "platform", "version"]);
   if (input.surge !== undefined)
     exactDefinition(input.surge, ["managed", "general", "hosts", "names"]);
@@ -108,15 +114,82 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
     if (input.singBox.listener !== undefined)
       exactDefinition(input.singBox.listener, ["port", "resolver"]);
   }
-  if (
-    !Array.isArray(input.nodes) ||
-    !Array.isArray(input.groups) ||
-    !Array.isArray(input.routes) ||
-    (input.endpoints !== undefined && !Array.isArray(input.endpoints))
-  )
-    fail("INVALID_PROFILE_DEFINITION");
-  return snapshotProfile(input);
+  // Inspection above rejects getters/cycles before traversal. Count repeated DAG visits too.
+  let remaining = 100000;
+  function flatten<T>(fragments: unknown): T[] {
+    if (!Array.isArray(fragments)) fail("INVALID_PROFILE_DEFINITION");
+    const result: T[] = [];
+    function visit(value: unknown): void {
+      if (--remaining < 0) fail("DEFINITION_OUTPUT_BUDGET_EXCEEDED");
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item);
+      } else {
+        if (!value || typeof value !== "object") fail("INVALID_PROFILE_DEFINITION");
+        result.push(value as T);
+      }
+    }
+    visit(fragments);
+    return result;
+  }
+  const proxies = flatten<DeepReadonly<ProfileProxy>>(input.proxies);
+  const groups = flatten<DeepReadonly<ProxyGroupDefinition>>(input.groups);
+  const routes = flatten<DeepReadonly<RouteDefinition>>(input.routes);
+  let surge: Profile["surge"];
+  if (input.surge !== undefined) {
+    let general: SurgeGeneral | undefined;
+    if (input.surge.general !== undefined) {
+      general = {};
+      const checked = new Set<object>();
+      const costs = new Map<object, number>();
+      let validationRemaining = 100000;
+      function cost(value: unknown): number {
+        if (!value || typeof value !== "object") return 1;
+        const cached = costs.get(value);
+        if (cached !== undefined) return cached;
+        let total = 1;
+        for (const item of Object.values(value)) {
+          total += cost(item);
+          if (total > 100000) fail("DEFINITION_OUTPUT_BUDGET_EXCEEDED");
+        }
+        costs.set(value, total);
+        return total;
+      }
+      const fragments = Array.isArray(input.surge.general)
+        ? input.surge.general
+        : [input.surge.general];
+      for (const fragment of flatten<DeepReadonly<SurgeGeneral>>(fragments)) {
+        if (!checked.has(fragment)) {
+          validationRemaining -= cost(fragment);
+          if (validationRemaining < 0) fail("DEFINITION_OUTPUT_BUDGET_EXCEEDED");
+          if (!validateSurgeGeneral(fragment)) fail("INVALID_SURGE_GENERAL");
+          checked.add(fragment);
+        }
+        Object.assign(general, fragment);
+      }
+    }
+    surge = {
+      ...input.surge,
+      ...(general === undefined ? {} : { general }),
+      ...(input.surge.hosts === undefined
+        ? {}
+        : { hosts: flatten<DeepReadonly<SurgeHost>>(input.surge.hosts) }),
+    } as Profile["surge"];
+  }
+  const { surge: _surge, proxies: _proxies, groups: _groups, routes: _routes, ...rest } = input;
+  return snapshotProfile({
+    ...rest,
+    proxies,
+    groups,
+    routes,
+    ...(surge === undefined ? {} : { surge }),
+  }) as Profile;
 }
+function isEndpoint(
+  proxy: DeepReadonly<ProfileProxy>,
+): proxy is DeepReadonly<SurgeTunnel | TailscaleEndpoint> {
+  return ["wireguard", "tailscale", "sing-box-tailscale"].includes(proxy.type);
+}
+
 function surgeCondition(condition: ProfileCondition, depth = 0): SurgeCondition {
   if (depth > 10) return fail("LOGICAL_DEPTH_EXCEEDED");
   if (condition.type === "nativeRuleSet" || (condition.type === "ruleSet" && "when" in condition)) {
@@ -155,15 +228,19 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
     const profile = defineProfile(input);
     // Budget the eventual expansion before any recursive lowering, without losing aliases.
     snapshotDefinition(profile.routes.map((route) => route.when));
+    const nodes = profile.proxies.filter(
+      (proxy): proxy is DeepReadonly<ProxyNode> => !isEndpoint(proxy),
+    );
+    const endpoints = profile.proxies.filter(isEndpoint);
     if (profile.target.engine === "surge") {
       if (profile.singBox !== undefined) fail("PROFILE_EXTENSION_UNSUPPORTED");
-      if (profile.endpoints?.some((endpoint) => endpoint.type === "sing-box-tailscale"))
+      if (endpoints.some((endpoint) => endpoint.type === "sing-box-tailscale"))
         fail("PROFILE_ENDPOINT_UNSUPPORTED");
       const lowered = lowerSurgeProfile({
         target: profile.target,
         ...profile.surge,
-        nodes: profile.nodes,
-        tunnels: profile.endpoints,
+        nodes,
+        tunnels: endpoints,
         groups: profile.groups,
         routes: profile.routes.map((route) => ({ ...route, when: surgeCondition(route.when) })),
         fallback: profile.fallback,
@@ -173,15 +250,19 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
     }
     if (profile.target.engine !== "sing-box") return fail("PROFILE_TARGET_UNSUPPORTED");
     if (profile.surge !== undefined) fail("PROFILE_EXTENSION_UNSUPPORTED");
-    if (profile.endpoints?.some((endpoint) => endpoint.type !== "sing-box-tailscale"))
+    if (endpoints.some((endpoint) => endpoint.type !== "sing-box-tailscale"))
       fail("PROFILE_ENDPOINT_UNSUPPORTED");
     const registry = new Map<string, object>();
-    for (const resource of [...profile.nodes, ...profile.groups, ...(profile.endpoints ?? [])]) {
+    for (const resource of [...profile.proxies, ...profile.groups]) {
       if (!resource || typeof resource.id !== "string") fail("INVALID_RESOURCE_DEFINITION");
       if (registry.has(resource.id)) fail("DUPLICATE_RESOURCE_ID");
       registry.set(resource.id, resource);
     }
     const lower = (destination: DeepReadonly<ProfileDestination>): Action => {
+      if (typeof destination === "string") {
+        if (!registry.has(destination)) return fail("UNKNOWN_DESTINATION_ID");
+        return { type: "route", to: destination };
+      }
       if (!destination || typeof destination !== "object") return fail("INVALID_DESTINATION");
       if ("builtin" in destination) {
         exactDefinition(destination, ["builtin"]);
@@ -243,8 +324,8 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
         programs: {
           profile: {
             engine: "sing-box",
-            nodes: profile.nodes,
-            endpoints: profile.endpoints as readonly TailscaleEndpoint[],
+            nodes,
+            endpoints: endpoints as readonly TailscaleEndpoint[],
             groups,
             routing,
             fallback: lower(profile.fallback),

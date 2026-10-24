@@ -49,7 +49,7 @@ const input = (
   });
   return {
     target: { engine: "surge", platform: "macos", version: "6.10.0" },
-    nodes: [node],
+    proxies: [node],
     groups: [choice],
     routes: [],
     fallback: choice,

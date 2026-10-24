@@ -235,6 +235,10 @@ export function lowerSurgeProfile(input: SurgeDefinitionInput) {
     });
   }
   function lower(destination: ProfileDestination): SurgePolicy {
+    if (typeof destination === "string") {
+      if (!registry.has(destination)) fail("UNKNOWN_DESTINATION_ID");
+      return { ref: destination };
+    }
     if (!destination || typeof destination !== "object") fail("INVALID_DESTINATION");
     if ("builtin" in destination) {
       exactDefinition(destination, ["builtin"]);

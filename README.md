@@ -24,7 +24,7 @@ proxylang 把这些关系直接写进代码：
 需要 **Node.js 24（最低 24.11.0）**。安装 npm 包：
 
 ```sh
-npm install --save-exact proxylang@0.1.2
+npm install --save-exact proxylang@0.3.0
 npx proxylang --help
 ```
 
@@ -48,6 +48,37 @@ DEMO_PASSWORD=example-only vp exec node dist/cli.js build examples/clients.ts --
 仓库开发统一使用 Vite+：`vp run dev` 监听构建，`vp run check` 检查源码，`vp run verify` 完成源码与隔离安装包验收。`vp add` / `vp remove` 管理依赖，提交更新后的 `package-lock.json`。
 
 [四客户端示例](examples/clients.ts)展示完整配置；下面从规则开始，逐步写出自己的版本。
+
+## 直接组合设备配置
+
+Profile 的 `proxies` 同时容纳普通代理、WireGuard 和 Tailscale。规则、代理组、Host 和 General 均可直接组合嵌套数组；General 按顺序浅合并，后者整键覆盖。
+
+```ts
+import { defineProfile, defineRoutes, outbound, proxy, secret, surge } from "proxylang";
+
+const exit = proxy.trojan({
+  id: "edge",
+  server: "proxy.example.com",
+  port: 443,
+  password: secret("PASSWORD"),
+});
+const work = defineRoutes({ when: [surge.match.domainSuffix("github.com")], to: "edge" });
+const local = defineRoutes({
+  when: [surge.match.domainSuffix("internal.example")],
+  to: outbound.direct,
+});
+
+const laptop = defineProfile({
+  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  proxies: [exit],
+  groups: [],
+  routes: [local, work],
+  fallback: "edge",
+  surge: { general: [{ loglevel: "notify" }], hosts: [] },
+});
+```
+
+字符串目的地是当前 Profile 的资源 ID，不是显示名称；缺失引用会阻止构建。平台专属代理仍须满足目标能力。完整语义见[Profile 组合契约](docs/feature/target-compilation/profile-composition.md)。
 
 ## Usage
 

@@ -403,7 +403,7 @@ test("profile-build CLI validates before import and preserves batch results thro
   assert.equal(load.result.code, "PROFILE_DEFINITION_FAILED");
   assert.equal(load.result.validation, true);
   assert.ok(!JSON.stringify(load).includes("private-value"));
-  const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, nodes:[], groups:[], routes:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
+  const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, proxies:[], groups:[], routes:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
   for (const extension of ["ts", "mjs", "cjs"]) {
     const path = join(root, `valid.${extension}`);
     await writeFile(

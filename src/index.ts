@@ -46,6 +46,8 @@ export {
   compileProfile,
   type Profile,
   type ProfileDefinition,
+  type ProfileProxy,
+  type Fragments,
   type ProfileCondition,
   type ProfileDestination,
   type ProfileCompilation,

@@ -41,7 +41,7 @@ function fixture(engine: "surge" | "sing-box" = "surge") {
       engine === "surge"
         ? ({ engine, platform: "macos", version: "6.10.0" } as const)
         : ({ engine, platform: "linux", version: "1.12.0" } as const),
-    nodes: [edge],
+    proxies: [edge],
     groups: [choice],
     routes: [defineRoute({ when: match.domain("example.com"), to: choice })],
     fallback: choice,
@@ -51,9 +51,12 @@ function fixture(engine: "surge" | "sing-box" = "surge") {
 test("portable profiles isolate mutation while keeping destination identity across snapshots", () => {
   const input = fixture();
   const profile = defineProfile(input);
-  Object.assign(input.nodes[0]!, { server: "bad" }); // original authoring object stays mutable
-  assert.equal(profile.nodes[0]!.server, "192.0.2.1");
-  assert.equal(profile.groups[0]!.members[0], profile.nodes[0]);
+  Object.assign(input.proxies[0]!, { server: "bad" }); // original authoring object stays mutable
+  assert.equal(
+    "server" in profile.proxies[0]! ? profile.proxies[0]!.server : undefined,
+    "192.0.2.1",
+  );
+  assert.equal(profile.groups[0]!.members[0], profile.proxies[0]);
   assert.equal(profile.routes[0]!.to, profile.groups[0]);
   assert.equal(profile.fallback, profile.groups[0]);
   assert.equal(Object.isFrozen(profile.groups[0]!.members), true);
@@ -191,9 +194,10 @@ test("endpoint state overlap is rejected before secrets or filesystem publicatio
       bootstrapResolver: "1.1.1.1",
       authKey: secret("TAIL_KEY"),
     };
+    const base = fixture("sing-box");
     const profile = {
-      ...fixture("sing-box"),
-      endpoints: [endpoint],
+      ...base,
+      proxies: [...base.proxies, endpoint],
       singBox: { mode: "standalone" as const, listener: { port: 1080, resolver: "1.1.1.1" } },
     };
     const result = await runBuild(

@@ -27,3 +27,7 @@ constitutionRefs:
 - [将 provider 节点接入原生配置](use-case/provider-nodes.md)
 
 - [构建完整 Surge 配置](use-case/surge-profile.md)
+
+## Profile 组合
+
+[片段组合与代理出口](profile-composition.md)定义嵌套数组、统一代理出口和资源 ID 引用契约。

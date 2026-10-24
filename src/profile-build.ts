@@ -2,7 +2,12 @@
 // @concord-implements docs/feature/artifact-publication/use-case/publish-generation.md
 import { ProfileDefinitionError, snapshotDefinition } from "./surge-definitions.js";
 import { join, resolve } from "node:path";
-import { compileProfile, snapshotProfile, type Profile } from "./profile.js";
+import {
+  compileProfile,
+  snapshotProfile,
+  type Profile,
+  type ProfileDefinition,
+} from "./profile.js";
 import { pathsOverlap, RenderError } from "./proxies.js";
 import { secretReader } from "./secrets.js";
 import { render } from "./render.js";
@@ -11,7 +16,7 @@ import { publishProfiles, SurgePublishError } from "./surge-publish.js";
 import type { BuildResult } from "./host.js";
 import type { Secret } from "./types.js";
 async function publish(
-  profiles: Readonly<Record<string, Profile>>,
+  profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
   output: string,
   resolver: (token: Secret) => string | undefined,
 ): Promise<BuildResult> {
@@ -85,7 +90,7 @@ async function publish(
 }
 export type BuildContext = { readonly validation: boolean };
 export type BuildDefinition = {
-  readonly profiles: Readonly<Record<string, Profile>>;
+  readonly profiles: Readonly<Record<string, Profile | ProfileDefinition>>;
   readonly preflight?: () => readonly string[];
   readonly resolveSecret?: (token: Secret, context: BuildContext) => string | undefined;
 };
@@ -123,7 +128,9 @@ export function defineBuild(input: BuildDefinition): BuildDefinition {
     for (const callback of [input.preflight, input.resolveSecret])
       if (callback !== undefined && typeof callback !== "function") throw new Error();
     return Object.freeze({
-      profiles: snapshotProfile(input.profiles),
+      profiles: snapshotProfile(input.profiles as unknown) as Readonly<
+        Record<string, Profile | ProfileDefinition>
+      >,
       ...(input.preflight === undefined ? {} : { preflight: input.preflight }),
       ...(input.resolveSecret === undefined ? {} : { resolveSecret: input.resolveSecret }),
     });

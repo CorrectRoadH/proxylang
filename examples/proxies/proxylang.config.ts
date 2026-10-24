@@ -93,6 +93,7 @@ const targets: Target[] = [
   },
 ];
 export default defineConfig({
+  outDir: "../../out/proxies",
   programs: {
     surge: program("surge"),
     box: program("sing-box"),

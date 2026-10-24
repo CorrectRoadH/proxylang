@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 // @concord-file
 // @concord-implements docs/feature/artifact-publication/README.md
-import { runBuild, type BuildDefinition } from "./profile-build.js";
+import { runBuild, checkBuild, defineBuild } from "./profile-build.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { open } from "node:fs/promises";
+import { open, lstat, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tsImport } from "tsx/esm/api";
 import { StaticRuleSetUnknownError } from "./rules.js";
 import { compile, explain, targetCatalog } from "./compiler.js";
 import { buildToDirectory } from "./host.js";
-import { profileBuildFailure } from "./profile-build.js";
 import { requestSchema } from "./schema.js";
 
 const print = (value: unknown) => process.stdout.write(JSON.stringify(value, null, 2) + "\n");
@@ -19,14 +18,13 @@ const failure = (code: string): number => {
   return 1;
 };
 const usages = {
-  "profile-build": ["proxylang profile-build config.ts --out DIRECTORY [--validation]"],
   targets: ["proxylang targets"],
-  check: ["proxylang check config.ts"],
+  check: ["proxylang check"],
   explain: [
-    "proxylang explain config.ts --target ID --request JSON",
-    "proxylang explain config.ts --target ID --request-file FILE",
+    "proxylang explain --target ID --request JSON",
+    "proxylang explain --target ID --request-file FILE",
   ],
-  build: ["proxylang build config.ts --out DIRECTORY"],
+  build: ["proxylang build [--validation]"],
 };
 async function readRequestFile(path: string): Promise<string> {
   const limit = 1024 * 1024;
@@ -74,7 +72,8 @@ function loadFailure(cause: unknown): number {
 // @concord-code
 // @concord-implements docs/feature/artifact-publication/cli.md
 async function main(args: string[]): Promise<number> {
-  const [command, file, ...rest] = args;
+  const root = process.cwd();
+  const [command, ...rest] = args;
   if (command === "targets" && args.length === 1) {
     print(targetCatalog);
     return 0;
@@ -83,41 +82,63 @@ async function main(args: string[]): Promise<number> {
   if (
     !command ||
     (help(command) && args.length === 1) ||
-    (Object.hasOwn(usages, command) && help(file) && args.length === 2)
+    (Object.hasOwn(usages, command) && help(rest[0]) && rest.length === 1)
   ) {
     print({
       usage:
         command && Object.hasOwn(usages, command)
           ? usages[command as keyof typeof usages]
           : Object.values(usages).flat(),
+      configFile: "proxylang.config.ts",
       trustedConfig: true,
     });
     return 0;
   }
-  if (command === "profile-build") return profileBuildCommand(file, rest);
-  if (!["check", "explain", "build"].includes(command) || !file?.trim() || help(file))
-    return failure("INVALID_ARGUMENTS");
+  if (!["check", "explain", "build"].includes(command)) return failure("INVALID_ARGUMENTS");
   const options = new Map<string, string>();
-  for (let i = 0; i < rest.length; i += 2) {
-    const key = rest[i]!;
-    const value = rest[i + 1];
-    if (!key.startsWith("--") || !value?.trim() || options.has(key))
+  let validation = false;
+  if (command === "build") {
+    if (
+      (rest.length === 1 && rest[0] === "--validation") ||
+      (rest.length === 2 && rest[0] === "--" && rest[1] === "--validation")
+    )
+      validation = true;
+    else if (rest.length) return failure("INVALID_ARGUMENTS");
+  } else if (command === "check") {
+    if (rest.length) return failure("INVALID_ARGUMENTS");
+  } else {
+    for (let i = 0; i < rest.length; i += 2) {
+      const key = rest[i]!;
+      const value = rest[i + 1];
+      if (
+        !["--target", "--request", "--request-file"].includes(key) ||
+        !value?.trim() ||
+        value.startsWith("--") ||
+        options.has(key)
+      )
+        return failure("INVALID_ARGUMENTS");
+      options.set(key, value);
+    }
+    if (!options.has("--target") || options.has("--request") === options.has("--request-file"))
       return failure("INVALID_ARGUMENTS");
-    options.set(key, value);
   }
-  const allowed =
-    command === "check"
-      ? []
-      : command === "build"
-        ? ["--out"]
-        : ["--target", "--request", "--request-file"];
-  const required = command === "check" ? [] : command === "build" ? ["--out"] : ["--target"];
-  if (
-    [...options.keys()].some((key) => !allowed.includes(key)) ||
-    required.some((key) => !options.has(key)) ||
-    (command === "explain" && options.has("--request") === options.has("--request-file"))
-  )
-    return failure("INVALID_ARGUMENTS");
+  const file = resolve(root, "proxylang.config.ts");
+  let found = false;
+  try {
+    const info = await lstat(file);
+    found = true;
+    if (!(info.isSymbolicLink() ? (await stat(file)).isFile() : info.isFile()))
+      return loadFailure({ code: "INVALID_CONFIG_FILE" });
+  } catch (cause) {
+    if (
+      !found &&
+      cause &&
+      typeof cause === "object" &&
+      Object.getOwnPropertyDescriptor(cause, "code")?.value === "ENOENT"
+    )
+      return failure("CONFIG_NOT_FOUND");
+    return loadFailure(cause);
+  }
   let config: unknown;
   try {
     const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
@@ -126,6 +147,33 @@ async function main(args: string[]): Promise<number> {
   } catch (cause) {
     return loadFailure(cause);
   }
+  const profileDescriptor =
+    config && typeof config === "object"
+      ? Object.getOwnPropertyDescriptor(config, "profiles")
+      : undefined;
+  if (profileDescriptor) {
+    let definition;
+    try {
+      definition = defineBuild(config as Parameters<typeof defineBuild>[0]);
+      if (definition.outDir !== undefined)
+        definition = { ...definition, outDir: resolve(root, definition.outDir) };
+    } catch {
+      return failure("INVALID_BUILD_DEFINITION");
+    }
+    if (command !== "build") {
+      const checked = checkBuild(definition);
+      if (!checked.ok || command === "check") {
+        print(checked);
+        return checked.ok ? 0 : 1;
+      }
+      return failure("EXPLAIN_PROFILE_UNSUPPORTED");
+    }
+    if (definition.outDir === undefined) return failure("OUTPUT_DIRECTORY_REQUIRED");
+    const built = await runBuild(definition, definition.outDir, { validation });
+    print(built);
+    return built.exitCode;
+  }
+  if (validation) return failure("VALIDATION_PROFILE_REQUIRED");
   const result = compile(config);
   if (!result.ok) {
     print({ ok: false, diagnostics: result.diagnostics, cases: result.cases });
@@ -151,7 +199,7 @@ async function main(args: string[]): Promise<number> {
     let source = options.get("--request");
     if (options.has("--request-file")) {
       try {
-        source = await readRequestFile(options.get("--request-file")!);
+        source = await readRequestFile(resolve(root, options.get("--request-file")!));
       } catch (cause) {
         return failure(
           cause instanceof Error && cause.message === "REQUEST_FILE_TOO_LARGE"
@@ -176,53 +224,11 @@ async function main(args: string[]): Promise<number> {
     });
     return 0;
   }
-  const built = await buildToDirectory(result, options.get("--out")!);
+  const outDir = Object.getOwnPropertyDescriptor(config, "outDir")?.value as string | undefined;
+  if (outDir === undefined) return failure("OUTPUT_DIRECTORY_REQUIRED");
+  const built = await buildToDirectory(result, resolve(root, outDir));
   print({ ...built, diagnostics: result.diagnostics });
   return built.exitCode;
-}
-
-// @concord-code
-// @concord-implements docs/feature/artifact-publication/cli.md
-async function profileBuildCommand(file: string | undefined, args: string[]): Promise<number> {
-  const invalid = () => {
-    print(profileBuildFailure("INVALID_ARGUMENTS"));
-    return 1;
-  };
-  if (!file?.trim() || file.startsWith("-")) return invalid();
-  let output: string | undefined;
-  let validation = false;
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === "--out" && output === undefined) {
-      const value = args[++i];
-      if (!value?.trim() || value.startsWith("-")) return invalid();
-      output = value;
-    } else if (arg === "--validation" && !validation) validation = true;
-    else if (
-      arg === "--" &&
-      output !== undefined &&
-      !validation &&
-      i === args.length - 2 &&
-      args[i + 1] === "--validation"
-    ) {
-      validation = true;
-      i++;
-    } else return invalid();
-  }
-  if (output === undefined) return invalid();
-  let config: BuildDefinition;
-  try {
-    const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
-    config = (
-      loaded.default?.__esModule === true ? loaded.default.default : loaded.default
-    ) as BuildDefinition;
-  } catch {
-    print(profileBuildFailure("PROFILE_DEFINITION_FAILED", validation));
-    return 1;
-  }
-  const result = await runBuild(config, output, { validation });
-  print(result);
-  return result.exitCode;
 }
 
 try {

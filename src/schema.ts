@@ -350,6 +350,11 @@ export const requestSchema: z.ZodType<Request> = z.strictObject({
   sourcePort: port.optional(),
 });
 export const configSchema: z.ZodType<Config> = z.strictObject({
+  outDir: z
+    .string()
+    .min(1)
+    .refine((value) => value.trim() === value && !value.includes("\0"))
+    .optional(),
   programs: z.record(
     idSchema,
     z.strictObject({

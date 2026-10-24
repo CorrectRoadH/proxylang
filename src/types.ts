@@ -243,6 +243,7 @@ export type PolicyCase = {
   readonly expect: { readonly rule?: string; readonly action: Action };
 };
 export type Config = {
+  readonly outDir?: string;
   readonly programs: Readonly<Record<string, Program>>;
   readonly targets: readonly Target[];
   readonly cases?: readonly PolicyCase[];

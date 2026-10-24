@@ -1,49 +1,47 @@
 # CLI 命令契约
 
+## 约定配置
+
+CLI 固定读取调用目录中的 `proxylang.config.ts`，默认导出 `defineConfig(...)` 或 `defineBuild(...)`。不向父目录搜索、不接受位置配置路径、--config 或 --out。profile-build、surge-build 已移除。构建的 outDir 由配置显式提供。
+
+配置是可信可执行 TS 模块，支持所在 package scope 的 ESM/CJS interop。不是隔离环境。相对 import 仍按配置文件解析。CLI 在 import 前捕获 cwd，配置及回调的 chdir 不改变配置发现、请求文件或输出目录的基准。完整行为见[约定项目配置](project-config.md)。
+
 ## 命令清单
 
 | 命令 | 输入与结果 |
 | --- | --- |
-| `proxylang targets` | 无配置输入，输出精确目标目录 JSON；额外参数拒绝。 |
-| `proxylang check config.ts` | 加载默认导出配置，检查所有目标与案例，输出诊断、来源和运行前提；不读取秘密。 |
-| `proxylang explain config.ts --target ID --request JSON` | 检查配置后解释请求，输出条件树、首命中或默认动作；目标和请求必填。 |
-| `proxylang explain config.ts --target ID --request-file FILE` | 从 UTF-8 JSON 普通文件读取请求，替代内联 JSON。 |
-| `proxylang profile-build config.ts --out DIRECTORY [--validation]` | 加载 defineBuild 默认导出，整批编译通用 Profile，发布 .conf/.json 到同一 out 指针；沿用 0/1/2 与恢复 hint。 |
-| `proxylang build config.ts --out DIRECTORY` | 检查并整批渲染，发布活动指针，输出状态与文件路径；输出目录必填。 |
-| `proxylang --help`、`-h`、子命令帮助或无参数 | 输出 JSON 用法和可信配置提示，不加载配置。 |
+| `proxylang targets` | 不加载配置，输出精确目标目录 JSON。 |
+| `proxylang check` | Program 检查全部目标及案例。Profile 使用 checkBuild 检查全部设备与可用输出目录隔离。不读秘密、不执行 preflight、不写产物。 |
+| `proxylang build` | 从配置的 outDir 整批编译渲染发布。Profile 使用 runBuild，Program 使用 buildToDirectory。 |
+| `proxylang build --validation` | 仅 Profile 支持，使用应用提供的验证 秘密解析函数。仍生成产物，不是只读检查。 |
+| `proxylang explain --target ID --request JSON` | 仅 Program 支持，检查配置后解释请求，输出条件树与命中结果。 |
+| `proxylang explain --target ID --request-file FILE` | 请求由 UTF-8 JSON 普通文件提供，替代内联 JSON。 |
+| `proxylang --help`、`-h`、子命令帮助或无参数 | 输出 JSON 用法、配置文件名及可信配置提示，不加载配置。 |
 
-`check` 不接受选项；`explain` 和 `build` 拒绝未知、重复、缺值选项。配置是可信 TS/ESM 或 CJS 模块，执行其顶层代码；不是隔离环境。加载异常不回显源码、原异常或秘密。CONFIG_LOAD_FAILED 附带受控 reason 和固定 hint：MODULE_NOT_FOUND（配置或导入模块不存在）、ACCESS_DENIED（权限不足）、INVALID_SYNTAX（语法或转换失败）、EXECUTION_FAILED（其它加载或执行失败）。诊断格式化不执行异常属性 getter；未知异常保持通用提示。可信配置本身及其加载器的执行副作用不属于输出脱敏保证。
+## 参数与错误优先级
 
-## 输出与错误
+未知命令、位置参数、未知/重复/缺值选项在 import 前返回 INVALID_ARGUMENTS。check/targets 不接受选项。帮助必须单独使用。build 只允许 --validation，另接受 `-- --validation` 的包管理器转发形式。不能重复。
 
-所有命令输出 JSON。检查和解释成功退出 0；无效参数、配置加载失败、编译或案例失败、请求格式错误及未知目标退出 1。配置检查先于解释请求，配置错误优先返回。
+explain 在 import 前检查选项结构、非空目标字符串，以及 --request/--request-file 必须且只能提供一个。配置加载与编译完成后，才解析 inline JSON 或读取请求文件，再校验 Request schema，最后检查目标存在性。配置错误优先于请求内容错误，不在 import 前解释 JSON。
 
-构建退出 0 表示指针发布且清理成功；1 表示没有发布；2 表示指针已经发布但提交后清理失败。应按发布状态处理退出 2，不能假设活动配置未变。报告不包含秘密或原生配置正文。
+根配置缺失报 CONFIG_NOT_FOUND。存在但加载失败为 CONFIG_LOAD_FAILED，带受控 reason/hint：MODULE_NOT_FOUND（导入依赖不存在）、ACCESS_DENIED、INVALID_SYNTAX、EXECUTION_FAILED。异常消息、源码、秘密及异常属性 getter 不进入诊断。配置/loader自行输出不属于此保证。
 
-片段不是完整网关。原生验证状态保持独立，构建不会自动执行原生二进制或部署服务。旧 generation 不自动清理；输出权限和错误恢复遵守 [批次发布故事](use-case/publish-generation.md)。
+缺 outDir 的 build 报 OUTPUT_DIRECTORY_REQUIRED。Program 的 --validation 报 VALIDATION_PROFILE_REQUIRED。Profile 编译通过后 explain 报 EXPLAIN_PROFILE_UNSUPPORTED。不支持机制不会被悄悄忽略。
+
+## 请求文件
+
+request-file 相对 import 前捕获的调用目录，允许中文、空格路径及 UTF-8 BOM。最多1 MiB普通文件。不存在、不可读、无效UTF-8或非普通文件报 REQUEST_FILE_READ_FAILED。超限报 REQUEST_FILE_TOO_LARGE。JSON/schema无效报 INVALID_REQUEST。目标不存在报 UNKNOWN_TARGET。错误不回显内容或系统异常，不读取 stdin 或执行文件。
+
+## 结果与发布
+
+全部输出 JSON。check/explain 成功退出0，参数/加载/编译/案例/请求失败退出1。Profile check 的 ProfileCheckResult 只投影受控逐设备诊断，成功code=CHECKED。未配置 outDir 时 outputDirectoryChecked=false，不能声称已验证状态目录与输出目录隔离。
+
+构建0/PUBLISHED表示指针发布和清理成功。1表示未发布。2/PUBLISHED_CLEANUP_FAILED仍为published=true且active指向新产物。PUBLISH_RECOVERY_REQUIRED保留hint，out可能缺失，保留现场、不补active、不自动清理或重试。
+
+Profile构建先验证envelope与validation 秘密解析函数，再preflight、整批编译与端点隔离，最后批次共享秘密快照和原子发布。无效envelope为INVALID_BUILD_DEFINITION，preflight异常/非法警告分别为PREFLIGHT_FAILED/INVALID_PREFLIGHT_WARNINGS。程序化runBuild显式output优先，并在回调前固定绝对根。
+
+输出不包含秘密或原生配置正文。构建不自动执行原生二进制或部署服务。旧generation不自动清理。恢复遵守[批次发布故事](use-case/publish-generation.md)。
 
 ## 最小调用
 
-构建 SDK 后运行 `node dist/cli.js check examples/home.ts`。成功时 JSON 包含 `ok: true`、案例结果及目标计划摘要，失败时非零退出并给出诊断。
-
-解释调用示例见[项目 README](../../../README.md)。每次实际运行的证据通过 Concord runner 或工程 Memory 单独记录。
-
-## 命令帮助与请求文件
-
-全局 --help/-h，以及 targets/check/explain/build 后的 --help/-h，输出 JSON 用法且不加载配置。帮助命令拒绝多余参数。选项值不能为空或只含空白，缺值与重复选项在加载前拒绝。
-
-explain 支持 --request-file FILE，替代 --request JSON；两者必须且只能提供一个。文件为 UTF-8 JSON 普通文件，最多 1 MiB，可带 UTF-8 BOM。路径相对调用目录；配置中的相对 import 仍相对配置文件。配置检查仍先于请求读取，保留已有错误优先级。
-
-文件不存在、不可读、UTF-8 解码失败或不是普通文件报 REQUEST_FILE_READ_FAILED；超过限制报 REQUEST_FILE_TOO_LARGE；JSON 或请求 schema 无效报 INVALID_REQUEST。错误不回显文件内容或系统异常。此入口不读取 stdin，不把文件当可执行配置加载。
-
-## Surge 构建入口
-
-参数在加载配置前验证，未知/重复/缺值/额外位置参数拒绝为 INVALID_ARGUMENTS，profileCount=0、warnings={}、validation=false。--out 的值不能以 - 开头，可用 ./ 前缀。-- 只允许在完整 --out DIRECTORY 后且紧接最后一个 --validation，用于 vp 参数转发。profile-build --help/-h 仅单独使用，不加载模块。
-
-默认导出支持可信 TS/ESM/CJS。加载失败固定 PROFILE_DEFINITION_FAILED、profileCount=0；无效 envelope 固定 INVALID_BUILD_DEFINITION；无效程序化 options 固定 INVALID_BUILD_OPTIONS。预检抛出 PREFLIGHT_FAILED、非法警告返回 INVALID_PREFLIGHT_WARNINGS。
-
-这些失败 warnings 为空，预检阶段 profileCount 已固定。validation 缺秘密解析函数 在预检前报 VALIDATION_RESOLVER_REQUIRED。成功及 host 失败保留 warnings/validation/profileCount 和全部原 BuildResult。输出不包含原异常；模块、loader、回调的自行输出不属于此保证，配置约定不得输出。
-
-0/PUBLISHED 表示 published=true；2/PUBLISHED_CLEANUP_FAILED 仍为 published=true 且 active 指向 out。发布前失败为 false/1。PUBLISH_RECOVERY_REQUIRED 原样保留 hint，out 可能缺失，现场需要保留，不补 active、不清理、不重试。CLI 原样透传 exitCode。
-
-profile-build 是唯一设备 Profile 构建入口；已移除 surge-build，未知命令在导入配置前拒绝。其参数语法、可信模块边界、预检和退出码遵守上述规则。全部目标编译与端点状态隔离通过后才解析秘密，不自动删除端点状态或迁移平台扩展。
+在包含约定配置的示例目录运行 `node ../../dist/cli.js check`，例如 `examples/home`。检查不需要秘密。build需要配置outDir和应用实际凭据。实际运行证据通过测试或工程Memory独立记录。

@@ -1,6 +1,6 @@
 {
   "name": "proxylang",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Composable routing policies in TypeScript with explicit platform targets",
   "homepage": "https://github.com/CorrectRoadH/proxylang#readme",
   "bugs": {
@@ -36,8 +36,8 @@
     "check": "vp pack && vp check && vp run typecheck && vp test run",
     "docs:check": "concord check --fresh",
     "docs:gaps": "concord trace gaps --fresh",
-    "example:check": "vp exec node dist/cli.js check examples/home.ts",
-    "example:build": "vp exec node dist/cli.js build examples/home.ts --out out",
+    "example:check": "cd examples/home && vp exec node ../../dist/cli.js check",
+    "example:build": "cd examples/home && vp exec node ../../dist/cli.js build",
     "test:package": "vp pack && vp exec node scripts/verify-package.mjs"
   },
   "dependencies": {

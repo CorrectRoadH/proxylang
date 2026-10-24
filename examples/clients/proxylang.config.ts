@@ -54,6 +54,7 @@ const program = (engine: Engine): Program => ({
   fallback: direct(),
 });
 export default defineConfig({
+  outDir: "../../out/clients",
   programs: {
     surge: program("surge"),
     singbox: program("sing-box"),

@@ -58,6 +58,8 @@ export {
 export {
   defineBuild,
   runBuild,
+  checkBuild,
+  type ProfileCheckResult,
   type BuildDefinition,
   type BuildContext,
   type ProfileBuildResult,

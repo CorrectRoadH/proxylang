@@ -1,8 +1,8 @@
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parse } from "yaml";
 import {
   buildToDirectory,
@@ -287,18 +287,24 @@ test("真实构建不下载外部规则；非法组合失败保留active", async
   assert.equal(await readFile(join(root, "active.json"), "utf8"), active);
 });
 
-test("CLI exercises the three-platform example and refuses an unknown first match", async () => {
+test("CLI exercises the three-platform example and refuses an unknown first match", async (t) => {
   const { spawnSync } = await import("node:child_process");
+  const root = await mkdtemp(join(tmpdir(), "ruleset-cli-"));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
+  const cli = resolve("dist/cli.js");
+  await writeFile(
+    join(root, "proxylang.config.ts"),
+    `import config from ${JSON.stringify(resolve("examples/rule-sets/proxylang.config.ts"))}; export default {...config,outDir:"build"};`,
+  );
   const run = (...args: string[]) =>
-    spawnSync(process.execPath, ["dist/cli.js", ...args], { encoding: "utf8" });
-  const checked = run("check", "examples/rule-sets.ts");
+    spawnSync(process.execPath, [cli, ...args], { cwd: root, encoding: "utf8" });
+  const checked = run("check");
   assert.equal(checked.status, 0, checked.stdout + checked.stderr);
   const result = JSON.parse(checked.stdout);
   assert.equal(result.targets.length, 3);
   assert.equal(result.cases[0].passed, true);
   const unknown = run(
     "explain",
-    "examples/rule-sets.ts",
     "--target",
     "box",
     "--request",
@@ -308,16 +314,15 @@ test("CLI exercises the three-platform example and refuses an unknown first matc
   assert.deepEqual(JSON.parse(unknown.stdout), { ok: false, code: "STATIC_RULESET_UNKNOWN" });
   const known = run(
     "explain",
-    "examples/rule-sets.ts",
     "--target",
     "box",
     "--request",
     JSON.stringify({ network: "tcp", domain: "local.example" }),
   );
   assert.equal(known.status, 0, known.stdout);
-  const dir = await mkdtemp(join(tmpdir(), "proxylang-native-example-"));
+  const dir = join(root, "build");
   try {
-    const built = run("build", "examples/rule-sets.ts", "--out", dir);
+    const built = run("build");
     assert.equal(built.status, 0, built.stdout + built.stderr);
     const active = JSON.parse(await readFile(join(dir, "active.json"), "utf8"));
     assert.equal(Object.keys(active.artifacts).length, 3);

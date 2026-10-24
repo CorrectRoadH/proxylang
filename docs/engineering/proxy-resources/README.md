@@ -72,7 +72,9 @@ types/schema 拥有判别模型与组合校验，dsl 拥有数据构造；新 pr
 
 ## 验收
 
-真实 compile/render 覆盖所有支持的组合、字段的精确原生输出、UUID秘密跨目标一次解析、无效UUID不泄漏、UDP经组/via拒绝、严格schema、目标版本拒绝、端点引用及重复/重叠状态路径。真实 build 验证失败保留active与不创建状态目录。增加可运行 examples/proxies.ts 和 README 用法。Surge 6.10.0、sing-box 1.11.0/1.12.0、Mihomo1.19.32在隔离目录离线校验；Tailscale用1.12.0 checker且确认不写身份目录，原生check不等于tailnet登录或连接验收。CI保留Node24/vp并执行新测试，Stash无native证据明确标注。
+真实 compile/render 覆盖所有支持的组合、字段的精确原生输出、UUID秘密跨目标一次解析、无效UUID不泄漏、UDP经组/via拒绝、严格schema、目标版本拒绝、端点引用及重复/重叠状态路径。真实 build 验证失败保留active与不创建状态目录。
+
+增加可运行 examples/proxies/proxylang.config.ts 和 README 用法。Surge 6.10.0、sing-box 1.11.0/1.12.0、Mihomo1.19.32在隔离目录离线校验；Tailscale用1.12.0 checker且确认不写身份目录，原生check不等于tailnet登录或连接验收。CI保留Node24/vp并执行新测试，Stash无native证据明确标注。
 
 ## 证据与审查
 

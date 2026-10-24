@@ -120,30 +120,30 @@ test("实际 CLI 加载 TS/import，check 与 explain 不需要秘密，build �
     join(root, "rules.ts"),
     `import {rule,match,reject} from ${JSON.stringify(sdk)}; export default [rule('block',match.domain('blocked.example'),reject())];`,
   );
-  const config = fixture();
-  const file = join(root, "config.ts");
+  const config = { ...fixture(), outDir: "out" };
+  const file = join(root, "proxylang.config.ts");
   await writeFile(
     file,
     `import rules from './rules.ts'; const config=${JSON.stringify(config)}; config.programs.home.routing=rules; export default config;`,
   );
   const env = { ...process.env, TEST_PASSWORD: "" };
-  const check = await exec(process.execPath, [cli, "check", file], { env });
+  const check = await exec(process.execPath, [cli, "check"], { env, cwd: root });
   assert.equal(JSON.parse(check.stdout).ok, true);
   const explanation = await exec(
     process.execPath,
     [
       cli,
       "explain",
-      file,
       "--target",
       "box",
       "--request",
       '{"network":"tcp","domain":"blocked.example"}',
     ],
-    { env },
+    { env, cwd: root },
   );
   assert.equal(JSON.parse(explanation.stdout).rule, "home/block");
-  const built = await exec(process.execPath, [cli, "build", file, "--out", join(root, "out")], {
+  const built = await exec(process.execPath, [cli, "build"], {
+    cwd: root,
     env: { ...env, TEST_PASSWORD: "cli-test-token" },
   });
   assert.equal(JSON.parse(built.stdout).published, true);
@@ -152,20 +152,23 @@ test("实际 CLI 加载 TS/import，check 与 explain 不需要秘密，build �
     file,
     `export default ${JSON.stringify({ ...config, cases: [{ id: "bad", program: "home", request: { network: "tcp" }, expect: { action: { type: "reject" } } }] })};`,
   );
-  await assert.rejects(exec(process.execPath, [cli, "check", file], { env }), (error: unknown) => {
-    const result = error as { code: number; stdout: string };
-    return result.code === 1 && result.stdout.includes("CASE_FAILED");
-  });
+  await assert.rejects(
+    exec(process.execPath, [cli, "check"], { env, cwd: root }),
+    (error: unknown) => {
+      const result = error as { code: number; stdout: string };
+      return result.code === 1 && result.stdout.includes("CASE_FAILED");
+    },
+  );
 });
 
 // @use-case docs/feature/artifact-publication/use-case/publish-generation.md
 test("CLI 加载异常不会打印源码、秘密或原异常消息", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-load-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
-  const file = join(root, "broken.ts");
+  const file = join(root, "proxylang.config.ts");
   await writeFile(file, 'throw new Error("secret-marker-in-source");');
   await assert.rejects(
-    exec(process.execPath, [resolve("dist/cli.js"), "check", file]),
+    exec(process.execPath, [resolve("dist/cli.js"), "check"], { cwd: root }),
     (error: unknown) => {
       const result = error as { code: number; stdout: string; stderr: string };
       return (
@@ -203,17 +206,22 @@ test("CLI 加载失败提供受控原因，不回显异常及 getter 中的秘�
     },
   ];
   for (const variant of variants) {
-    const file = join(root, `${variant.name}.ts`);
+    const file = join(root, "proxylang.config.ts");
     if (variant.source) await writeFile(file, variant.source);
     await assert.rejects(
-      exec(process.execPath, [resolve("dist/cli.js"), "check", file]),
+      exec(process.execPath, [resolve("dist/cli.js"), "check"], { cwd: root }),
       (error: unknown) => {
         const result = error as { code: number; stdout: string; stderr: string };
         assert.equal(result.code, 1);
         const output = JSON.parse(result.stdout);
-        assert.equal(output.code, "CONFIG_LOAD_FAILED");
-        assert.equal(output.reason, variant.reason);
-        assert.ok(output.hint.length > 0);
+        assert.equal(
+          output.code,
+          variant.name === "missing" ? "CONFIG_NOT_FOUND" : "CONFIG_LOAD_FAILED",
+        );
+        if (variant.name !== "missing") {
+          assert.equal(output.reason, variant.reason);
+          assert.ok(output.hint.length > 0);
+        }
         assert.ok(!(result.stdout + result.stderr).includes(marker), variant.name);
         return true;
       },
@@ -226,7 +234,7 @@ test("子命令帮助与非法参数不执行配置", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-help-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const cli = resolve("dist/cli.js");
-  const file = join(root, "config.ts");
+  const file = join(root, "proxylang.config.ts");
   const marker = join(root, "executed");
   await writeFile(
     file,
@@ -251,13 +259,16 @@ test("子命令帮助与非法参数不执行配置", async (t) => {
     ["explain", file, "--target", "box", "--request", "{}", "--request-file", "request.json"],
     ["explain", file, "--target", "box", "--target", "box", "--request", "{}"],
   ])
-    await assert.rejects(exec(process.execPath, [cli, ...args]), (error: unknown) => {
-      const result = error as { code: number; stdout: string; stderr: string };
-      assert.equal(result.code, 1);
-      assert.equal(JSON.parse(result.stdout).code, "INVALID_ARGUMENTS");
-      assert.ok(!(result.stdout + result.stderr).includes("do-not-print"));
-      return true;
-    });
+    await assert.rejects(
+      exec(process.execPath, [cli, ...args], { cwd: root }),
+      (error: unknown) => {
+        const result = error as { code: number; stdout: string; stderr: string };
+        assert.equal(result.code, 1);
+        assert.equal(JSON.parse(result.stdout).code, "INVALID_ARGUMENTS");
+        assert.ok(!(result.stdout + result.stderr).includes("do-not-print"));
+        return true;
+      },
+    );
   assert.ok(!(await readdir(root)).includes("executed"));
 });
 
@@ -267,20 +278,22 @@ test("请求文件与中文空格路径跨工作目录运行，连续 build 保�
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const folder = join(root, "配置 空间 #1");
   await mkdir(folder);
-  await writeFile(join(folder, "local.ts"), `export default ${JSON.stringify(fixture())};`);
   await writeFile(
-    join(folder, "config.ts"),
+    join(folder, "local.ts"),
+    `export default ${JSON.stringify({ ...fixture(), outDir: "../产物 空间" })};`,
+  );
+  await writeFile(
+    join(folder, "proxylang.config.ts"),
     "import config from './local.ts'; export default config;",
   );
   await writeFile(join(root, "请求 信息.json"), '\ufeff{"network":"tcp","domain":"example.com"}');
   const cli = resolve("dist/cli.js");
-  const file = join(folder, "config.ts");
-  const requestArgs = [cli, "explain", file, "--target", "box"];
+  const requestArgs = [cli, "explain", "--target", "box"];
   const env = { ...process.env, TEST_PASSWORD: "" };
   const fromFile = JSON.parse(
     (
-      await exec(process.execPath, [...requestArgs, "--request-file", "请求 信息.json"], {
-        cwd: root,
+      await exec(process.execPath, [...requestArgs, "--request-file", "../请求 信息.json"], {
+        cwd: folder,
         env,
       })
     ).stdout,
@@ -290,15 +303,15 @@ test("请求文件与中文空格路径跨工作目录运行，连续 build 保�
       await exec(
         process.execPath,
         [...requestArgs, "--request", '{"network":"tcp","domain":"example.com"}'],
-        { cwd: root, env },
+        { cwd: folder, env },
       )
     ).stdout,
   );
   assert.deepEqual(fromFile, inline);
   const out = join(root, "产物 空间");
   const build = () =>
-    exec(process.execPath, [cli, "build", file, "--out", out], {
-      cwd: root,
+    exec(process.execPath, [cli, "build"], {
+      cwd: folder,
       env: { ...env, TEST_PASSWORD: "path-test-secret" },
     });
   const first = JSON.parse((await build()).stdout);
@@ -315,9 +328,9 @@ test("请求文件与中文空格路径跨工作目录运行，连续 build 保�
     ["large.json", "x".repeat(1024 * 1024 + 1), "REQUEST_FILE_TOO_LARGE"],
     [".", undefined, "REQUEST_FILE_READ_FAILED"],
   ] as const) {
-    if (content !== undefined) await writeFile(join(root, name), content);
+    if (content !== undefined) await writeFile(join(folder, name), content);
     await assert.rejects(
-      exec(process.execPath, [...requestArgs, "--request-file", name], { cwd: root, env }),
+      exec(process.execPath, [...requestArgs, "--request-file", name], { cwd: folder, env }),
       (error: unknown) => {
         const result = error as { code: number; stdout: string; stderr: string };
         assert.equal(result.code, 1);
@@ -360,21 +373,21 @@ test("构建错误附带可执行提示，空路径不读取秘密，目录错�
 });
 
 // @use-case docs/feature/artifact-publication/use-case/publish-generation.md
-test("profile-build CLI validates before import and preserves batch results through TS/ESM/CJS", async (t) => {
-  const command = "profile-build";
+test("project build CLI validates before import and preserves batch results through TS/ESM/CJS", async (t) => {
+  const command = "build";
   const root = await mkdtemp(join(tmpdir(), "profile-build-cli-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const cli = resolve("dist/cli.js");
   const call = async (args: string[]) => {
     try {
-      const result = await exec(process.execPath, [cli, command, ...args]);
+      const result = await exec(process.execPath, [cli, command, ...args], { cwd: root });
       return { status: 0, result: JSON.parse(result.stdout) };
     } catch (error) {
       const failure = error as { code: number; stdout: string };
       return { status: failure.code, result: JSON.parse(failure.stdout) };
     }
   };
-  const config = join(root, "config.ts");
+  const config = join(root, "proxylang.config.ts");
   const marker = join(root, "loaded");
   await writeFile(
     config,
@@ -394,14 +407,11 @@ test("profile-build CLI validates before import and preserves batch results thro
     const response = await call(args);
     assert.equal(response.status, 1);
     assert.equal(response.result.code, "INVALID_ARGUMENTS");
-    assert.equal(response.result.profileCount, 0);
-    assert.equal(response.result.validation, false);
   }
   assert.ok(!(await readdir(root)).includes("loaded"));
   assert.equal((await call(["--help"])).status, 0);
-  const load = await call([config, "--out", root, "--validation"]);
-  assert.equal(load.result.code, "PROFILE_DEFINITION_FAILED");
-  assert.equal(load.result.validation, true);
+  const load = await call(["--validation"]);
+  assert.equal(load.result.code, "CONFIG_LOAD_FAILED");
   assert.ok(!JSON.stringify(load).includes("private-value"));
   const source = `({profiles: {box: {target: {engine:'surge', platform:'macos', version:'6.10.0'}, proxies:[], groups:[], routes:[], fallback:{builtin:'DIRECT'}}}, preflight:()=>['WARN'], resolveSecret:()=> 'fixture'})`;
   for (const extension of ["ts", "mjs", "cjs"]) {
@@ -411,7 +421,11 @@ test("profile-build CLI validates before import and preserves batch results thro
       `${extension === "cjs" ? "module.exports = " : "export default "}${source}`,
     );
     const output = join(root, extension);
-    const response = await call([path, "--out", output, "--", "--validation"]);
+    await writeFile(
+      config,
+      `import value from ${JSON.stringify(path)}; export default {...value,outDir:${JSON.stringify(output)}};`,
+    );
+    const response = await call(["--", "--validation"]);
     assert.equal(response.status, 0, JSON.stringify({ extension, ...response }));
     assert.equal(response.result.published, true);
     assert.equal(response.result.exitCode, 0);
@@ -435,17 +449,13 @@ test("profile-build CLI validates before import and preserves batch results thro
       await mkdir(join(output, "out"), { recursive: true });
       await writeFile(join(output, "out", "box.conf"), "legacy");
     }
+    await writeFile(
+      config,
+      `import value from "./valid.mjs"; export default {...value,outDir:${JSON.stringify(output)}};`,
+    );
     let response;
     try {
-      await exec(process.execPath, [
-        "--require",
-        fault,
-        cli,
-        command,
-        join(root, "valid.mjs"),
-        "--out",
-        output,
-      ]);
+      await exec(process.execPath, ["--require", fault, cli, command], { cwd: root });
       assert.fail("fault must affect the CLI exit status");
     } catch (error) {
       const failure = error as { code: number; stdout: string };

@@ -13,7 +13,7 @@ import {
   use,
   type Match,
   type Program,
-} from "../src/index.js";
+} from "../../src/index.js";
 
 // Each caller provides its own native capability. The language composes conditions;
 // it neither downloads these resources nor claims the three files are equivalent.
@@ -41,6 +41,7 @@ function program(engine: Program["engine"], external: Match): Program {
   };
 }
 export default defineConfig({
+  outDir: "../../out/rule-sets",
   programs: {
     apple: program(
       "surge",

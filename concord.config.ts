@@ -47,10 +47,10 @@ export default {
       "test/clash.test.ts",
       "test/proxies.test.ts",
       "test/proxy-fixtures.ts",
-      "examples/home.ts",
-      "examples/clients.ts",
-      "examples/proxies.ts",
-      "examples/rule-sets.ts",
+      "examples/home/{proxylang}.config.ts",
+      "examples/clients/{proxylang}.config.ts",
+      "examples/proxies/{proxylang}.config.ts",
+      "examples/rule-sets/{proxylang}.config.ts",
       "examples/policies.ts"
     ],
     "timeoutMs": 120000

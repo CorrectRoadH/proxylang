@@ -28,7 +28,7 @@ npm install --save-exact proxylang@0.3.0
 npx proxylang --help
 ```
 
-将下面的 Usage 示例保存为 `proxy.config.ts`，即可执行 `npx proxylang check proxy.config.ts`。
+将下面的 Usage 示例保存为 `proxylang.config.ts`，即可执行 `npx proxylang check`。
 
 若要运行仓库里的完整示例，另需 **Vite+ 1.3.0**：
 
@@ -39,15 +39,16 @@ vp install --frozen-lockfile
 vp run build
 
 # 检查现成的四客户端示例，不读取密码
-vp exec node dist/cli.js check examples/clients.ts
+cd examples/clients
+vp exec node ../../dist/cli.js check
 
 # 用测试密码生成配置，不会启动代理
-DEMO_PASSWORD=example-only vp exec node dist/cli.js build examples/clients.ts --out out/clients
+DEMO_PASSWORD=example-only vp exec node ../../dist/cli.js build
 ```
 
 仓库开发统一使用 Vite+：`vp run dev` 监听构建，`vp run check` 检查源码，`vp run verify` 完成源码与隔离安装包验收。`vp add` / `vp remove` 管理依赖，提交更新后的 `package-lock.json`。
 
-[四客户端示例](examples/clients.ts)展示完整配置；下面从规则开始，逐步写出自己的版本。
+[四客户端示例](examples/clients/proxylang.config.ts)展示完整配置；下面从规则开始，逐步写出自己的版本。
 
 ## 直接组合设备配置
 
@@ -82,7 +83,7 @@ const laptop = defineProfile({
 
 ## Usage
 
-将下面三个 TypeScript 代码块按顺序保存为项目中的 `proxy.config.ts`。
+将下面三个 TypeScript 代码块按顺序保存为项目中的 `proxylang.config.ts`。
 
 ### 1. 组合规则，给出口留一个位置
 
@@ -200,6 +201,7 @@ const program = (engine: Engine): Program => ({
 });
 
 export default defineConfig({
+  outDir: "out",
   programs: {
     desktop: program("surge"),
     backup: program("sing-box"),
@@ -225,14 +227,14 @@ export default defineConfig({
 
 ```sh
 # 检查所有目标和请求案例
-npx proxylang check proxy.config.ts
+npx proxylang check
 
 # 查看请求命中了哪条规则，以及规则来自哪个模板
-npx proxylang explain proxy.config.ts --target backup \
+npx proxylang explain --target backup \
   --request '{"network":"tcp","domain":"github.com","port":443}'
 
 # 用测试密码构建；实际使用时由环境提供真实凭据
-PROXY_PASSWORD=example-only npx proxylang build proxy.config.ts --out out
+PROXY_PASSWORD=example-only npx proxylang build
 ```
 
 `explain` 展示条件匹配与逻辑出口，不模拟节点测速或网络连通性。`build` 生成原生配置，整批成功后更新 `out/active.json`，其中列出各目标文件路径；一个目标失败不会替换上一批结果。
@@ -246,7 +248,7 @@ PROXY_PASSWORD=example-only npx proxylang build proxy.config.ts --out out
 把请求元数据保存为 UTF-8 JSON，避免 shell 转义：
 
 ```sh
-npx proxylang explain proxy.config.ts --target backup --request-file request.json
+npx proxylang explain --target backup --request-file request.json
 npx proxylang build --help
 ```
 
@@ -276,7 +278,7 @@ const mediaRule = rule("media", match.all(match.network("tcp"), media), direct()
 
 Surge 顶层引用可设置 `intervalSeconds`；嵌套逻辑使用客户端默认更新间隔，显式间隔暂报不支持。sing-box 与 Mihomo 的更新间隔是必填项，嵌套组合仍引用独立声明的资源。Stash 原生外部规则入口尚未实现。
 
-完整的三平台组合与构建示例见 [examples/rule-sets.ts](examples/rule-sets.ts)。示例 URL 仅展示语法，实际使用时替换为自己的规则源。更完整的平台逃生舱边界见[设计说明](docs/engineering/composable-rule-sets/README.md)。
+完整的三平台组合与构建示例见 [examples/rule-sets/proxylang.config.ts](examples/rule-sets/proxylang.config.ts)。示例 URL 仅展示语法，实际使用时替换为自己的规则源。更完整的平台逃生舱边界见[设计说明](docs/engineering/composable-rule-sets/README.md)。
 
 ## 定义代理节点
 
@@ -383,12 +385,13 @@ const backup: Program = {
 
 构建只生成配置，不加入 tailnet、不创建身份目录、不启用 MagicDNS。状态目录应由单个运行实例独占，并独立于构建产物；端点暂不能放进策略组或作为 `via`。这是本机显式代理配置，尚不是 TUN 网关或已验收的整机备份。
 
-[完整节点与 Tailscale 示例](examples/proxies.ts)包含五个构建目标和共用规则，可直接检查：
+[完整节点与 Tailscale 示例](examples/proxies/proxylang.config.ts)包含五个构建目标和共用规则，可直接检查：
 
 ```sh
-vp exec node dist/cli.js check examples/proxies.ts
+cd examples/proxies
+vp exec node ../../dist/cli.js check
 DEMO_PASSWORD=example-only DEMO_UUID=11111111-2222-4333-8444-555555555555 \
-  vp exec node dist/cli.js build examples/proxies.ts --out out/proxies
+  vp exec node ../../dist/cli.js build
 ```
 
 ## 当前支持
@@ -408,9 +411,9 @@ Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。完整配�
 
 ## 更多示例与文档
 
-- [代理协议与 Tailscale](examples/proxies.ts)：SS／VMess／VLESS 节点和独立家庭网络端点。
-- [四客户端共用规则](examples/clients.ts)：同一个 policy，不同平台策略。
+- [代理协议与 Tailscale](examples/proxies/proxylang.config.ts)：SS／VMess／VLESS 节点和独立家庭网络端点。
+- [四客户端共用规则](examples/clients/proxylang.config.ts)：同一个 policy，不同平台策略。
 - [家庭与开发环境规则](examples/policies.ts)：规则模块、守卫与出口绑定。
-- [多设备配置与请求案例](examples/home.ts)：节点筛选、代理链和路由回归案例。
+- [多设备配置与请求案例](examples/home/proxylang.config.ts)：节点筛选、代理链和路由回归案例。
 - [设计与使用文档](docs/README.md)：规则组合、平台机制、CLI 与构建边界。
 - [开发工作流](docs/engineering/development/README.md)：Concord 管理 Feature 与 Use Case，`vp` 负责构建和测试。

@@ -30,15 +30,15 @@ jobs:
       - run: vp install --frozen-lockfile
       - run: vp run verify
       - run: vp run example:check
-      - run: vp exec node dist/cli.js check examples/clients.ts
-      - run: vp exec node dist/cli.js check examples/proxies.ts
-      - run: vp exec node dist/cli.js check examples/rule-sets.ts
+      - run: cd examples/clients && vp exec node ../../dist/cli.js check
+      - run: cd examples/proxies && vp exec node ../../dist/cli.js check
+      - run: cd examples/rule-sets && vp exec node ../../dist/cli.js check
       - name: Exercise CLI build with example credentials
         run: |
           vp run example:build
-          vp exec node dist/cli.js build examples/clients.ts --out out/clients
-          vp exec node dist/cli.js build examples/proxies.ts --out out/proxies
-          vp exec node dist/cli.js build examples/rule-sets.ts --out out/rule-sets
+          (cd examples/clients && vp exec node ../../dist/cli.js build)
+          (cd examples/proxies && vp exec node ../../dist/cli.js build)
+          (cd examples/rule-sets && vp exec node ../../dist/cli.js build)
         env:
           DEMO_USER: example-user
           DEMO_PASSWORD: example-only

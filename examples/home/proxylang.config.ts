@@ -10,7 +10,7 @@ import {
   type ProxyNode,
   type PolicyCase,
 } from "proxylang";
-import { homePolicy } from "./policies.js";
+import { homePolicy } from "../policies.js";
 
 // Reserved documentation addresses, never real subscription data or credentials.
 const nodes: readonly ProxyNode[] = [
@@ -146,6 +146,7 @@ const cases: PolicyCase[] = Object.keys(programs).flatMap((program) => [
 ]);
 
 export default defineConfig({
+  outDir: "../../out/home",
   programs,
   targets: [
     {

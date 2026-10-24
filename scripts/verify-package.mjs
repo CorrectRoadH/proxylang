@@ -13,7 +13,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const root = process.cwd();
+const configName = "proxylang.config.ts";
 const temp = mkdtempSync(join(tmpdir(), "proxylang-package-"));
+const activate = (file, outDir) =>
+  writeFileSync(
+    join(temp, configName),
+    `import config from ${JSON.stringify(`./${file}`)}; export default {...config, outDir:${JSON.stringify(outDir)}};`,
+  );
 const run = (command, args, cwd = temp) =>
   execFileSync(command, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 try {
@@ -148,13 +154,11 @@ try {
     export default defineBuild({profiles:{mac:defineProfile({...common,target:{engine:'surge',platform:'macos',version:'6.10.0'}}),linux:defineProfile({...common,target:{engine:'sing-box',platform:'linux',version:'1.12.0'}})},resolveSecret:()=> 'fixture'});
   `,
   );
+  activate("profile-build.ts", "profile-build-out");
   const portableResult = JSON.parse(
     run(process.execPath, [
       join(temp, "node_modules/proxylang/dist/cli.js"),
-      "profile-build",
-      "profile-build.ts",
-      "--out",
-      "profile-build-out",
+      "build",
       "--validation",
     ]),
   );
@@ -185,7 +189,8 @@ try {
   `,
   );
   const cli = join(temp, "node_modules/.bin/proxylang");
-  const automatic = JSON.parse(run(cli, ["check", "automatic.ts"]));
+  activate("automatic.ts", "automatic-out");
+  const automatic = JSON.parse(run(cli, ["check"]));
   assert.equal(automatic.ok, true);
   assert.deepEqual(automatic.targets[0].strategySelections[0].requestedAlgorithm, { type: "auto" });
   assert.equal(automatic.targets[0].strategySelections[0].algorithm.type, "urltest");
@@ -193,7 +198,6 @@ try {
     JSON.parse(
       run(cli, [
         "explain",
-        "automatic.ts",
         "--target",
         "home",
         "--request",
@@ -204,9 +208,8 @@ try {
   );
   writeFileSync(join(temp, "请求 信息.json"), '\ufeff{"network":"tcp","domain":"example.com"}');
   assert.equal(
-    JSON.parse(
-      run(cli, ["explain", "automatic.ts", "--target", "home", "--request-file", "请求 信息.json"]),
-    ).action.to,
+    JSON.parse(run(cli, ["explain", "--target", "home", "--request-file", "请求 信息.json"])).action
+      .to,
     "automatic",
   );
   assert.ok(
@@ -215,7 +218,7 @@ try {
     ),
   );
   const automaticOut = join(temp, "automatic-out");
-  execFileSync(cli, ["build", "automatic.ts", "--out", automaticOut], {
+  execFileSync(cli, ["build"], {
     cwd: temp,
     env: { ...process.env, AUTO_PASS: "package-test-only" },
     stdio: "pipe",
@@ -229,12 +232,12 @@ try {
     automatic.targets[0].strategySelections,
   );
 
-  assert.equal(JSON.parse(run(cli, ["check", "config.ts"])).ok, true);
+  activate("config.ts", "out");
+  assert.equal(JSON.parse(run(cli, ["check"])).ok, true);
   assert.equal(
     JSON.parse(
       run(cli, [
         "explain",
-        "config.ts",
         "--target",
         "home",
         "--request",
@@ -246,11 +249,11 @@ try {
   mkdirSync(join(temp, "commonjs"));
   writeFileSync(join(temp, "commonjs/package.json"), JSON.stringify({ type: "commonjs" }));
   writeFileSync(
-    join(temp, "commonjs/config.ts"),
+    join(temp, "commonjs", configName),
     "export default {programs:{home:{engine:'sing-box',nodes:[],groups:[],routing:[],fallback:{type:'direct'}}},targets:[{id:'home',program:'home',engine:'sing-box',platform:'linux',version:'1.12.0'}]};",
   );
-  assert.equal(JSON.parse(run(cli, ["check", "commonjs/config.ts"])).ok, true);
-  assert.equal(JSON.parse(run(cli, ["build", "config.ts", "--out", "out"])).published, true);
+  assert.equal(JSON.parse(run(cli, ["check"], join(temp, "commonjs"))).ok, true);
+  assert.equal(JSON.parse(run(cli, ["build"])).published, true);
   const active = JSON.parse(readFileSync(join(temp, "out/active.json"), "utf8"));
   assert.ok(active.artifacts.home);
   run(process.execPath, [

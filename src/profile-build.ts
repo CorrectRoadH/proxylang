@@ -7,6 +7,7 @@ import {
   snapshotProfile,
   type Profile,
   type ProfileDefinition,
+  type ProfileCompilation,
 } from "./profile.js";
 import { pathsOverlap, RenderError } from "./proxies.js";
 import { secretReader } from "./secrets.js";
@@ -14,40 +15,104 @@ import { render } from "./render.js";
 import { renderSurgeProfiles } from "./surge-profile.js";
 import { publishProfiles, SurgePublishError } from "./surge-publish.js";
 import type { BuildResult } from "./host.js";
-import type { Secret } from "./types.js";
-async function publish(
+import type { Secret, Diagnostic } from "./types.js";
+function compileBatch(
   profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
-  output: string,
-  resolver: (token: Secret) => string | undefined,
-): Promise<BuildResult> {
-  try {
-    const entries = Object.entries(profiles);
-    if (
-      !entries.length ||
-      entries.length > 16 ||
-      entries.some(([id]) => !/^[a-z0-9][a-z0-9-]*$/.test(id))
-    )
-      return { published: false, exitCode: 1, code: "INVALID_PROFILE_FILENAMES" };
-    const compiled = entries.map(([, profile]) => compileProfile(profile));
-    const invalid = compiled.find((profile) => !profile.ok);
-    if (invalid)
-      return {
-        published: false,
-        exitCode: 1,
-        code: invalid.engine === "invalid" ? invalid.code : "COMPILATION_FAILED",
-      };
+  output?: string,
+) {
+  const entries = Object.entries(profiles);
+  const compiled: ProfileCompilation[] = [];
+  let outputDirectoryChecked = false;
+  const result = (code: string) => ({
+    ok: code === "CHECKED",
+    code,
+    entries,
+    compiled,
+    outputDirectoryChecked,
+  });
+  if (
+    !entries.length ||
+    entries.length > 16 ||
+    entries.some(([id]) => !/^[a-z0-9][a-z0-9-]*$/.test(id))
+  )
+    return result("INVALID_PROFILE_FILENAMES");
+  compiled.push(...entries.map(([, profile]) => compileProfile(profile)));
+  const invalid = compiled.find((profile) => !profile.ok);
+  if (invalid) return result(invalid.engine === "invalid" ? invalid.code : "COMPILATION_FAILED");
+  if (output !== undefined) {
+    outputDirectoryChecked = true;
     if (
       compiled.some(
         (profile) =>
           profile.engine === "sing-box" &&
           profile.compilation.plans.some((plan) =>
             plan.program.endpoints?.some((endpoint) =>
-              pathsOverlap(resolve(output), endpoint.stateDirectory),
+              pathsOverlap(output, endpoint.stateDirectory),
             ),
           ),
       )
     )
-      return { published: false, exitCode: 1, code: "ENDPOINT_STATE_OVERLAP" };
+      return result("ENDPOINT_STATE_OVERLAP");
+  }
+  return result("CHECKED");
+}
+export type ProfileCheckResult = {
+  readonly ok: boolean;
+  readonly code: string;
+  readonly profileCount: number;
+  readonly outputDirectoryChecked: boolean;
+  readonly profiles: readonly {
+    readonly id: string;
+    readonly engine: "surge" | "sing-box" | "invalid";
+    readonly ok: boolean;
+    readonly code?: string;
+    readonly diagnostics: readonly Diagnostic[];
+  }[];
+};
+// @concord-code
+// @concord-implements docs/feature/artifact-publication/project-config.md
+export function checkBuild(input: BuildDefinition): ProfileCheckResult {
+  const root = process.cwd();
+  let definition: BuildDefinition;
+  try {
+    definition = defineBuild(input);
+  } catch {
+    return {
+      ok: false,
+      code: "INVALID_BUILD_DEFINITION",
+      profileCount: 0,
+      outputDirectoryChecked: false,
+      profiles: [],
+    };
+  }
+  const checked = compileBatch(
+    definition.profiles,
+    definition.outDir === undefined ? undefined : resolve(root, definition.outDir),
+  );
+  return {
+    ok: checked.ok,
+    code: checked.code,
+    profileCount: checked.entries.length,
+    outputDirectoryChecked: checked.outputDirectoryChecked,
+    profiles: checked.compiled.map((profile, index) => ({
+      id: checked.entries[index]![0],
+      engine: profile.engine,
+      ok: profile.ok,
+      ...(profile.engine === "invalid"
+        ? { code: profile.code, diagnostics: [] }
+        : { diagnostics: profile.compilation.diagnostics }),
+    })),
+  };
+}
+async function publish(
+  profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
+  output: string,
+  resolver: (token: Secret) => string | undefined,
+): Promise<BuildResult> {
+  try {
+    const checked = compileBatch(profiles, output);
+    if (!checked.ok) return { published: false, exitCode: 1, code: checked.code };
+    const { entries, compiled } = checked;
     const read = secretReader(resolver);
     const files = new Map<string, string>();
     for (const [index, profile] of compiled.entries()) {
@@ -90,6 +155,7 @@ async function publish(
 }
 export type BuildContext = { readonly validation: boolean };
 export type BuildDefinition = {
+  readonly outDir?: string;
   readonly profiles: Readonly<Record<string, Profile | ProfileDefinition>>;
   readonly preflight?: () => readonly string[];
   readonly resolveSecret?: (token: Secret, context: BuildContext) => string | undefined;
@@ -123,11 +189,20 @@ function record(
 /** Capture data and callback references before application preflight can change its source. */
 export function defineBuild(input: BuildDefinition): BuildDefinition {
   try {
-    record(input, ["profiles", "preflight", "resolveSecret"]);
+    record(input, ["profiles", "preflight", "resolveSecret", "outDir"]);
+    if (
+      input.outDir !== undefined &&
+      (typeof input.outDir !== "string" ||
+        !input.outDir.trim() ||
+        input.outDir.trim() !== input.outDir ||
+        input.outDir.includes("\0"))
+    )
+      throw new Error();
     record(input.profiles);
     for (const callback of [input.preflight, input.resolveSecret])
       if (callback !== undefined && typeof callback !== "function") throw new Error();
     return Object.freeze({
+      ...(input.outDir === undefined ? {} : { outDir: input.outDir }),
       profiles: snapshotProfile(input.profiles as unknown) as Readonly<
         Record<string, Profile | ProfileDefinition>
       >,
@@ -151,6 +226,7 @@ export async function runBuild(
   output: string,
   options: { readonly validation?: boolean } = {},
 ): Promise<ProfileBuildResult> {
+  const root = process.cwd();
   let validation: boolean;
   try {
     record(options, ["validation"]);
@@ -169,6 +245,7 @@ export async function runBuild(
   const profileCount = Object.keys(definition.profiles).length;
   const failure = (code: string) => profileBuildFailure(code, validation, profileCount);
   if (typeof output !== "string" || !output.trim()) return failure("INVALID_OUTPUT_DIRECTORY");
+  output = resolve(root, output);
   if (validation && !definition.resolveSecret) return failure("VALIDATION_RESOLVER_REQUIRED");
   let codes: readonly string[];
   try {

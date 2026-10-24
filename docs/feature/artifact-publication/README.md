@@ -17,3 +17,5 @@ constitutionRefs:
 ## 用户故事
 
 - [失败时继续使用上一批配置](use-case/publish-generation.md)
+
+- [强制项目配置与只读检查](project-config.md)

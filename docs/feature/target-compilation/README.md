@@ -33,3 +33,5 @@ constitutionRefs:
 [片段组合与代理出口](profile-composition.md)定义嵌套数组、统一代理出口和资源 ID 引用契约。
 
 - [通用匹配、DNS 与代理身份](portable-authoring.md)
+
+- [通用条件选项与外部规则函数](match-options.md)

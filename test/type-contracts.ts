@@ -166,3 +166,24 @@ export function compositionTypeChecks() {
   defineProfile({ ...profile, endpoints: [] });
   return profile;
 }
+
+export function nativeRouteTypeChecks() {
+  const native = surge.ruleSet({ url: "https://example.com/rules" });
+  const routed = surge.ruleSet({ url: native.url, to: outbound.direct });
+  rule("portable", match.all(match.domain("example.com"), match.port(443)), direct());
+  const mixed = match.all(surge.match.macAddress("00:11:22:33:44:55"), match.port(443));
+  defineRoute({ when: mixed, to: outbound.direct });
+  // @ts-expect-error Platform conditions cannot enter portable Program rules.
+  rule("mac", mixed, direct());
+  // @ts-expect-error A routed resource is not a condition.
+  defineRoute({ when: routed, to: outbound.direct });
+  defineProfile({
+    target: { engine: "surge", platform: "macos", version: "6.10.0" },
+    proxies: [],
+    groups: [],
+    // @ts-expect-error A resource without to is not a route.
+    routes: [native],
+    fallback: outbound.direct,
+  });
+  return routed;
+}

@@ -11,6 +11,8 @@ export type NativeRuleSet = {
       readonly engine: "surge";
       readonly format: "rule-set" | "domain-set";
       readonly intervalSeconds?: number;
+      readonly noResolve?: boolean;
+      readonly extendedMatching?: boolean;
     }
   | {
       readonly engine: "sing-box";
@@ -28,7 +30,13 @@ export type Match =
   | NamedRuleSet
   | NativeRuleSet
   | {
-      readonly type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp" | "processName";
+      readonly type: "domain" | "domainSuffix";
+      readonly extendedMatching?: boolean;
+      readonly value: string;
+    }
+  | { readonly type: "ipCidr"; readonly value: string; readonly noResolve?: boolean }
+  | {
+      readonly type: "sourceIp" | "processName";
       readonly value: string;
     }
   | { readonly type: "port" | "sourcePort"; readonly from: number; readonly to: number }
@@ -220,6 +228,8 @@ export type Target = {
 export type Request = {
   readonly network: Network;
   readonly domain?: string;
+  readonly tlsSni?: string;
+  readonly httpHost?: string;
   readonly ip?: string;
   readonly sourceIp?: string;
   readonly processName?: string;

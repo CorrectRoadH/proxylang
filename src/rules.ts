@@ -161,14 +161,19 @@ export function evaluate(condition: Match, request: Request): ConditionTrace {
   let present: boolean;
   switch (condition.type) {
     case "domain":
-      present = request.domain !== undefined;
-      matched = request.domain === condition.value;
+    case "domainSuffix": {
+      const domains = condition.extendedMatching
+        ? [request.domain, request.tlsSni, request.httpHost]
+        : [request.domain];
+      present = domains.some((value) => value !== undefined);
+      matched = domains.some(
+        (value) =>
+          value !== undefined &&
+          (value === condition.value ||
+            (condition.type === "domainSuffix" && value.endsWith(`.${condition.value}`))),
+      );
       break;
-    case "domainSuffix":
-      present = request.domain !== undefined;
-      matched =
-        request.domain === condition.value || !!request.domain?.endsWith(`.${condition.value}`);
-      break;
+    }
     case "ipCidr":
       present = request.ip !== undefined;
       matched = inCidr(request.ip, condition.value);

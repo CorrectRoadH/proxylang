@@ -1,6 +1,15 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
-import { processNameSchema } from "./schema.js";
+import { createHash } from "node:crypto";
+import type { ProfileCondition, ProfileDestination } from "./profile.js";
+import {
+  exactDefinition,
+  inspectDefinition,
+  snapshotDefinition,
+  ProfileDefinitionError,
+  type RouteDefinition,
+} from "./surge-definitions.js";
+import { nativeRuleSetSchema, processNameSchema } from "./schema.js";
 import { surgeConfig } from "./profile.js";
 import { surgeMatch } from "./surge-definitions.js";
 import { proxyBuilder } from "./proxy-builder.js";
@@ -29,23 +38,126 @@ export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet =>
   ...definition,
   type: "ruleSet",
 });
+type DomainOptions = { readonly extendedMatching?: boolean };
+type IpOptions = { readonly noResolve?: boolean };
+function options<T extends DomainOptions | IpOptions>(value: T, keys: readonly string[]): T {
+  inspectDefinition(value);
+  exactDefinition(value, keys);
+  if (Object.values(value).some((v) => v !== undefined && typeof v !== "boolean"))
+    throw new ProfileDefinitionError("INVALID_MATCH_OPTIONS");
+  return { ...value };
+}
 export const match = {
-  processName: (value: string): Match => {
+  processName: (value: string): { readonly type: "processName"; readonly value: string } => {
     if (!processNameSchema.safeParse(value).success) throw new Error("INVALID_PROCESS_NAME");
     return { type: "processName", value };
   },
-  ruleSet: (set: NamedRuleSet): Match => set,
-  domain: (value: string): Match => ({ type: "domain", value }),
-  domainSuffix: (value: string): Match => ({ type: "domainSuffix", value }),
-  ipCidr: (value: string): Match => ({ type: "ipCidr", value }),
-  sourceIp: (value: string): Match => ({ type: "sourceIp", value }),
-  port: (from: number, to = from): Match => ({ type: "port", from, to }),
-  sourcePort: (from: number, to = from): Match => ({ type: "sourcePort", from, to }),
-  network: (value: Network): Match => ({ type: "network", value }),
-  all: (...conditions: readonly Match[]): Match => ({ type: "all", conditions }),
-  any: (...conditions: readonly Match[]): Match => ({ type: "any", conditions }),
-  not: (condition: Match): Match => ({ type: "not", condition }),
+  ruleSet: (set: NamedRuleSet): NamedRuleSet => set,
+  domain: (value: string, opts: DomainOptions = {}) => ({
+    type: "domain" as const,
+    value,
+    ...options(opts, ["extendedMatching"]),
+  }),
+  domainSuffix: (value: string, opts: DomainOptions = {}) => ({
+    type: "domainSuffix" as const,
+    value,
+    ...options(opts, ["extendedMatching"]),
+  }),
+  ipCidr: (value: string, opts: IpOptions = {}) => ({
+    type: "ipCidr" as const,
+    value,
+    ...options(opts, ["noResolve"]),
+  }),
+  sourceIp: (value: string) => ({ type: "sourceIp" as const, value }),
+  port: (from: number, to = from) => ({ type: "port" as const, from, to }),
+  sourcePort: (from: number, to = from) => ({ type: "sourcePort" as const, from, to }),
+  network: (value: Network) => ({ type: "network" as const, value }),
+  all: <const C extends readonly ProfileCondition[]>(...conditions: C) => ({
+    type: "all" as const,
+    conditions,
+  }),
+  any: <const C extends readonly ProfileCondition[]>(...conditions: C) => ({
+    type: "any" as const,
+    conditions,
+  }),
+  not: <const C extends ProfileCondition>(condition: C) => ({ type: "not" as const, condition }),
 };
+type NativeFor<E extends NativeRuleSet["engine"]> = Extract<NativeRuleSet, { engine: E }>;
+type NativeInput<E extends NativeRuleSet["engine"]> = Omit<
+  NativeFor<E>,
+  "type" | "engine" | "id"
+> & { readonly id?: string };
+type SurgeSetInput = Omit<NativeInput<"surge">, "format"> & {
+  readonly format?: "rule-set" | "domain-set";
+};
+type SetInput<E extends NativeRuleSet["engine"]> = E extends "surge"
+  ? SurgeSetInput
+  : NativeInput<E>;
+// @concord-code
+// @concord-implements docs/feature/target-compilation/match-options.md
+function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
+  function construct(input: SetInput<E> & { readonly to: ProfileDestination }): RouteDefinition;
+  function construct(input: SetInput<E>): NativeFor<E>;
+  function construct(value: unknown): RouteDefinition | NativeRuleSet {
+    inspectDefinition(value);
+    if (!value || typeof value !== "object")
+      throw new ProfileDefinitionError("INVALID_NATIVE_RULESET");
+    exactDefinition(value, [
+      "id",
+      "url",
+      "format",
+      "intervalSeconds",
+      "noResolve",
+      "extendedMatching",
+      "behavior",
+      "to",
+    ]);
+    const input = value as SetInput<E> & { readonly to?: ProfileDestination };
+    const { to, ...resource } = input;
+    exactDefinition(resource, [
+      "id",
+      "url",
+      "format",
+      "intervalSeconds",
+      ...(engine === "surge"
+        ? ["noResolve", "extendedMatching"]
+        : engine === "mihomo"
+          ? ["behavior"]
+          : []),
+    ]);
+    const parsed = nativeRuleSetSchema.safeParse({
+      ...(engine === "surge" ? { format: "rule-set" } : {}),
+      ...resource,
+      id: resource.id ?? "ruleset-pending",
+      type: "nativeRuleSet",
+      engine,
+    });
+    if (!parsed.success) throw new ProfileDefinitionError("INVALID_NATIVE_RULESET");
+    const { id: _id, type: _type, ...fields } = parsed.data;
+    const id =
+      resource.id ??
+      `ruleset-${createHash("sha256")
+        .update(
+          JSON.stringify(
+            Object.entries(fields)
+              .filter(([, value]) => value !== undefined)
+              .sort(([a], [b]) => a.localeCompare(b)),
+          ),
+        )
+        .digest("hex")
+        .slice(0, 16)}`;
+    const when = snapshotDefinition({ ...parsed.data, id }) as NativeFor<E>;
+    if (Object.hasOwn(input, "to")) {
+      if (to === undefined) throw new ProfileDefinitionError("INVALID_DESTINATION");
+      return { type: "route", when, to };
+    }
+    return when;
+  }
+  return construct;
+}
+const surgeRuleSet = nativeConstructor("surge");
+const mihomoRuleSet = nativeConstructor("mihomo");
+const singboxRuleSet = nativeConstructor("sing-box");
 export const direct = (): Action => ({ type: "direct" });
 export const reject = (): Action => ({ type: "reject" });
 export const route = (to: string): Action => ({ type: "route", to });
@@ -150,17 +262,9 @@ export const surge = {
   config: surgeConfig,
   match: surgeMatch,
   smart: (): Extract<GroupAlgorithm, { type: "surge-smart" }> => ({ type: "surge-smart" }),
-  ruleSet: (
-    options: Omit<Extract<NativeRuleSet, { engine: "surge" }>, "type" | "engine" | "format"> & {
-      format?: "rule-set" | "domain-set";
-    },
-  ): NativeRuleSet => ({ format: "rule-set", ...options, type: "nativeRuleSet", engine: "surge" }),
+  ruleSet: surgeRuleSet,
 };
-export const mihomo = {
-  ruleProvider: (
-    options: Omit<Extract<NativeRuleSet, { engine: "mihomo" }>, "type" | "engine">,
-  ): NativeRuleSet => ({ ...options, type: "nativeRuleSet", engine: "mihomo" }),
-};
+export const mihomo = { ruleSet: mihomoRuleSet, ruleProvider: mihomoRuleSet };
 
 /** Protocol constructors keep credentials and options specific to their protocol. */
 function nodeConstructor<T extends ProxyNode["type"]>(type: T) {
@@ -178,9 +282,7 @@ export const proxy = {
   vless: nodeConstructor("vless"),
 };
 export const singbox = {
-  ruleSet: (
-    options: Omit<Extract<NativeRuleSet, { engine: "sing-box" }>, "type" | "engine">,
-  ): NativeRuleSet => ({ ...options, type: "nativeRuleSet", engine: "sing-box" }),
+  ruleSet: singboxRuleSet,
   tailscale: (options: Omit<TailscaleEndpoint, "type">): TailscaleEndpoint => ({
     ...options,
     type: "sing-box-tailscale",

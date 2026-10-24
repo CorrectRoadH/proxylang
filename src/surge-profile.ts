@@ -204,6 +204,7 @@ export type SurgeCondition = ConditionOptions &
         readonly format: "rule-set" | "domain-set";
         readonly url?: string;
         readonly builtin?: "LAN" | "SYSTEM";
+        readonly intervalSeconds?: number;
       }
   );
 const options = { noResolve: z.boolean().optional(), extendedMatching: z.boolean().optional() };
@@ -240,6 +241,7 @@ const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
           format: z.enum(["rule-set", "domain-set"]),
           url: url.optional(),
           builtin: z.enum(["LAN", "SYSTEM"]).optional(),
+          intervalSeconds: z.number().int().min(60).max(2147483647).optional(),
           ...options,
         })
         .refine((v) => (v.url !== undefined) !== (v.builtin !== undefined)),
@@ -425,10 +427,14 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
       for (const child of c.conditions) checkCondition(child, depth + 1);
     if (c.type === "not") checkCondition(c.condition, depth + 1);
     if (c.type === "ruleSet") {
+      if (c.intervalSeconds !== undefined && (depth > 0 || c.builtin))
+        error("RULESET_COMPOSITION_UNSUPPORTED");
       if (c.builtin && c.format !== "rule-set") error("BUILTIN_RULESET_FORMAT");
       if (c.url) {
-        if (formats.has(c.url) && formats.get(c.url) !== c.format) error("RULESET_FORMAT_CONFLICT");
-        formats.set(c.url, c.format);
+        const key = new URL(c.url).href;
+        const settings = `${c.format}:${c.intervalSeconds ?? 86400}`;
+        if (formats.has(key) && formats.get(key) !== settings) error("RULESET_FORMAT_CONFLICT");
+        formats.set(key, settings);
       }
     }
   };
@@ -459,6 +465,9 @@ function conditionOptions(c: SurgeCondition): string[] {
   return [
     ...(c.noResolve ? ["no-resolve"] : []),
     ...(c.extendedMatching ? ["extended-matching"] : []),
+    ...(c.type === "ruleSet" && c.intervalSeconds !== undefined
+      ? [`update-interval=${c.intervalSeconds}`]
+      : []),
   ];
 }
 function conditionText(c: SurgeCondition): string {

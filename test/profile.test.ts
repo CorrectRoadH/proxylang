@@ -93,7 +93,9 @@ test("Surge adaptation recursively lowers portable conditions without dropping o
     { type: "all", conditions: [match.domain("example.com")], noResolve: true },
     { type: "domain", value: "example.com", typo: true },
     { type: "ruleSet", id: "named", when: match.domain("example.com"), typo: true },
-    surge.ruleSet({ id: "native", url: "https://example.com/rules", intervalSeconds: 60 }),
+    match.not(
+      surge.ruleSet({ id: "native", url: "https://example.com/rules", intervalSeconds: 60 }),
+    ),
   ])
     assert.equal(compile(when).ok, false);
 });

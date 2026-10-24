@@ -82,7 +82,7 @@ function conditionText(condition: Match): string {
     case "domainSuffix":
       return `DOMAIN-SUFFIX,${condition.value}`;
     case "ipCidr":
-      return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value},no-resolve`;
+      return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value}${condition.noResolve !== false ? ",no-resolve" : ""}`;
     case "processName":
       return `PROCESS-NAME,${condition.value}`;
     case "sourceIp":
@@ -110,7 +110,7 @@ export function clashConfig(
     rules: [
       ...plan.rules.map((rule) =>
         rule.when.type === "ipCidr"
-          ? `${conditionText(rule.when).replace(/,no-resolve$/, "")},${policy(rule.then)},no-resolve`
+          ? `${conditionText(rule.when).replace(/,no-resolve$/, "")},${policy(rule.then)}${rule.when.noResolve !== false ? ",no-resolve" : ""}`
           : `${conditionText(rule.when)},${policy(rule.then)}`,
       ),
       `MATCH,${policy(program.fallback)}`,

@@ -210,6 +210,17 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
   return config;
 }
 
+function surgeOptions(condition: Match): string {
+  return [
+    ...(condition.type === "ipCidr" && condition.noResolve !== false ? ["no-resolve"] : []),
+    ...(condition.type === "nativeRuleSet" && condition.engine === "surge" && condition.noResolve
+      ? ["no-resolve"]
+      : []),
+    ...("extendedMatching" in condition && condition.extendedMatching ? ["extended-matching"] : []),
+  ]
+    .map((value) => `,${value}`)
+    .join("");
+}
 function surgeCondition(condition: Match): string {
   switch (condition.type) {
     case "ruleSet":
@@ -218,15 +229,15 @@ function surgeCondition(condition: Match): string {
       return `${condition.format === "domain-set" ? "DOMAIN-SET" : "RULE-SET"},${condition.url}`;
     case "all":
     case "any":
-      return `${condition.type === "all" ? "AND" : "OR"},(${condition.conditions.map((c) => `(${surgeCondition(c)})`).join(",")})`;
+      return `${condition.type === "all" ? "AND" : "OR"},(${condition.conditions.map((c) => `(${surgeCondition(c)}${surgeOptions(c)})`).join(",")})`;
     case "not":
-      return `NOT,((${surgeCondition(condition.condition)}))`;
+      return `NOT,((${surgeCondition(condition.condition)}${surgeOptions(condition.condition)}))`;
     case "domain":
       return `DOMAIN,${condition.value}`;
     case "domainSuffix":
       return `DOMAIN-SUFFIX,${condition.value}`;
     case "ipCidr":
-      return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value},no-resolve`;
+      return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value}`;
     case "processName":
       return `PROCESS-NAME,${condition.value}`;
     case "sourceIp":
@@ -260,13 +271,9 @@ function surge(plan: TargetPlan, secret: (token: Secret) => string): string {
   lines.push("", "[Rule]");
   for (const rule of plan.rules) {
     lines.push(`# ${rule.id}`);
-    if (rule.when.type === "ipCidr") {
-      const condition = surgeCondition(rule.when).replace(/,no-resolve$/, "");
-      lines.push(`${condition},${policy(rule.then)},no-resolve`);
-    } else
-      lines.push(
-        `${surgeCondition(rule.when)},${policy(rule.then)}${rule.when.type === "nativeRuleSet" && rule.when.intervalSeconds !== undefined ? `,update-interval=${rule.when.intervalSeconds}` : ""}`,
-      );
+    lines.push(
+      `${surgeCondition(rule.when)},${policy(rule.then)}${surgeOptions(rule.when)}${rule.when.type === "nativeRuleSet" && rule.when.intervalSeconds !== undefined ? `,update-interval=${rule.when.intervalSeconds}` : ""}`,
+    );
   }
   lines.push(`FINAL,${policy(plan.program.fallback)}`);
   return lines.join("\n") + "\n";

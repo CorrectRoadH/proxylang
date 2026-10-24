@@ -2,7 +2,7 @@
 // @concord-implements docs/feature/target-compilation/README.md
 import { collectNativeRuleSets, lowerRuleSets, validateRuleSets } from "./rulesets.js";
 import { StaticRuleSetUnknownError } from "./rules.js";
-import type { NativeRuleSet } from "./types.js";
+import type { NativeRuleSet, Match } from "./types.js";
 import { nodeIsTcpOnly, pathsOverlap, validateProxyOptions } from "./proxies.js";
 import { validateClashTarget } from "./clash.js";
 import { assertData, configSchema, deepFreeze, schemaIssueMessage } from "./schema.js";
@@ -279,6 +279,22 @@ export function compile(input: unknown): Compilation {
       for (const rule of rules)
         if (logicalDepth(rule.when) > 10)
           error("LOGICAL_DEPTH", rule.id, "Surge 逻辑条件最多嵌套 10 层", target.id);
+    const checkOptions = (condition: Match): void => {
+      if (
+        ("extendedMatching" in condition &&
+          condition.extendedMatching === true &&
+          target.engine !== "surge") ||
+        (condition.type === "ipCidr" &&
+          condition.noResolve !== undefined &&
+          target.engine === "sing-box")
+      )
+        error("MATCH_OPTION_UNSUPPORTED", path, "目标无法等价实现显式匹配选项", target.id);
+      if (condition.type === "all" || condition.type === "any")
+        condition.conditions.forEach(checkOptions);
+      else if (condition.type === "not") checkOptions(condition.condition);
+      else if (condition.type === "ruleSet") checkOptions(condition.when);
+    };
+    rules.forEach((rule) => checkOptions(rule.when));
     const nativeRuleSets = collectNativeRuleSets(rules, target, diagnostics);
     for (const resource of nativeRuleSets)
       if (!(descriptor.nativeRuleSets as readonly string[]).includes(resource.format))

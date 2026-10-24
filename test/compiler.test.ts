@@ -12,6 +12,7 @@ import {
   selectNodes,
   use,
   type Config,
+  type Match,
 } from "../src/index.js";
 import { dual, fixture, trojan } from "./fixtures.js";
 
@@ -132,7 +133,7 @@ test("所有可选与 via 路径都参与 TCP-only 推断，not 不能绕过", (
     ],
     groups: [{ id: "group", type: "select" as const, members: ["edge"] }],
   };
-  const check = (condition: ReturnType<typeof m.network>) =>
+  const check = (condition: Match) =>
     compile(fixture([rule("limited", condition, route("group"))], program));
   assert.equal(check(m.network("tcp")).ok, true);
   assert.equal(check(m.not(m.network("udp"))).ok, true);
@@ -154,7 +155,7 @@ test("展示 warning 可提升 error，未知能力永远 error", () => {
 
 // @use-case docs/feature/target-compilation/use-case/build-targets.md
 test("逻辑深度检查的是守卫展开后的原生树", () => {
-  let condition = m.network("tcp");
+  let condition: Match = m.network("tcp");
   for (let i = 0; i < 11; i++) condition = m.not(condition);
   const result = compile(dual(fixture([rule("deep", condition, direct())])));
   assert.ok(result.diagnostics.some((d) => d.code === "LOGICAL_DEPTH"));

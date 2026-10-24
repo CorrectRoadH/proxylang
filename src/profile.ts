@@ -229,13 +229,18 @@ function surgeCondition(condition: ProfileCondition, depth = 0): SurgeCondition 
     if (!parsed.success) return fail("PROFILE_CONDITION_UNSUPPORTED");
     const value = parsed.data;
     if (value.type === "ruleSet") return surgeCondition(value.when, depth);
-    if (
-      value.type !== "nativeRuleSet" ||
-      value.engine !== "surge" ||
-      value.intervalSeconds !== undefined
-    )
+    if (value.type !== "nativeRuleSet" || value.engine !== "surge")
       return fail("PROFILE_CONDITION_UNSUPPORTED");
-    return { type: "ruleSet", format: value.format, url: value.url };
+    if (depth > 0 && value.intervalSeconds !== undefined)
+      return fail("RULESET_COMPOSITION_UNSUPPORTED");
+    return {
+      type: "ruleSet",
+      format: value.format,
+      url: value.url,
+      ...(value.intervalSeconds !== undefined ? { intervalSeconds: value.intervalSeconds } : {}),
+      ...(value.noResolve !== undefined ? { noResolve: value.noResolve } : {}),
+      ...(value.extendedMatching !== undefined ? { extendedMatching: value.extendedMatching } : {}),
+    };
   }
   if (condition.type === "all" || condition.type === "any") {
     if (!Array.isArray(condition.conditions)) return fail("PROFILE_CONDITION_UNSUPPORTED");

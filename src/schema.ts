@@ -75,12 +75,14 @@ const remoteBase = {
     }),
 };
 const updateInterval = z.number().int().min(60).max(2147483647);
-const nativeRuleSetSchema = z.discriminatedUnion("engine", [
+export const nativeRuleSetSchema = z.discriminatedUnion("engine", [
   z.strictObject({
     ...remoteBase,
     engine: z.literal("surge"),
     format: z.enum(["rule-set", "domain-set"]),
     intervalSeconds: updateInterval.optional(),
+    noResolve: z.boolean().optional(),
+    extendedMatching: z.boolean().optional(),
   }),
   z.strictObject({
     ...remoteBase,
@@ -100,9 +102,17 @@ export const matchSchema: z.ZodType<Match> = z.lazy(() =>
   z.discriminatedUnion("type", [
     nativeRuleSetSchema,
     z.strictObject({ type: z.literal("ruleSet"), id: idSchema, when: matchSchema }),
-    atom("domain", domain),
-    atom("domainSuffix", domain),
-    atom("ipCidr", cidr),
+    z.strictObject({
+      type: z.literal("domain"),
+      value: domain,
+      extendedMatching: z.boolean().optional(),
+    }),
+    z.strictObject({
+      type: z.literal("domainSuffix"),
+      value: domain,
+      extendedMatching: z.boolean().optional(),
+    }),
+    z.strictObject({ type: z.literal("ipCidr"), value: cidr, noResolve: z.boolean().optional() }),
     atom("sourceIp", z.union([ip, cidr])),
     atom("processName", processNameSchema),
     z.strictObject({ type: z.literal("port"), from: port, to: port }).refine((v) => v.from <= v.to),
@@ -331,6 +341,8 @@ const groupSchema = z.union([
 export const requestSchema: z.ZodType<Request> = z.strictObject({
   network,
   domain: domain.optional(),
+  tlsSni: domain.optional(),
+  httpHost: domain.optional(),
   ip: ip.optional(),
   sourceIp: ip.optional(),
   processName: processNameSchema.optional(),

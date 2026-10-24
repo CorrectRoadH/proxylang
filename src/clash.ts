@@ -83,8 +83,10 @@ function conditionText(condition: Match): string {
       return `DOMAIN-SUFFIX,${condition.value}`;
     case "ipCidr":
       return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value},no-resolve`;
+    case "processName":
+      return `PROCESS-NAME,${condition.value}`;
     case "sourceIp":
-      return `SRC-IP-CIDR,${condition.value}`;
+      return `SRC-IP-CIDR,${condition.value.includes("/") ? condition.value : `${condition.value}/${condition.value.includes(":") ? 128 : 32}`}`;
     case "network":
       return `NETWORK,${condition.value}`;
     case "port":

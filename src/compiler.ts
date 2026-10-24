@@ -73,7 +73,11 @@ export function compile(input: unknown): Compilation {
   const parsed = configSchema.safeParse(input);
   if (!parsed.success) {
     for (const issue of parsed.error.issues.slice(0, 20))
-      error("INVALID_SCHEMA", issue.path.map(String).join(".") || "$", schemaIssueMessage(issue));
+      error(
+        issue.message === "DNS_RULE_CONFLICT" ? "DNS_RULE_CONFLICT" : "INVALID_SCHEMA",
+        issue.path.map(String).join(".") || "$",
+        schemaIssueMessage(issue),
+      );
     return deepFreeze({ ok: false, diagnostics, plans: [], cases });
   }
   const config: Config = deepFreeze(parsed.data);
@@ -209,6 +213,17 @@ export function compile(input: unknown): Compilation {
         "fragment 不能静默忽略 listener；请使用独立程序或 standalone 目标",
         target.id,
       );
+    if (program.dns?.length) {
+      if (target.engine !== "sing-box")
+        error(
+          "DNS_TARGET_UNSUPPORTED",
+          path,
+          "通用 DNS 需要 sing-box standalone 或 Surge Profile",
+          target.id,
+        );
+      else if (target.mode !== "standalone")
+        error("DNS_MODE_UNSUPPORTED", path, "通用 DNS 需要 standalone", target.id);
+    }
     for (const endpoint of program.endpoints ?? []) {
       if (!(descriptor.endpoints as readonly string[]).includes(endpoint.type))
         error(

@@ -75,7 +75,7 @@ jobs:
           tar -xzf .cache/native/sing-box.tar.gz -C .cache/native "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box"
           mv ".cache/native/sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" ".cache/native/sing-box-${SING_BOX_VERSION}"
       - name: Check generated configurations without starting the proxy
-        run: vp test run test/native.test.ts -t "sing-box $SING_BOX_VERSION"
+        run: vp test run test/native.test.ts test/dns-native.test.ts -t "sing-box $SING_BOX_VERSION"
         env:
           SING_BOX_VERSION: ${{ matrix.version }}
           PROXYLANG_NATIVE_CHECK: "1"

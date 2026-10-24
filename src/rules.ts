@@ -111,7 +111,9 @@ export function expandRules(
 function inCidr(address: string | undefined, cidr: string): boolean {
   if (!address) return false;
   const parsed = ipaddr.parse(address);
-  const [base, bits] = ipaddr.parseCIDR(cidr);
+  const [base, bits] = ipaddr.parseCIDR(
+    cidr.includes("/") ? cidr : `${cidr}/${cidr.includes(":") ? 128 : 32}`,
+  );
   return parsed.kind() === base.kind() && parsed.match(base, bits);
 }
 
@@ -170,6 +172,10 @@ export function evaluate(condition: Match, request: Request): ConditionTrace {
     case "ipCidr":
       present = request.ip !== undefined;
       matched = inCidr(request.ip, condition.value);
+      break;
+    case "processName":
+      present = request.processName !== undefined;
+      matched = request.processName === condition.value;
       break;
     case "sourceIp":
       present = request.sourceIp !== undefined;

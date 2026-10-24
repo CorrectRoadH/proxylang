@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { processNameSchema } from "./schema.js";
 import { surgeConfig } from "./profile.js";
 import { surgeMatch } from "./surge-definitions.js";
 import { proxyBuilder } from "./proxy-builder.js";
@@ -29,6 +30,10 @@ export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet =>
   type: "ruleSet",
 });
 export const match = {
+  processName: (value: string): Match => {
+    if (!processNameSchema.safeParse(value).success) throw new Error("INVALID_PROCESS_NAME");
+    return { type: "processName", value };
+  },
   ruleSet: (set: NamedRuleSet): Match => set,
   domain: (value: string): Match => ({ type: "domain", value }),
   domainSuffix: (value: string): Match => ({ type: "domainSuffix", value }),

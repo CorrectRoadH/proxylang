@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/use-case/build-targets.md
+import { dnsRulesSchema } from "./dns.js";
+import type { DnsRule } from "./types.js";
 import { isIP } from "node:net";
 import { compile, type Compilation } from "./compiler.js";
 import { deepFreeze, matchSchema } from "./schema.js";
@@ -55,6 +57,7 @@ export type SurgeConfig = DeepReadonly<Pick<SurgeProfileInput, "managed" | "name
   readonly hosts?: Fragments<DeepReadonly<SurgeHost>>;
 };
 export type ProfileDefinition = {
+  readonly dns?: Fragments<DnsRule>;
   readonly target:
     | SurgeProfileInput["target"]
     | {
@@ -73,7 +76,8 @@ export type ProfileDefinition = {
   };
 };
 export type Profile = DeepReadonly<
-  Omit<ProfileDefinition, "proxies" | "groups" | "routes" | "surge"> & {
+  Omit<ProfileDefinition, "proxies" | "groups" | "routes" | "surge" | "dns"> & {
+    readonly dns?: readonly DnsRule[];
     readonly proxies: readonly ProfileProxy[];
     readonly groups: readonly ProxyGroupDefinition[];
     readonly routes: readonly RouteDefinition[];
@@ -103,7 +107,16 @@ export function surgeConfig(input: SurgeConfig): SurgeConfig {
 }
 export function defineProfile(input: ProfileDefinition | Profile): Profile {
   inspectDefinition(input);
-  exactDefinition(input, ["target", "proxies", "groups", "routes", "fallback", "surge", "singBox"]);
+  exactDefinition(input, [
+    "target",
+    "proxies",
+    "groups",
+    "routes",
+    "fallback",
+    "surge",
+    "singBox",
+    "dns",
+  ]);
   exactDefinition(input.target, ["engine", "platform", "version"]);
   if (input.surge !== undefined)
     exactDefinition(input.surge, ["managed", "general", "hosts", "names"]);
@@ -134,6 +147,16 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
   const proxies = flatten<DeepReadonly<ProfileProxy>>(input.proxies);
   const groups = flatten<DeepReadonly<ProxyGroupDefinition>>(input.groups);
   const routes = flatten<DeepReadonly<RouteDefinition>>(input.routes);
+  const dns = input.dns === undefined ? undefined : flatten<DnsRule>(input.dns);
+  if (dns) {
+    const checked = dnsRulesSchema.safeParse(dns);
+    if (!checked.success)
+      fail(
+        checked.error.issues.some((issue) => issue.message === "DNS_RULE_CONFLICT")
+          ? "DNS_RULE_CONFLICT"
+          : "INVALID_DNS_RULES",
+      );
+  }
   let surge: Profile["surge"];
   if (input.surge !== undefined) {
     let general: SurgeGeneral | undefined;
@@ -175,9 +198,18 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
         : { hosts: flatten<DeepReadonly<SurgeHost>>(input.surge.hosts) }),
     } as Profile["surge"];
   }
-  const { surge: _surge, proxies: _proxies, groups: _groups, routes: _routes, ...rest } = input;
+  if (dns?.length && surge?.hosts?.length) fail("DNS_HOSTS_CONFLICT");
+  const {
+    dns: _dns,
+    surge: _surge,
+    proxies: _proxies,
+    groups: _groups,
+    routes: _routes,
+    ...rest
+  } = input;
   return snapshotProfile({
     ...rest,
+    ...(dns === undefined ? {} : { dns }),
     proxies,
     groups,
     routes,
@@ -239,6 +271,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
       const lowered = lowerSurgeProfile({
         target: profile.target,
         ...profile.surge,
+        ...(profile.dns?.length ? { hosts: profile.dns } : {}),
         nodes,
         tunnels: endpoints,
         groups: profile.groups,
@@ -324,6 +357,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
         programs: {
           profile: {
             engine: "sing-box",
+            ...(profile.dns === undefined ? {} : { dns: profile.dns }),
             nodes,
             endpoints: endpoints as readonly TailscaleEndpoint[],
             groups,

@@ -1,6 +1,6 @@
 {
   "name": "proxylang",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Composable routing policies in TypeScript with explicit platform targets",
   "homepage": "https://github.com/CorrectRoadH/proxylang#readme",
   "bugs": {

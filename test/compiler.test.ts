@@ -212,7 +212,7 @@ test("版本专属 DNS 与 urltest 参数显式输出，规则顺序及动作不
     });
     assert.equal(result.ok, true);
     const config = JSON.parse(render(result, () => "dummy")[0]!.content);
-    assert.equal(config.dns.servers[0].detour, "pl-direct");
+    assert.equal(config.dns.servers[0].detour, version === "1.12.0" ? undefined : "pl-direct");
     assert.equal(config.dns.servers[0].type, version === "1.12.0" ? "udp" : undefined);
     assert.equal(config.route.rules[0].type, "logical");
     assert.equal(config.route.rules[0].action, "reject");

@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { dnsRulesSchema } from "./dns.js";
 import { z } from "zod";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
@@ -40,10 +41,17 @@ const cidr = z.string().refine((x) => {
     return false;
   }
 });
+export const processNameSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .regex(/^[^/\\*?[\],()\p{C}]+$/u);
 const port = z.number().int().min(1).max(65535);
 const network = z.enum(["tcp", "udp"]);
-const atom = (type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp", value: z.ZodType<string>) =>
-  z.strictObject({ type: z.literal(type), value });
+const atom = (
+  type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp" | "processName",
+  value: z.ZodType<string>,
+) => z.strictObject({ type: z.literal(type), value });
 const remoteBase = {
   type: z.literal("nativeRuleSet"),
   id: idSchema,
@@ -95,7 +103,8 @@ export const matchSchema: z.ZodType<Match> = z.lazy(() =>
     atom("domain", domain),
     atom("domainSuffix", domain),
     atom("ipCidr", cidr),
-    atom("sourceIp", cidr),
+    atom("sourceIp", z.union([ip, cidr])),
+    atom("processName", processNameSchema),
     z.strictObject({ type: z.literal("port"), from: port, to: port }).refine((v) => v.from <= v.to),
     z
       .strictObject({ type: z.literal("sourcePort"), from: port, to: port })
@@ -324,6 +333,7 @@ export const requestSchema: z.ZodType<Request> = z.strictObject({
   domain: domain.optional(),
   ip: ip.optional(),
   sourceIp: ip.optional(),
+  processName: processNameSchema.optional(),
   port: port.optional(),
   sourcePort: port.optional(),
 });
@@ -332,6 +342,7 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
     idSchema,
     z.strictObject({
       engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
+      dns: dnsRulesSchema.optional(),
       nodes: z.array(nodeSchema),
       endpoints: z.array(endpointSchema).max(1000).optional(),
       groups: z.array(groupSchema),

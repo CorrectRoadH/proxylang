@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
+import { dnsCondition, dohUrl } from "./dns.js";
 import { stringify } from "yaml";
 import { secretReader } from "./secrets.js";
 import { clashConfig } from "./clash.js";
@@ -65,8 +66,16 @@ function singCondition(condition: Match): Record<string, Json> {
       return { domain_suffix: [condition.value] };
     case "ipCidr":
       return { ip_cidr: [condition.value] };
+    case "processName":
+      return { process_name: [condition.value] };
     case "sourceIp":
-      return { source_ip_cidr: [condition.value] };
+      return {
+        source_ip_cidr: [
+          condition.value.includes("/")
+            ? condition.value
+            : `${condition.value}/${isIP(condition.value) === 6 ? 128 : 32}`,
+        ],
+      };
     case "network":
       return { network: [condition.value] };
     case "port":
@@ -94,7 +103,13 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
       ...(!modern && standalone ? { domain_strategy: "prefer_ipv4" } : {}),
     },
   ];
-  for (const node of program.nodes) outbounds.push(singboxProxy(node, secret));
+  for (const node of program.nodes)
+    outbounds.push({
+      ...(singboxProxy(node, secret) as Record<string, Json>),
+      ...(modern && program.dns?.length
+        ? { domain_resolver: { server: DNS, strategy: "prefer_ipv4" } }
+        : {}),
+    });
   for (const group of program.groups) {
     outbounds.push(singboxGroup(group));
   }
@@ -123,7 +138,7 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
     config.dns = {
       servers: [
         modern
-          ? { type: "udp", tag: DNS, server: listener.resolver, server_port: 53, detour: DIRECT }
+          ? { type: "udp", tag: DNS, server: listener.resolver, server_port: 53 }
           : {
               tag: DNS,
               address: `udp://${isIP(listener.resolver) === 6 ? `[${listener.resolver}]` : listener.resolver}`,
@@ -133,7 +148,41 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
       final: DNS,
       strategy: "prefer_ipv4",
     };
-    if (modern) routing.default_domain_resolver = { server: DNS, strategy: "prefer_ipv4" };
+    if (modern && !program.dns?.length)
+      routing.default_domain_resolver = { server: DNS, strategy: "prefer_ipv4" };
+  }
+  if (program.dns?.length) {
+    const dns = config.dns as { servers: Json[]; rules?: Json[] };
+    dns.rules = program.dns.map((rule, index) => {
+      const tag = `pl-domain-dns-${index}`;
+      if (isIP(rule.server)) {
+        dns.servers.push(
+          modern
+            ? { type: "udp", tag, server: rule.server, server_port: 53 }
+            : {
+                tag,
+                address: `udp://${isIP(rule.server) === 6 ? `[${rule.server}]` : rule.server}`,
+                detour: DIRECT,
+              },
+        );
+      } else {
+        const url = dohUrl(rule.server);
+        dns.servers.push(
+          modern
+            ? {
+                type: "https",
+                tag,
+                server: url.hostname.replace(/^\[|\]$/g, ""),
+                server_port: Number(url.port || 443),
+                path: url.pathname,
+                tls: { enabled: true },
+                domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
+              }
+            : { tag, address: url.href, address_resolver: DNS, detour: DIRECT },
+        );
+      }
+      return { ...dnsCondition(rule), server: tag };
+    });
   }
   if (program.endpoints?.length) {
     config.endpoints = program.endpoints.map((endpoint) => ({
@@ -156,7 +205,6 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
         tag: `pl-ts-dns-${endpoint.id}`,
         server: endpoint.bootstrapResolver,
         server_port: 53,
-        detour: DIRECT,
       });
   }
   return config;
@@ -179,6 +227,8 @@ function surgeCondition(condition: Match): string {
       return `DOMAIN-SUFFIX,${condition.value}`;
     case "ipCidr":
       return `${condition.value.includes(":") ? "IP-CIDR6" : "IP-CIDR"},${condition.value},no-resolve`;
+    case "processName":
+      return `PROCESS-NAME,${condition.value}`;
     case "sourceIp":
       return `SRC-IP,${condition.value}`;
     case "network":

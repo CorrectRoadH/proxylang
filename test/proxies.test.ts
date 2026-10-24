@@ -285,7 +285,7 @@ test("Tailscale独立端点保留路由语义，并将控制面DNS与普通DNS�
   assert.equal(result.dns.servers.find((s: any) => s.tag === "pl-dns").server, "1.1.1.1");
   assert.deepEqual(
     result.dns.servers.find((s: any) => s.tag === "pl-ts-dns-home"),
-    { type: "udp", tag: "pl-ts-dns-home", server: "9.9.9.9", server_port: 53, detour: "pl-direct" },
+    { type: "udp", tag: "pl-ts-dns-home", server: "9.9.9.9", server_port: 53 },
   );
   assert.equal(
     result.outbounds.some((n: any) => n.tag === "home"),

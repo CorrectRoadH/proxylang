@@ -27,7 +27,10 @@ export type NativeRuleSet = {
 export type Match =
   | NamedRuleSet
   | NativeRuleSet
-  | { readonly type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp"; readonly value: string }
+  | {
+      readonly type: "domain" | "domainSuffix" | "ipCidr" | "sourceIp" | "processName";
+      readonly value: string;
+    }
   | { readonly type: "port" | "sourcePort"; readonly from: number; readonly to: number }
   | { readonly type: "network"; readonly value: Network }
   | { readonly type: "all" | "any"; readonly conditions: readonly Match[] }
@@ -195,7 +198,9 @@ export type ConcreteGroup =
     };
 export type Group = Exclude<ConcreteGroup, { readonly type: "surge-smart" }> | Strategy;
 export type Engine = "surge" | "sing-box" | "mihomo" | "stash";
+export type DnsRule = { readonly pattern: string; readonly server: string };
 export type Program = {
+  readonly dns?: readonly DnsRule[];
   readonly engine: Engine;
   readonly nodes: readonly ProxyNode[];
   readonly endpoints?: readonly TailscaleEndpoint[];
@@ -217,6 +222,7 @@ export type Request = {
   readonly domain?: string;
   readonly ip?: string;
   readonly sourceIp?: string;
+  readonly processName?: string;
   readonly port?: number;
   readonly sourcePort?: number;
 };

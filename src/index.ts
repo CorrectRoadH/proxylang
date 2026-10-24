@@ -62,3 +62,5 @@ export {
   type BuildContext,
   type ProfileBuildResult,
 } from "./profile-build.js";
+
+export { proxyId } from "./proxy-id.js";

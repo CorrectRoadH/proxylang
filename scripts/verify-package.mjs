@@ -50,7 +50,7 @@ try {
   const sdk = run(process.execPath, [
     "--input-type=module",
     "-e",
-    "import {ruleSet} from 'proxylang'; if(typeof ruleSet !== 'function') process.exit(1)",
+    "import {ruleSet,dnsRule} from 'proxylang'; if(typeof ruleSet !== 'function' || dnsRule(['a.example','*.example'],'1.1.1.1').length !== 2) process.exit(1)",
   ]);
   assert.equal(sdk, "");
   writeFileSync(

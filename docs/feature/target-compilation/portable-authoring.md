@@ -10,7 +10,7 @@
 
 ## DNS 声明
 
-导出 DnsRule = {readonly pattern:string; readonly server:string}。ProfileDefinition.dns 为 Fragments<DnsRule>，归一化 Profile.dns 为只读扁平数组，复用本次展开预算及快照检查。不新增包装函数。
+导出 DnsRule = {readonly pattern:string; readonly server:string}。ProfileDefinition.dns 为 Fragments<DnsRule>，归一化 Profile.dns 为只读扁平数组，复用本次展开预算及快照检查。
 
 pattern 最长 253 字符，server 最长 2048 字符；Profile 与直接 Program 在快照和比较前执行同样限制。pattern 仅接受精确域名与前导 *. 的子域模式。*.example.com 匹配非空子域、多级子域，不匹配 example.com 自身；比较忽略大小写。server 支持 IP 字面量或 HTTPS DoH URL，禁止认证、query、fragment，自定义端口和路径保留；省略路径按 /dns-query，显式 / 保留为 /。拒绝空端口、反斜线、空白及 URL 规范化会改变的路径。
 
@@ -50,3 +50,11 @@ hosts.ts 改为 dns.ts，数组类型 DnsRule，移到设备 Profile 顶层 dns�
 - [Surge 规则参数](https://manual.nssurge.com/rules/overview.html)
 - [sing-box DNS 规则](https://sing-box.sagernet.org/configuration/dns/rule/)
 - [sing-box DNS 迁移](https://sing-box.sagernet.org/migration/)
+
+## DNS 函数编写
+
+导出 dnsRule(pattern: string, server: string): DnsRule，以及 dnsRule(patterns: readonly string[], server: string): DnsRule[]。单条和同服务器批量声明均构造原有普通数据，不引入另一种编译模型。调用前检查输入数据图，再复用 DNS schema 校验字符串、2000 项上限和冲突。返回新规则，不持有调用者数组。
+
+输入顺序、大小写与重复项语义不变，不排序或去重。空数组生成空数组；相同模式仍按既有规则拒绝。多个函数结果在 Profile.dns 继续用现有片段数组组合；Program 使用平面数组。DnsRule 类型保留用于类型消费，作者无需写 satisfies DnsRule[]。
+
+这是既有数据构造的局部可回滚增强，无渲染、域名匹配、DNS 引导或资源所有权变更。验收对比函数和对象输入的编译渲染字节，验证输入变更隔离、批量限制与冲突，消费方保持四份原始字节和代理 ID。

@@ -2,6 +2,7 @@ import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
+  dnsRule,
   compile,
   compileProfile,
   defineProfile,
@@ -216,4 +217,43 @@ test("proxyId retains the published consumer algorithm and case", () => {
     );
   assert.notEqual(proxyId("WestData", "a"), proxyId("westdata", "a"));
   assert.throws(() => proxyId("", "a"), /INVALID_PROXY_ID_INPUT/);
+});
+
+// @use-case docs/feature/target-compilation/use-case/build-targets.md
+test("DNS functions preserve batch order and compile identically to data", () => {
+  const patterns = ["*.EXAMPLE.com", "example.com"];
+  const server = "https://1.1.1.1/dns-query";
+  const expected = patterns.map((pattern) => ({ pattern, server }));
+  const rules = dnsRule(patterns, server);
+  patterns.reverse();
+  assert.deepEqual(rules, expected);
+  assert.deepEqual(dnsRule("example.com", server), expected[1]);
+  assert.deepEqual(dnsRule([], server), []);
+  const a = compileProfile(fixture(rules));
+  const b = compileProfile(fixture(expected));
+  assert.ok(a.ok && a.engine === "sing-box" && b.ok && b.engine === "sing-box");
+  assert.deepEqual(
+    render(a.compilation, () => undefined),
+    render(b.compilation, () => undefined),
+  );
+  assert.throws(() => dnsRule(["EXAMPLE.com", "example.com"], server), /INVALID_DNS_RULE/);
+  assert.throws(
+    () =>
+      dnsRule(
+        Array.from({ length: 2001 }, (_, i) => `a${i}.com`),
+        server,
+      ),
+    /INVALID_DNS_RULE/,
+  );
+  assert.throws(() => dnsRule("*example.com", server), /INVALID_DNS_RULE/);
+  let reads = 0;
+  const unsafe = ["example.com"];
+  Object.defineProperty(unsafe, 0, {
+    get() {
+      reads++;
+      return "example.com";
+    },
+  });
+  assert.throws(() => dnsRule(unsafe, server));
+  assert.equal(reads, 0);
 });

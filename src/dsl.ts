@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/rule-composition/README.md
+import { dnsRulesSchema } from "./dns.js";
+import type { DnsRule } from "./types.js";
 import { createHash } from "node:crypto";
 import type { ProfileCondition, ProfileDestination } from "./profile.js";
 import {
@@ -33,6 +35,20 @@ import type {
   StrategyDefinition,
   TailscaleEndpoint,
 } from "./types.js";
+
+export function dnsRule(pattern: string, server: string): DnsRule;
+export function dnsRule(patterns: readonly string[], server: string): DnsRule[];
+// @concord-code
+// @concord-implements docs/feature/target-compilation/portable-authoring.md
+export function dnsRule(pattern: string | readonly string[], server: string): DnsRule | DnsRule[] {
+  inspectDefinition({ pattern, server });
+  const batch = Array.isArray(pattern);
+  const patterns = batch ? pattern : [pattern];
+  if (patterns.length > 2000) throw new ProfileDefinitionError("INVALID_DNS_RULE");
+  const checked = dnsRulesSchema.safeParse(patterns.map((value) => ({ pattern: value, server })));
+  if (!checked.success) throw new ProfileDefinitionError("INVALID_DNS_RULE");
+  return batch ? checked.data : checked.data[0]!;
+}
 
 export const ruleSet = (definition: Omit<NamedRuleSet, "type">): NamedRuleSet => ({
   ...definition,

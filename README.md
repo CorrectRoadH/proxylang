@@ -417,3 +417,17 @@ Stash 当前拒绝来源 IP/端口、端口范围和组级 URLTest。完整配�
 - [多设备配置与请求案例](examples/home/proxylang.config.ts)：节点筛选、代理链和路由回归案例。
 - [设计与使用文档](docs/README.md)：规则组合、平台机制、CLI 与构建边界。
 - [开发工作流](docs/engineering/development/README.md)：Concord 管理 Feature 与 Use Case，`vp` 负责构建和测试。
+
+### 按域名指定 DNS
+
+同一服务器的多个域名可以一起声明，Profile 的 `dns` 支持数组片段组合：
+
+```ts
+import { dnsRule } from "proxylang";
+
+const domestic = dnsRule(["*.example.cn", "example.cn"], "https://223.5.5.5/dns-query");
+const tailnet = dnsRule("*.ts.net", "100.100.100.100");
+// defineProfile({ ..., dns: [domestic, tailnet] })
+```
+
+`*.example.cn` 仅匹配子域，根域需单独列出。函数保留输入顺序，沿用既有 DNS 冲突检查；`DnsRule` 类型仍可用于类型标注。

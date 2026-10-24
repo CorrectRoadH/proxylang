@@ -115,8 +115,8 @@ jobs:
       - name: Install verified Concord release
         shell: bash
         run: |
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/concord.tgz" https://github.com/CorrectRoadH/Concord/releases/download/v0.11.8/concord-sdlc-0.11.8.tgz
-          echo "e2daa3ff6b1ca21c01df7144f0ab9400d2323a7083b3d610aa63a122fdc1918b  $RUNNER_TEMP/concord.tgz" | sha256sum --check
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/concord.tgz" https://github.com/CorrectRoadH/Concord/releases/download/v0.14.1/concord-sdlc-0.14.1.tgz
+          echo "818ac89e9026a4e545783301cb0da63bed97fd565a1c3759b072504e3386fdb4  $RUNNER_TEMP/concord.tgz" | sha256sum --check
           vp exec npm install --prefix "$RUNNER_TEMP/concord-tool" --no-audit --no-fund "$RUNNER_TEMP/concord.tgz"
           echo "$RUNNER_TEMP/concord-tool/node_modules/.bin" >> "$GITHUB_PATH"
       - run: vp run docs:check

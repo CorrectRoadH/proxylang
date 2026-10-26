@@ -16,7 +16,7 @@ pattern 最长 253 字符，server 最长 2048 字符；Profile 与直接 Progra
 
 单个 DNS 列表最多 2000 项，拒绝重复模式。若两个模式的匹配集合重叠且 server 不同，返回 DNS_RULE_CONFLICT；相同 server 的包含关系合法。由此避免跨引擎 Host 优先级差异改变解析目标。校验忽略大小写；Surge 保留文本，sing-box 降低时将 domain 和 domain_regex 转为小写。预算内二次比较上限固定为 2000 项。
 
-Surge Profile 将 dns 顺序映射为 hosts 中同形的 pattern/server。非空 dns 与非空 surge.hosts 禁止混用，返回 DNS_HOSTS_CONFLICT；因此不对任意原生 glob、alias 或 address+server 猜测交集。两种入口各自最多 2000 项，最终仍由原 Surge schema 校验 hosts。
+Surge Profile 允许 dns 与 surge.hosts 同时声明，按 dns 在前、surge.hosts 在后的顺序合并到 [Host]，保留各自内部顺序与字段，不覆盖、不去重。合并后最多 2000 项。同一 pattern 忽略大小写后在两种入口重复时返回 DNS_HOSTS_CONFLICT，并提供 paths（扁平化后的 dns[i] 与 surge.hosts[j]）；即使内容一致也拒绝重复。不同原生 glob 的重叠保留 Surge 原生顺序语义，不猜测其与 address/alias 的交集；dns 内部仍执行 DNS_RULE_CONFLICT 检查。单独使用任一入口的行为不变。
 
 sing-box Profile 将 dns 放入其 Program。Program 新增可选平面 dns 字段；只有 sing-box standalone 目标可使用非空 dns，其他目标返回 DNS_MODE_UNSUPPORTED 或 DNS_TARGET_UNSUPPORTED。空 dns 等价于未配置。不通过渲染后修改 JSON 实现。
 

@@ -10,7 +10,7 @@ import {
   type ProfileCompilation,
 } from "./profile.js";
 import { pathsOverlap, RenderError } from "./proxies.js";
-import { secretReader } from "./secrets.js";
+import { secretReader, secretFailure } from "./secrets.js";
 import { render } from "./render.js";
 import { renderSurgeProfiles } from "./surge-profile.js";
 import { publishProfiles, SurgePublishError } from "./surge-publish.js";
@@ -23,7 +23,8 @@ function compileBatch(
   const entries = Object.entries(profiles);
   const compiled: ProfileCompilation[] = [];
   let outputDirectoryChecked = false;
-  const result = (code: string) => ({
+  const result = (code: string, paths?: readonly string[]) => ({
+    ...(paths ? { paths } : {}),
     ok: code === "CHECKED",
     code,
     entries,
@@ -38,7 +39,11 @@ function compileBatch(
     return result("INVALID_PROFILE_FILENAMES");
   compiled.push(...entries.map(([, profile]) => compileProfile(profile)));
   const invalid = compiled.find((profile) => !profile.ok);
-  if (invalid) return result(invalid.engine === "invalid" ? invalid.code : "COMPILATION_FAILED");
+  if (invalid)
+    return result(
+      invalid.engine === "invalid" ? invalid.code : "COMPILATION_FAILED",
+      invalid.engine === "invalid" ? invalid.paths : undefined,
+    );
   if (output !== undefined) {
     outputDirectoryChecked = true;
     if (
@@ -66,6 +71,7 @@ export type ProfileCheckResult = {
     readonly engine: "surge" | "sing-box" | "invalid";
     readonly ok: boolean;
     readonly code?: string;
+    readonly paths?: readonly string[];
     readonly diagnostics: readonly Diagnostic[];
   }[];
 };
@@ -99,7 +105,11 @@ export function checkBuild(input: BuildDefinition): ProfileCheckResult {
       engine: profile.engine,
       ok: profile.ok,
       ...(profile.engine === "invalid"
-        ? { code: profile.code, diagnostics: [] }
+        ? {
+            code: profile.code,
+            ...(profile.paths ? { paths: profile.paths } : {}),
+            diagnostics: [],
+          }
         : { diagnostics: profile.compilation.diagnostics }),
     })),
   };
@@ -111,7 +121,13 @@ async function publish(
 ): Promise<BuildResult> {
   try {
     const checked = compileBatch(profiles, output);
-    if (!checked.ok) return { published: false, exitCode: 1, code: checked.code };
+    if (!checked.ok)
+      return {
+        published: false,
+        exitCode: 1,
+        code: checked.code,
+        ...(checked.paths ? { paths: checked.paths } : {}),
+      };
     const { entries, compiled } = checked;
     const read = secretReader(readSecret);
     const files = new Map<string, string>();
@@ -150,6 +166,7 @@ async function publish(
       published: false,
       exitCode: 1,
       code: error instanceof RenderError ? error.code : "BUILD_FAILED",
+      ...secretFailure(error),
     };
   }
 }

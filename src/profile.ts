@@ -91,7 +91,12 @@ export type ProfileCompilation =
       readonly compilation: SurgeProfileCompilation;
     }
   | { readonly engine: "sing-box"; readonly ok: boolean; readonly compilation: Compilation }
-  | { readonly engine: "invalid"; readonly ok: false; readonly code: string };
+  | {
+      readonly engine: "invalid";
+      readonly ok: false;
+      readonly code: string;
+      readonly paths?: readonly string[];
+    };
 const fail = (code: string): never => {
   throw new ProfileDefinitionError(code);
 };
@@ -198,7 +203,19 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
         : { hosts: flatten<DeepReadonly<SurgeHost>>(input.surge.hosts) }),
     } as Profile["surge"];
   }
-  if (dns?.length && surge?.hosts?.length) fail("DNS_HOSTS_CONFLICT");
+  if (dns?.length && surge?.hosts?.length) {
+    if (dns.length + surge.hosts.length > 2000) fail("INVALID_SURGE_HOSTS");
+    const patterns = new Map(dns.map((entry, index) => [entry.pattern.toLowerCase(), index]));
+    for (const [index, host] of surge.hosts.entries()) {
+      if (typeof host?.pattern !== "string") fail("INVALID_SURGE_HOSTS");
+      const dnsIndex = patterns.get(host.pattern.toLowerCase());
+      if (dnsIndex !== undefined)
+        throw new ProfileDefinitionError("DNS_HOSTS_CONFLICT", [
+          `dns[${dnsIndex}]`,
+          `surge.hosts[${index}]`,
+        ]);
+    }
+  }
   const {
     dns: _dns,
     surge: _surge,
@@ -299,7 +316,9 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
       const lowered = lowerSurgeProfile({
         target: profile.target,
         ...profile.surge,
-        ...(profile.dns?.length ? { hosts: profile.dns } : {}),
+        ...(profile.dns?.length
+          ? { hosts: [...profile.dns, ...(profile.surge?.hosts ?? [])] }
+          : {}),
         nodes,
         tunnels: endpoints,
         groups: profile.groups,
@@ -410,6 +429,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
       engine: "invalid",
       ok: false,
       code: error instanceof ProfileDefinitionError ? error.code : "INVALID_PROFILE_DEFINITION",
+      ...(error instanceof ProfileDefinitionError && error.paths ? { paths: error.paths } : {}),
     };
   }
 }

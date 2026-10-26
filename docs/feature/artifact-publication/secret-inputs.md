@@ -33,3 +33,7 @@ proxy/secrets.ts 保留现有固定值表，导出 profileSecrets = secrets({ va
 ## 审查收敛
 
 独立 GPT-6.1 Sol 静态审查未发现秘密边界阻塞。P3 文档迁移纳入 publish-generation、project-config、CLI 和消费方 SDK 构建入口，统一 secrets 字段并链接本页。实际构建与发布仍须按上述验收执行。
+
+## 失败定位
+
+runBuild 与 buildToDirectory 的秘密失败可附带 secretName、secretReason（MISSING 或 RESOLUTION_FAILED），不改变已有外层错误码。名称来自当前被引用的有效 token；回调异常中的消息、属性和秘密值不进入输出。嵌套读取保留库自身产生的缺失原因，任意回调异常仍归类为解析失败。

@@ -367,6 +367,8 @@ test("构建错误附带可执行提示，空路径不读取秘密，目录错�
   assert.ok(!JSON.stringify(failed).includes("private-path-marker"));
   const missing = await buildToDirectory(compilation, join(root, "out"), () => undefined);
   assert.equal(missing.code, "SECRET_MISSING");
+  assert.equal(missing.secretReason, "MISSING");
+  assert.ok(missing.secretName);
   assert.ok(missing.hint);
   assert.equal(missing.published, false);
   assert.ok(!(await readdir(join(root, "out"))).includes(".proxylang-lock"));

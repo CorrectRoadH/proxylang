@@ -25,10 +25,84 @@ export type SurgeDefinitionInput = Omit<SurgeProfileInput, "groups" | "rules" | 
   readonly routes: readonly RouteDefinition[];
   readonly fallback: ProfileDestination;
 };
+// tsx can load a second SDK instance: classify data descriptors, never messages or getters.
+const definitionCodes = new Set([
+  "DEFINITION_CYCLE",
+  "DEFINITION_DEPTH_EXCEEDED",
+  "DEFINITION_EDGE_BUDGET_EXCEEDED",
+  "DEFINITION_NOT_DATA",
+  "DEFINITION_OBJECT_BUDGET_EXCEEDED",
+  "DEFINITION_OUTPUT_BUDGET_EXCEEDED",
+  "DEFINITION_UNKNOWN_FIELD",
+  "DNS_HOSTS_CONFLICT",
+  "DNS_RULE_CONFLICT",
+  "DUPLICATE_RESOURCE_ID",
+  "GROUP_NAME_CONFLICT",
+  "INVALID_BUILD_DEFINITION",
+  "INVALID_DESTINATION",
+  "INVALID_DNS_RULE",
+  "INVALID_DNS_RULES",
+  "INVALID_GROUP_DEFINITION",
+  "INVALID_MATCH_OPTIONS",
+  "INVALID_NATIVE_RULESET",
+  "INVALID_PROFILE_DEFINITION",
+  "INVALID_RESOURCE_DEFINITION",
+  "INVALID_ROUTE_DEFINITION",
+  "INVALID_SECRETS_DEFINITION",
+  "INVALID_SURGE_GENERAL",
+  "INVALID_SURGE_HOSTS",
+  "LOGICAL_DEPTH_EXCEEDED",
+  "PROFILE_CONDITION_UNSUPPORTED",
+  "PROFILE_DESTINATION_UNSUPPORTED",
+  "PROFILE_ENDPOINT_UNSUPPORTED",
+  "PROFILE_EXTENSION_UNSUPPORTED",
+  "PROFILE_GROUP_MEMBER_UNSUPPORTED",
+  "PROFILE_GROUP_OPTIONS_UNSUPPORTED",
+  "PROFILE_TARGET_UNSUPPORTED",
+  "RULESET_COMPOSITION_UNSUPPORTED",
+  "UNKNOWN_DESTINATION_ID",
+  "UNREGISTERED_DESTINATION_INSTANCE",
+  "UNSUPPORTED_GROUP_ALGORITHM",
+]);
+function validDiagnosticPath(path: unknown): path is string {
+  return typeof path === "string" && /^(dns|surge\.hosts)\[\d{1,4}\]$/.test(path);
+}
+export function definitionDiagnostic(
+  error: unknown,
+): { readonly code: string; readonly paths?: readonly string[] } | undefined {
+  try {
+    if (!error || typeof error !== "object") return;
+    const name: unknown = Object.getOwnPropertyDescriptor(error, "name")?.value;
+    const code: unknown = Object.getOwnPropertyDescriptor(error, "code")?.value;
+    if (name !== "ProfileDefinitionError" || typeof code !== "string" || !definitionCodes.has(code))
+      return;
+    const paths: unknown = Object.getOwnPropertyDescriptor(error, "paths")?.value;
+    // Copy only two own data fields; do not iterate arbitrary arrays or invoke getters.
+    if (
+      code === "DNS_HOSTS_CONFLICT" &&
+      Array.isArray(paths) &&
+      Object.getOwnPropertyDescriptor(paths, "length")?.value === 2
+    ) {
+      const first: unknown = Object.getOwnPropertyDescriptor(paths, "0")?.value;
+      const second: unknown = Object.getOwnPropertyDescriptor(paths, "1")?.value;
+      if (validDiagnosticPath(first) && validDiagnosticPath(second))
+        return { code, paths: [first, second] };
+    }
+    return { code };
+  } catch {
+    return;
+  }
+}
 export class ProfileDefinitionError extends Error {
-  constructor(readonly code: string) {
+  readonly paths?: readonly string[];
+  constructor(
+    readonly code: string,
+    paths?: readonly string[],
+  ) {
     super(code);
     this.name = "ProfileDefinitionError";
+    if (paths?.length === 2 && paths.every(validDiagnosticPath))
+      this.paths = Object.freeze([...paths]);
   }
 }
 const fail = (code: string): never => {

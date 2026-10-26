@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @concord-file
 // @concord-implements docs/feature/artifact-publication/README.md
+import { definitionDiagnostic } from "./surge-definitions.js";
 import { runBuild, checkBuild, defineBuild } from "./profile-build.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
@@ -47,6 +48,17 @@ async function readRequestFile(path: string): Promise<string> {
   }
 }
 function loadFailure(cause: unknown): number {
+  const diagnostic = definitionDiagnostic(cause);
+  if (diagnostic) {
+    print({
+      ok: false,
+      code: "CONFIG_LOAD_FAILED",
+      reason: "INVALID_CONFIGURATION",
+      diagnostic,
+      hint: "检查配置字段与库定义约束",
+    });
+    return 1;
+  }
   let code: unknown;
   let name: unknown;
   try {

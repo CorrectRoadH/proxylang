@@ -24,7 +24,7 @@ CLI 固定读取调用目录中的 `proxylang.config.ts`，默认导出 `defineC
 
 explain 在 import 前检查选项结构、非空目标字符串，以及 --request/--request-file 必须且只能提供一个。配置加载与编译完成后，才解析 inline JSON 或读取请求文件，再校验 Request schema，最后检查目标存在性。配置错误优先于请求内容错误，不在 import 前解释 JSON。
 
-根配置缺失报 CONFIG_NOT_FOUND。存在但加载失败为 CONFIG_LOAD_FAILED，带受控 reason/hint：MODULE_NOT_FOUND（导入依赖不存在）、ACCESS_DENIED、INVALID_SYNTAX、EXECUTION_FAILED。异常消息、源码、秘密及异常属性 getter 不进入诊断。配置/loader自行输出不属于此保证。
+根配置缺失报 CONFIG_NOT_FOUND。存在但加载失败为 CONFIG_LOAD_FAILED，带受控 reason/hint：MODULE_NOT_FOUND（导入依赖不存在）、ACCESS_DENIED、INVALID_SYNTAX、EXECUTION_FAILED。库定义诊断使用 INVALID_CONFIGURATION。异常消息、源码、秘密及异常属性 getter 不进入诊断。配置/loader自行输出不属于此保证。
 
 缺 outDir 的 build 报 OUTPUT_DIRECTORY_REQUIRED。Program 的 --validation 报 VALIDATION_PROFILE_REQUIRED。Profile 编译通过后 explain 报 EXPLAIN_PROFILE_UNSUPPORTED。不支持机制不会被悄悄忽略。
 
@@ -47,3 +47,11 @@ Profile构建先验证envelope与validation 秘密解析函数，再preflight、
 在包含约定配置的示例目录运行 `node ../../dist/cli.js check`，例如 `examples/home`。检查不需要秘密。build需要配置outDir和应用实际凭据。实际运行证据通过测试或工程Memory独立记录。
 
 0.7.0 构建秘密入口为 `secrets: secrets({ values, env, validation })`；旧回调字段移除，完整行为见[秘密值声明](secret-inputs.md)。
+
+## 可定位的受控诊断
+
+配置加载期间，符合 ProfileDefinitionError 结构的已知错误 保留 CONFIG_LOAD_FAILED 外层码，reason 为 INVALID_CONFIGURATION，diagnostic 提供 code 和可选 paths。paths 使用扁平化的配置字段索引；顶层模块求值失败时尚无设备注册名，不虚构 profile。直接传入普通 Profile 对象时，checkBuild 在逐设备结果中保留 paths，runBuild 在失败报告中保留 paths。
+
+分类读取 own data descriptor，并对 code 使用固定白名单、对 paths 使用固定字段索引格式；不依赖跨 loader 的类身份，也不把错误结构当作来源认证。未知错误码继续使用原有脱敏分类；非法 paths 不回显，不输出 message、stack 或用户数据。
+
+构建秘密失败可附带 secretName 与 secretReason（MISSING 或 RESOLUTION_FAILED）。secretName 仅来自已验证的被引用 token，不能来自回调抛出的消息；不回显秘密值。Profile 批次仍保留现有 SECRET_RESOLUTION_FAILED 外层码，secretReason 区分底层缺失与解析异常。

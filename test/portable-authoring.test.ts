@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   dnsRule,
+  checkBuild,
   compile,
   compileProfile,
   defineProfile,
@@ -116,7 +117,7 @@ test("portable DNS validates fragments and all public entries before secrets", (
     { pattern: "*", address: "127.0.0.1" },
     { pattern: "a?b", server: "1.1.1.1" },
   ])
-    assert.equal(compileProfile({ ...surge, surge: { hosts: [host] } }).ok, false);
+    assert.equal(compileProfile({ ...surge, surge: { hosts: [host] } }).ok, true);
   const getter = Object.defineProperty({}, "pattern", {
     get() {
       throw new Error("getter invoked");
@@ -256,4 +257,49 @@ test("DNS functions preserve batch order and compile identically to data", () =>
   });
   assert.throws(() => dnsRule(unsafe, server));
   assert.equal(reads, 0);
+});
+
+// @feature docs/feature/target-compilation/portable-authoring.md
+test("Surge merges portable DNS and native Host fragments without overwriting", () => {
+  const input = {
+    ...fixture([{ pattern: "lan.example", server: "192.0.2.53" }]),
+    target: { engine: "surge", platform: "macos", version: "6.10.0" } as const,
+    singBox: undefined,
+    surge: { hosts: [[{ pattern: "edge.example", address: "alias.example" }]] },
+  };
+  const result = compileProfile(input);
+  assert.ok(result.ok && result.engine === "surge", JSON.stringify(result));
+  const output = renderSurgeProfile(result.compilation, () => undefined).content;
+  assert.match(output, /lan.example = server:192.0.2.53\nedge.example = alias.example/);
+  assert.throws(
+    () =>
+      defineProfile({
+        ...input,
+        surge: { hosts: [{ pattern: "LAN.example", address: "192.0.2.1" }] },
+      }),
+    (error: unknown) => {
+      assert.equal((error as { code: string }).code, "DNS_HOSTS_CONFLICT");
+      assert.deepEqual((error as { paths: string[] }).paths, ["dns[0]", "surge.hosts[0]"]);
+      return true;
+    },
+  );
+});
+
+// @feature docs/feature/target-compilation/portable-authoring.md
+test("combined Host limits and conflict paths survive plain profile checks", () => {
+  const input = {
+    ...fixture([{ pattern: "edge.example", server: "1.1.1.1" }]),
+    target: { engine: "surge", platform: "macos", version: "6.10.0" } as const,
+    singBox: undefined,
+    surge: { hosts: [{ pattern: "EDGE.example", server: "1.1.1.1" }] },
+  };
+  const checked = checkBuild({ profiles: { mac: input } });
+  assert.equal(checked.code, "DNS_HOSTS_CONFLICT");
+  assert.deepEqual(checked.profiles[0]?.paths, ["dns[0]", "surge.hosts[0]"]);
+  const hosts = Array.from({ length: 2000 }, (_, i) => ({
+    pattern: `host${i}.example`,
+    address: "192.0.2.1",
+  }));
+  assert.equal(compileProfile({ ...input, surge: { hosts } }).ok, false);
+  assert.equal(compileProfile({ ...input, surge: { hosts: hosts.slice(1) } }).ok, true);
 });

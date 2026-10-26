@@ -6,12 +6,14 @@ import { pathsOverlap } from "./proxies.js";
 import { randomUUID } from "node:crypto";
 import { render, RenderError } from "./render.js";
 import type { Compilation } from "./compiler.js";
+import { secretFailure, type SecretFailure } from "./secrets.js";
 import type { Secret } from "./types.js";
 
-export type BuildResult = {
+export type BuildResult = SecretFailure & {
   readonly published: boolean;
   readonly exitCode: 0 | 1 | 2;
   readonly code: string;
+  readonly paths?: readonly string[];
   readonly active?: string;
   readonly generation?: string;
   readonly reason?: "ACCESS_DENIED" | "NO_SPACE" | "READ_ONLY" | "INVALID_DIRECTORY" | "IO_ERROR";
@@ -85,7 +87,7 @@ export async function buildToDirectory(
   let published = false;
   let code = "BUILD_FAILED";
   let cleanupFailed = false;
-  let detail: Pick<BuildResult, "reason" | "hint"> = {};
+  let detail: Pick<BuildResult, "reason" | "hint"> & SecretFailure = {};
   try {
     await directory(root);
     try {
@@ -148,7 +150,10 @@ export async function buildToDirectory(
     code = "PUBLISHED";
   } catch (error) {
     code = error instanceof RenderError ? error.code : "OUTPUT_FAILED";
-    detail = error instanceof RenderError ? { hint: buildHints[code] } : outputFailure(error);
+    detail =
+      error instanceof RenderError
+        ? { hint: buildHints[code], ...secretFailure(error) }
+        : outputFailure(error);
   } finally {
     if (locked) {
       try {

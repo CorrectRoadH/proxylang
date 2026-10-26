@@ -138,7 +138,24 @@ test("real builds cache per batch, refresh between builds, keep check pure and p
   delete raw.PASS;
   const missing = await runBuild(definition, root);
   assert.equal(missing.code, "SECRET_RESOLUTION_FAILED");
+  assert.equal(missing.secretName, "PASS");
+  assert.equal(missing.secretReason, "MISSING");
   assert.equal(reads, 3);
+  const resolverFailed = await runBuild(
+    {
+      ...definition,
+      secrets: () => {
+        throw Object.assign(new Error("private-value"), {
+          secretName: "PRIVATE_VALUE",
+          secretReason: "MISSING",
+        });
+      },
+    },
+    root,
+  );
+  assert.equal(resolverFailed.secretName, "PASS");
+  assert.equal(resolverFailed.secretReason, "RESOLUTION_FAILED");
+  assert.doesNotMatch(JSON.stringify(resolverFailed), /private-value|PRIVATE_VALUE/);
   assert.equal(await readlink(join(root, "out")), active);
   assert.doesNotMatch(JSON.stringify(checkBuild(definition)), /first|second|test-value/);
   assert.throws(

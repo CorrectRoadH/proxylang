@@ -178,3 +178,42 @@ test("CLI import and SDK callbacks cannot redirect the captured output root", as
   assert.match(await readFile(join(root, "sdk-output/out/mac.conf"), "utf8"), /FINAL,DIRECT/);
   assert.deepEqual(await readdir(changed), []);
 });
+
+// @feature docs/feature/artifact-publication/cli.md
+test("CLI retains SDK configuration diagnostics without exposing arbitrary exceptions", async (t) => {
+  const root = await workspace(t);
+  await writeFile(
+    join(root, name),
+    `import { defineProfile } from ${JSON.stringify(sdk)}; export default defineProfile(${JSON.stringify({ ...profile, dns: [{ pattern: "edge.example", server: "1.1.1.1" }], surge: { hosts: [{ pattern: "edge.example", address: "192.0.2.1" }] } })});`,
+  );
+  const result = await call(root, ["check"]);
+  assert.equal(result.status, 1);
+  assert.equal(result.json.reason, "INVALID_CONFIGURATION");
+  assert.deepEqual(result.json.diagnostic, {
+    code: "DNS_HOSTS_CONFLICT",
+    paths: ["dns[0]", "surge.hosts[0]"],
+  });
+  await writeFile(
+    join(root, name),
+    `throw Object.assign(new Error('private-value'), {name:'ProfileDefinitionError', code:'DNS_HOSTS_CONFLICT', paths:['private-value']});`,
+  );
+  const forged = await call(root, ["check"]);
+  assert.deepEqual(forged.json.diagnostic, { code: "DNS_HOSTS_CONFLICT" });
+  assert.doesNotMatch(forged.stdout, /private-value/);
+});
+
+// @feature docs/feature/artifact-publication/cli.md
+test("CLI diagnostics reject unknown codes and never invoke error field getters", async (t) => {
+  const root = await workspace(t);
+  for (const expression of [
+    `Object.assign(new Error('private-value'), {name:'ProfileDefinitionError', code:'PRIVATE_VALUE'})`,
+    `Object.defineProperty({name:'ProfileDefinitionError'}, 'code', {get() {throw new Error('private-value')}})`,
+    `Object.assign(new Error('private-value'), {name:'ProfileDefinitionError', code:'DNS_HOSTS_CONFLICT', paths: Object.defineProperty(new Array(2), '0', {get() {throw new Error('private-value')}})})`,
+  ]) {
+    await writeFile(join(root, name), `throw ${expression};`);
+    const result = await call(root, ["check"]);
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout + result.stderr, /private-value|PRIVATE_VALUE/);
+    assert.equal(result.json.diagnostic?.paths, undefined);
+  }
+});

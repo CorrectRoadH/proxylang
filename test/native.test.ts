@@ -319,7 +319,7 @@ for (const [engine, version] of [
   ["mihomo", "1.19.32"],
 ] as const) {
   test.skipIf(!enabled)(
-    `原生代理资源 ${engine === "mihomo" ? "Mihomo" : engine} ${version}: SS/UUID/TLS/WS`,
+    `原生代理资源 ${engine === "mihomo" ? "Mihomo" : engine} ${version}: SS/UUID/TLS/WS/Hysteria2`,
     async (t) => {
       const root = await mkdtemp(join(tmpdir(), "proxylang-proxy-native-"));
       t.onTestFinished(() => rm(root, { recursive: true, force: true }));

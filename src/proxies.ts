@@ -32,6 +32,17 @@ export function validateProxyOptions(
   target: Pick<Target, "engine" | "id"> & Partial<Omit<Target, "engine" | "id">>,
   diagnostics: Diagnostic[],
 ): void {
+  if (node.type === "hysteria2") {
+    if (target.engine === "surge" && node.portHopping && node.via)
+      diagnostics.push({
+        severity: "error",
+        code: "PROXY_OPTION_UNSUPPORTED",
+        target: target.id,
+        path: `targets.${target.id}.nodes.${node.id}`,
+        message: "Surge 端口跳跃不能与 underlying-proxy 同用",
+      });
+    return;
+  }
   const tls = "tls" in node ? node.tls : undefined;
   if (target.engine !== "surge") {
     if (
@@ -76,6 +87,22 @@ export function singboxProxy(node: ProxyNode, secret: Secrets): Record<string, J
     ...(node.via ? { detour: node.via } : {}),
   };
   switch (node.type) {
+    case "hysteria2":
+      result.password = secret(node.password);
+      result.tls = {
+        enabled: true,
+        ...(node.serverName ? { server_name: node.serverName } : {}),
+        ...(node.skipCertVerify !== undefined ? { insecure: node.skipCertVerify } : {}),
+      };
+      if (node.portHopping) {
+        delete result.server_port;
+        result.server_ports = node.portHopping
+          .split(";")
+          .map((part) => (part.includes("-") ? part.replace("-", ":") : `${part}:${part}`));
+      }
+      if (node.portHoppingInterval !== undefined)
+        result.hop_interval = `${node.portHoppingInterval}s`;
+      break;
     case "http":
       result.password = secret(node.password);
       if (node.username) result.username = secret(node.username);
@@ -124,6 +151,13 @@ export function clashProxy(
     ...(engine === "stash" ? { "block-quic": "off" } : {}),
   };
   switch (node.type) {
+    case "hysteria2":
+      result[engine === "stash" ? "auth" : "password"] = secret(node.password);
+      if (node.serverName) result.sni = node.serverName;
+      if (node.skipCertVerify !== undefined) result["skip-cert-verify"] = node.skipCertVerify;
+      if (node.portHopping) result.ports = node.portHopping.replaceAll(";", ",");
+      if (node.portHoppingInterval !== undefined) result["hop-interval"] = node.portHoppingInterval;
+      break;
     case "http":
       result.password = secret(node.password);
       if (node.username) result.username = secret(node.username);
@@ -178,6 +212,14 @@ export function surgeProxy(
     case "http":
       if (node.username) params.push(`username=${atom(secret(node.username))}`);
       params.push(`password=${atom(secret(node.password))}`);
+      break;
+    case "hysteria2":
+      params.push(`password=${atom(secret(node.password))}`);
+      if (node.serverName) params.push(`sni=${node.serverName}`);
+      if (node.skipCertVerify !== undefined) params.push(`skip-cert-verify=${node.skipCertVerify}`);
+      if (node.portHopping) params.push(`port-hopping=${node.portHopping}`);
+      if (node.portHoppingInterval !== undefined)
+        params.push(`port-hopping-interval=${node.portHoppingInterval}`);
       break;
     case "trojan":
     case "anytls":

@@ -267,6 +267,7 @@ export const proxy = {
   http: nodeConstructor("http"),
   trojan: nodeConstructor("trojan"),
   anytls: nodeConstructor("anytls"),
+  hysteria2: nodeConstructor("hysteria2"),
   shadowsocks: nodeConstructor("shadowsocks"),
   vmess: nodeConstructor("vmess"),
   vless: nodeConstructor("vless"),

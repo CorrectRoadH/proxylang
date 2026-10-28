@@ -200,6 +200,16 @@ const uuidNode = {
 const surgeOptions = {
   blockQuic: z.enum(["auto", "on", "off"]).optional(),
 };
+const portHoppingSchema = z
+  .string()
+  .max(2048)
+  .regex(/^[0-9]+(?:-[0-9]+)?(?:;[0-9]+(?:-[0-9]+)?)*$/)
+  .refine((value) =>
+    value.split(";").every((part) => {
+      const [start, end = start] = part.split("-").map(Number);
+      return start !== undefined && end !== undefined && start >= 1 && end <= 65535 && start <= end;
+    }),
+  );
 export const nodeSchema = z
   .discriminatedUnion("type", [
     z.strictObject({
@@ -218,6 +228,18 @@ export const nodeSchema = z
       skipCertVerify: z.boolean().optional(),
       surge: z.strictObject({ ...surgeOptions, udpRelay: z.literal(true).optional() }).optional(),
     }),
+    z
+      .strictObject({
+        ...nodeBase,
+        type: z.literal("hysteria2"),
+        tcpFastOpen: z.never().optional(),
+        password: secretSchema,
+        serverName: domain.optional(),
+        skipCertVerify: z.boolean().optional(),
+        portHopping: portHoppingSchema.optional(),
+        portHoppingInterval: z.number().int().positive().optional(),
+      })
+      .refine((node) => node.portHoppingInterval === undefined || node.portHopping !== undefined),
     z.strictObject({
       ...nodeBase,
       type: z.literal("http"),

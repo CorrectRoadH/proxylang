@@ -39,6 +39,18 @@ export function protocolNodes(engine: Engine): ProxyNode[] {
         }),
       );
   }
+  nodes.push(
+    proxy.hysteria2({
+      id: "hy2",
+      server: endpointIp,
+      port: 443,
+      password: secret("PASSWORD"),
+      serverName: "tls.example.com",
+      skipCertVerify: true,
+      portHopping: "443;40000-60000",
+      portHoppingInterval: 30,
+    }),
+  );
   return nodes;
 }
 export function protocolConfig(engine: Engine = "sing-box", version?: string): Config {

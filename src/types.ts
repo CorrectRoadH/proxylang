@@ -112,6 +112,15 @@ export type AnyTLSNode = ProxyBase & {
   readonly skipCertVerify?: boolean;
   readonly surge?: SurgeAutomaticUdpOptions;
 };
+export type Hysteria2Node = Omit<ProxyBase, "tcpFastOpen"> & {
+  readonly type: "hysteria2";
+  readonly tcpFastOpen?: never;
+  readonly password: Secret;
+  readonly serverName?: string;
+  readonly skipCertVerify?: boolean;
+  readonly portHopping?: string;
+  readonly portHoppingInterval?: number;
+};
 export type HttpNode = ProxyBase & {
   readonly type: "http";
   readonly serverName?: never;
@@ -140,6 +149,7 @@ export type VLESSNode = ProxyBase & {
 export type ProxyNode =
   | TrojanNode
   | AnyTLSNode
+  | Hysteria2Node
   | HttpNode
   | ShadowsocksNode
   | VMessNode

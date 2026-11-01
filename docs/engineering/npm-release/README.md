@@ -12,7 +12,7 @@ kind: engineering
 
 ## 发布门禁
 
-release.yml 调用同一份 CI，等待 SDK/CLI、Concord、Mihomo 和秘密扫描全部通过。发布 job 再从 tag 构建安装包，在仓库外临时目录安装该包，验证 SDK 导入、CLI、TypeScript 配置加载与构建。
+release.yml 调用同一份 CI，等待 SDK/CLI、sing-box、Mihomo 和秘密扫描全部通过。Concord 文档检查通过本地命令独立执行，不作为 CI 或 npm 发布前置条件，也不需要 CONCORD_READ_TOKEN。发布 job 再从 tag 构建安装包，在仓库外临时目录安装该包，验证 SDK 导入、CLI、TypeScript 配置加载与构建。
 
 验证后发布同一个 tgz，不重新打包。包文件清单只允许 package.json、README.md 和 dist 下的 JS、声明文件。临时消费者和包在验证后清理；失败不执行 publish。普通 CI 也运行安装包验证。
 
@@ -53,4 +53,4 @@ git push origin v0.1.1
 
 发布后最多等待约10分钟，查询公开版本并核对 SHA512。npm 接受上传不代表公开可安装；等待超限时任务失败，不重发已有版本。
 
-手动运行 release.yml 只执行完整检查、构建安装包及公开完整性验证，跳过发布。选择仍对应待验证版本的分支；例如 main 仍为该版本时使用 `gh workflow run release.yml --ref main`。包内容不同会校验失败，不能覆盖远端版本或修改 tag。
+手动运行 release.yml 必须选择 main；默认只执行检查、构建安装包及公开完整性验证，跳过发布。显式选择 publish=true 才发布，例如 `gh workflow run release.yml --ref main -f publish=true`。版本已存在时不能覆盖远端版本或修改 tag。

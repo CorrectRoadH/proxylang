@@ -5,10 +5,6 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
-    secrets:
-      CONCORD_READ_TOKEN:
-        description: Read-only access to Concord release assets
-        required: true
 permissions:
   contents: read
 concurrency:
@@ -105,30 +101,6 @@ jobs:
       - run: vp test run test/native.test.ts -t Mihomo
         env:
           PROXYLANG_NATIVE_CHECK: "1"
-  contracts:
-    name: Concord contracts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
-        with:
-          version: "1.3.0"
-          node-version: "24"
-          run-install: false
-      - run: vp install --frozen-lockfile
-      - name: Install verified Concord release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.CONCORD_READ_TOKEN }}
-        run: |
-          test -n "$GH_TOKEN" || { echo 'CONCORD_READ_TOKEN is required to read the private Concord release' >&2; exit 1; }
-          gh release download v0.14.1 --repo CorrectRoadH/Concord --pattern concord-sdlc-0.14.1.tgz --output "$RUNNER_TEMP/concord.tgz"
-          echo "818ac89e9026a4e545783301cb0da63bed97fd565a1c3759b072504e3386fdb4  $RUNNER_TEMP/concord.tgz" | sha256sum --check
-          vp exec npm install --prefix "$RUNNER_TEMP/concord-tool" --no-audit --no-fund "$RUNNER_TEMP/concord.tgz"
-          echo "$RUNNER_TEMP/concord-tool/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: vp run docs:check
-      - run: vp run docs:gaps
-      - run: concord doctor --json
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest

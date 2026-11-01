@@ -5,6 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      CONCORD_READ_TOKEN:
+        description: Read-only access to Concord release assets
+        required: true
 permissions:
   contents: read
 concurrency:
@@ -114,8 +118,11 @@ jobs:
       - run: vp install --frozen-lockfile
       - name: Install verified Concord release
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CONCORD_READ_TOKEN }}
         run: |
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/concord.tgz" https://github.com/CorrectRoadH/Concord/releases/download/v0.14.1/concord-sdlc-0.14.1.tgz
+          test -n "$GH_TOKEN" || { echo 'CONCORD_READ_TOKEN is required to read the private Concord release' >&2; exit 1; }
+          gh release download v0.14.1 --repo CorrectRoadH/Concord --pattern concord-sdlc-0.14.1.tgz --output "$RUNNER_TEMP/concord.tgz"
           echo "818ac89e9026a4e545783301cb0da63bed97fd565a1c3759b072504e3386fdb4  $RUNNER_TEMP/concord.tgz" | sha256sum --check
           vp exec npm install --prefix "$RUNNER_TEMP/concord-tool" --no-audit --no-fund "$RUNNER_TEMP/concord.tgz"
           echo "$RUNNER_TEMP/concord-tool/node_modules/.bin" >> "$GITHUB_PATH"

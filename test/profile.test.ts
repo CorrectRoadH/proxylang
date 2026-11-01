@@ -28,6 +28,22 @@ const node = () =>
     password: secret("PASS"),
     serverName: "example.com",
   });
+
+// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+test("ASN conditions compose with portable matches only for Surge targets", () => {
+  const routes = [
+    defineRoute({
+      when: match.all(
+        match.sourceIp("192.168.0.199"),
+        match.port(993),
+        surge.match.ipAsn(132203, { noResolve: true }),
+      ),
+      to: outbound.direct,
+    }),
+  ];
+  assert.equal(compileProfile({ ...fixture(), routes }).ok, true);
+  assert.equal(compileProfile({ ...fixture("sing-box"), routes }).ok, false);
+});
 function fixture(engine: "surge" | "sing-box" = "surge") {
   const edge = node();
   const choice = defineProxyGroup({

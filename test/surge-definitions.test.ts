@@ -175,6 +175,55 @@ test("Surge match preserves options, source literals and nested conditions", () 
 });
 
 // @use-case docs/feature/target-compilation/use-case/surge-profile.md
+test("ASN rules preserve decimal values and nested no-resolve while rejecting invalid input", () => {
+  for (const target of [
+    { engine: "surge", platform: "macos", version: "6.10.0" },
+    { engine: "surge", platform: "ios", version: "5.21.0" },
+  ] as const) {
+    const profile = lowerSurgeProfile({
+      ...fixture(),
+      target,
+      routes: [
+        defineRoute({ when: surge.match.ipAsn(1), to: outbound.direct }),
+        defineRoute({ when: surge.match.ipAsn(4294967295), to: outbound.direct }),
+        defineRoute({ when: surge.match.ipAsn(132203, { noResolve: true }), to: outbound.direct }),
+        defineRoute({
+          when: surge.match.all([
+            surge.match.sourceIp("192.168.0.199"),
+            surge.match.network("tcp"),
+            surge.match.port(993),
+            surge.match.ipAsn(132203, { noResolve: true }),
+          ]),
+          to: outbound.direct,
+        }),
+      ],
+    });
+    const compiled = compileSurgeProfile(profile);
+    assert.equal(compiled.ok, true, JSON.stringify(compiled.diagnostics));
+    const content = renderSurgeProfile(compiled, () => "test-only").content;
+    assert.ok(content.includes("IP-ASN,1,DIRECT\n"));
+    assert.ok(content.includes("IP-ASN,4294967295,DIRECT\n"));
+    assert.ok(content.includes("IP-ASN,132203,DIRECT,no-resolve\n"));
+    assert.ok(
+      content.includes(
+        "AND,((SRC-IP,192.168.0.199),(PROTOCOL,TCP),(DEST-PORT,993),(IP-ASN,132203,no-resolve)),DIRECT\n",
+      ),
+    );
+  }
+  for (const value of [0, -1, 1.5, 4294967296, NaN, Infinity, "132203", "132203\nFINAL,DIRECT"]) {
+    const profile = lowerSurgeProfile({
+      ...fixture(),
+      routes: [defineRoute({ when: surge.match.ipAsn(value as number), to: outbound.direct })],
+    });
+    assert.equal(compileSurgeProfile(profile).ok, false);
+  }
+  rejects(
+    () => surge.match.ipAsn(132203, { includeSniffed: true } as never),
+    "DEFINITION_UNKNOWN_FIELD",
+  );
+});
+
+// @use-case docs/feature/target-compilation/use-case/surge-profile.md
 test("route batches preserve empty, duplicate and ordered conditions without IDs", () => {
   const a = surge.match.domain("a.example");
   const b = surge.match.domain("b.example");

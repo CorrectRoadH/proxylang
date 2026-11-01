@@ -198,6 +198,7 @@ export type SurgeCondition = { readonly noResolve?: boolean } & (
       readonly to?: number;
     })
   | (NoSniff & { readonly type: "network"; readonly value: "tcp" | "udp" })
+  | (NoSniff & { readonly type: "ipAsn"; readonly value: number })
   | (NoSniff & { readonly type: "all" | "any"; readonly conditions: readonly SurgeCondition[] })
   | (NoSniff & { readonly type: "not"; readonly condition: SurgeCondition })
   | {
@@ -224,6 +225,11 @@ const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
       atom("domainSuffix", domain),
       atom("ipCidr", cidr(4)),
       atom("ipCidr6", cidr(6)),
+      z.strictObject({
+        type: z.literal("ipAsn"),
+        value: z.number().int().min(1).max(4294967295),
+        ...options,
+      }),
       atom("sourceIp", z.union([ip, cidr()])),
       atom("processName", safe),
       atom("macAddress", z.string().regex(/^(?:[\da-fA-F]{2}:){5}[\da-fA-F]{2}$/)),
@@ -424,7 +430,7 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
       error("LOGICAL_DEPTH_EXCEEDED");
       return;
     }
-    if (c.noResolve !== undefined && !["ipCidr", "ipCidr6", "ruleSet"].includes(c.type))
+    if (c.noResolve !== undefined && !["ipCidr", "ipCidr6", "ipAsn", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
     if (c.includeSniffed !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
       error("RULE_OPTION_UNSUPPORTED");
@@ -497,6 +503,7 @@ function conditionText(c: SurgeCondition): string {
         domainSuffix: "DOMAIN-SUFFIX",
         ipCidr: "IP-CIDR",
         ipCidr6: "IP-CIDR6",
+        ipAsn: "IP-ASN",
         sourceIp: "SRC-IP",
         processName: "PROCESS-NAME",
         macAddress: "MAC-ADDRESS",

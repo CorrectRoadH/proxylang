@@ -385,6 +385,10 @@ export const surgeMatch = {
   domainSuffix: atom("domainSuffix"),
   ipCidr: atom("ipCidr"),
   ipCidr6: atom("ipCidr6"),
+  ipAsn: (value: number, options: Options = {}): SurgeCondition => {
+    inspectDefinition(options);
+    return condition({ ...options, type: "ipAsn", value });
+  },
   sourceIp: atom("sourceIp"),
   processName: atom("processName"),
   macAddress: atom("macAddress"),

@@ -39,6 +39,8 @@ SurgeCondition 支持 domain/domainSuffix/ipCidr/ipCidr6/sourceIp/processName/ma
 
 sourceIp 接受单 IP 和 CIDR。
 
+`surge.match.ipAsn(value, { noResolve: true })` 按目的 IP 所属 ASN 匹配，value 是 1 到 4294967295 的整数；字符串、分数及范围外数值拒绝。底层条件为 `{ type: "ipAsn", value: number, noResolve?: boolean }`，生成 `IP-ASN,<value>`。支持独立规则和 `match.all/any/not` 组合，`noResolve` 保留在对应条件上；不接受 `includeSniffed`。此条件仅用于 Surge，不能静默转换为其它平台规则。
+
 条件可带 noResolve?:boolean、includeSniffed?:boolean；noResolve 仅 IP/ruleSet，includeSniffed 仅域名/ruleSet，其余类型即使显式 false 也拒绝。includeSniffed 未提供与 false 不生成 extended-matching，true 纳入 TLS SNI/HTTP Host。
 
 顶层选项编码在动作之后，子条件选项编码在括号内。
@@ -89,6 +91,7 @@ SDK生成Proxy行及专属section并验证section名唯一，不管理隧道运�
 - [Tailscale](https://manual.nssurge.com/policies/tailscale.html)
 - [WireGuard](https://manual.nssurge.com/policies/wireguard.html)
 - [Smart](https://manual.nssurge.com/policy-groups/smart.html)
+- [IP rules](https://manual.nssurge.com/rules/ip.html)
 - [Process rules](https://manual.nssurge.com/rules/process.html)
 - [General](https://manual.nssurge.com/profile/general.html)
 

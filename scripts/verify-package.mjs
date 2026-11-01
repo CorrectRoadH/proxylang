@@ -71,15 +71,16 @@ try {
     `
     import assert from 'node:assert/strict';
     import {readFile, readlink} from 'node:fs/promises';
-    import {runBuild, defineProfile, defineProxyGroup, group, proxy, secret} from 'proxylang';
+    import {runBuild, defineProfile, defineProxyGroup, defineRoute, match, outbound, surge, group, proxy, secret} from 'proxylang';
     const nodes=[proxy.trojan({id:'edge',label:'Edge',server:'192.0.2.1',port:443,password:secret('PASS')})];
     const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.select(),members:nodes});
-    const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[nodes],groups:[choice],routes:[],fallback:choice});
+    const profile=defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[nodes],groups:[choice],routes:[defineRoute({when:match.all(match.sourceIp('192.168.0.199'),match.network('tcp'),match.port(993),surge.match.ipAsn(132203,{noResolve:true})),to:outbound.direct})],fallback:choice});
     let reads=0;
     const resolver=()=>{reads++;return 'fixture-pass';};
     const built=await runBuild({profiles:{first:profile,second:profile},secrets:resolver},'complete-out');
     assert.equal(built.exitCode,0); assert.equal(reads,1);
     assert.match(await readFile('complete-out/out/first.conf','utf8'),/FINAL,Choice/);
+    assert.ok((await readFile('complete-out/out/first.conf','utf8')).includes('AND,((SRC-IP,192.168.0.199),(PROTOCOL,TCP),(DEST-PORT,993),(IP-ASN,132203,no-resolve)),DIRECT'));
     const old=await readlink('complete-out/out');
     reads=0;
     const failed=await runBuild({profiles:{first:profile,second:{...profile,fallback:proxy.http({id:'absent',server:'192.0.2.2',port:80,password:secret('PASS')})}},secrets:resolver},'complete-out');

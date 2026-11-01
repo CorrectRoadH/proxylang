@@ -170,6 +170,11 @@ export function compositionTypeChecks() {
 }
 
 export function nativeRouteTypeChecks() {
+  defineRoute({ when: surge.match.ipAsn(132203, { noResolve: true }), to: outbound.direct });
+  // @ts-expect-error ASN is a number, not a native rule string.
+  surge.match.ipAsn("132203");
+  // @ts-expect-error ASN matching cannot inspect domain metadata.
+  surge.match.ipAsn(132203, { includeSniffed: true });
   const native = surge.ruleSet({ url: "https://example.com/rules" });
   const routed = surge.ruleSet({ url: native.url, to: outbound.direct });
   rule("portable", match.all(match.domain("example.com"), match.port(443)), direct());

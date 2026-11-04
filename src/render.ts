@@ -6,6 +6,7 @@ import { secretReader } from "./secrets.js";
 import { clashConfig } from "./clash.js";
 import { surgeGroup, singboxGroup } from "./strategies.js";
 import { isIP } from "node:net";
+import { targetCatalog } from "./targets.js";
 import type { Compilation, TargetPlan } from "./compiler.js";
 import type { Action, Match, Secret } from "./types.js";
 
@@ -94,7 +95,10 @@ function singAction(action: Action): Record<string, Json> {
 }
 function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
   const { program, target } = plan;
-  const modern = target.version === "1.12.0";
+  const modern =
+    targetCatalog.find(
+      (entry) => entry.engine === target.engine && entry.version === target.version,
+    )?.dns === "typed";
   const standalone = target.mode === "standalone";
   const outbounds: Json[] = [
     {
@@ -118,6 +122,10 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
     ...singAction(rule.then),
   }));
   const routing: Record<string, Json> = { rules };
+  if (program.tun) {
+    rules.unshift({ inbound: ["pl-tun"], port: 53, action: "hijack-dns" });
+    if (program.tun.autoRoute) routing.auto_detect_interface = true;
+  }
   if (plan.nativeRuleSets.length)
     routing.rule_set = plan.nativeRuleSets.map((r) => ({
       type: "remote",
@@ -134,6 +142,22 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
     const listener = program.listener!;
     config.inbounds = [
       { type: "mixed", tag: "pl-listener", listen: "127.0.0.1", listen_port: listener.port },
+      ...(program.tun
+        ? [
+            {
+              type: "tun",
+              tag: "pl-tun",
+              address: [...program.tun.address],
+              stack: program.tun.stack,
+              auto_route: program.tun.autoRoute,
+              strict_route: program.tun.strictRoute,
+              dns_mode: program.tun.dnsMode,
+              ...(program.tun.routeExcludeAddress
+                ? { route_exclude_address: [...program.tun.routeExcludeAddress] }
+                : {}),
+            },
+          ]
+        : []),
     ];
     config.dns = {
       servers: [

@@ -18,12 +18,13 @@ export function pathsOverlap(a: string, b: string): boolean {
     b.startsWith(a.endsWith("/") ? a : `${a}/`)
   );
 }
-export function nodeIsTcpOnly(node: ProxyNode, engine: Engine): boolean {
+export function nodeIsTcpOnly(node: ProxyNode, engine: Engine, version?: string): boolean {
   return (
     node.type === "http" ||
     (node.type === "anytls" && engine !== "surge") ||
     node.type === "vmess" ||
-    node.type === "vless" ||
+    (node.type === "vless" &&
+      !(engine === "sing-box" && version === "1.14.4" && node.packetEncoding)) ||
     (engine === "surge" && node.type === "shadowsocks" && node.surge?.udpRelay === false)
   );
 }
@@ -44,11 +45,27 @@ export function validateProxyOptions(
     return;
   }
   const tls = "tls" in node ? node.tls : undefined;
+  const modern = target.engine === "sing-box" && target.version === "1.14.4";
+  if (
+    node.type === "vless" &&
+    !modern &&
+    (node.flow !== undefined ||
+      node.packetEncoding !== undefined ||
+      node.reality !== undefined ||
+      node.utlsFingerprint !== undefined)
+  )
+    diagnostics.push({
+      severity: "error",
+      code: "PROXY_OPTION_UNSUPPORTED",
+      target: target.id,
+      path: `targets.${target.id}.nodes.${node.id}`,
+      message: "VLESS 扩展选项仅支持 sing-box 1.14.4",
+    });
   if (target.engine !== "surge") {
     if (
       node.tcpFastOpen !== undefined ||
       ("skipCertVerify" in node && node.skipCertVerify !== undefined) ||
-      tls?.skipCertVerify !== undefined ||
+      (!modern && tls?.skipCertVerify !== undefined) ||
       ("surge" in node && node.surge !== undefined)
     )
       diagnostics.push({
@@ -120,12 +137,32 @@ export function singboxProxy(node: ProxyNode, secret: Secrets): Record<string, J
     case "vless":
       result.uuid = uuid(node.uuid, secret);
       result.network = "tcp";
+      if (node.type === "vless") {
+        if (node.flow) result.flow = node.flow;
+        if (node.packetEncoding) {
+          result.packet_encoding = node.packetEncoding;
+          delete result.network;
+        }
+      }
       if (node.type === "vmess") Object.assign(result, { security: "aes-128-gcm", alter_id: 0 });
       if (node.tls)
         result.tls = {
           enabled: true,
           server_name: node.tls.serverName,
           ...(node.tls.alpn ? { alpn: [...node.tls.alpn] } : {}),
+          ...(node.tls.skipCertVerify !== undefined ? { insecure: node.tls.skipCertVerify } : {}),
+          ...(node.type === "vless" && node.utlsFingerprint
+            ? { utls: { enabled: true, fingerprint: node.utlsFingerprint } }
+            : {}),
+          ...(node.type === "vless" && node.reality
+            ? {
+                reality: {
+                  enabled: true,
+                  public_key: node.reality.publicKey,
+                  short_id: node.reality.shortId,
+                },
+              }
+            : {}),
         };
       if (node.transport)
         result.transport = {

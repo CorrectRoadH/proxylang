@@ -4,6 +4,7 @@ import { dnsRulesSchema } from "./dns.js";
 import { z } from "zod";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
+import { validTunAddresses } from "./tun.js";
 import type {
   Config,
   Entry,
@@ -259,7 +260,26 @@ export const nodeSchema = z
       type: z.literal("vmess"),
       surge: z.strictObject(surgeOptions).optional(),
     }),
-    z.strictObject({ ...uuidNode, type: z.literal("vless") }),
+    z
+      .strictObject({
+        ...uuidNode,
+        type: z.literal("vless"),
+        flow: z.literal("xtls-rprx-vision").optional(),
+        packetEncoding: z.enum(["xudp", "packetaddr"]).optional(),
+        utlsFingerprint: z.literal("chrome").optional(),
+        reality: z
+          .strictObject({
+            publicKey: z
+              .string()
+              .regex(/^[A-Za-z0-9_-]{43}$/)
+              .refine((value) => Buffer.from(value, "base64url").toString("base64url") === value),
+            shortId: z.string().regex(/^(?:[0-9a-fA-F]{2}){0,8}$/),
+          })
+          .optional(),
+      })
+      .refine((node) => !node.reality || (!!node.tls && node.utlsFingerprint === "chrome"))
+      .refine((node) => !node.flow || (!!node.tls && !node.transport))
+      .refine((node) => !node.utlsFingerprint || !!node.tls),
   ])
   .refine(
     (node) =>
@@ -382,6 +402,17 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
       routing: z.array(entrySchema),
       fallback: actionSchema,
       listener: z.strictObject({ port, resolver: ip }).optional(),
+      tun: z
+        .strictObject({
+          address: z.array(cidr).min(1).max(2).refine(validTunAddresses),
+          stack: z.enum(["system", "gvisor", "mixed"]),
+          autoRoute: z.boolean(),
+          strictRoute: z.boolean(),
+          dnsMode: z.enum(["disabled", "native", "hijack"]),
+          routeExcludeAddress: z.array(cidr).optional(),
+        })
+        .refine((tun) => !tun.strictRoute || tun.autoRoute)
+        .optional(),
     }),
   ),
   targets: z

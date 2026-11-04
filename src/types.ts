@@ -145,6 +145,10 @@ export type VLESSNode = ProxyBase & {
   readonly uuid: Secret;
   readonly tls?: ProxyTLS;
   readonly transport?: WebSocketTransport;
+  readonly flow?: "xtls-rprx-vision";
+  readonly packetEncoding?: "xudp" | "packetaddr";
+  readonly reality?: { readonly publicKey: string; readonly shortId: string };
+  readonly utlsFingerprint?: "chrome";
 };
 export type ProxyNode =
   | TrojanNode
@@ -214,7 +218,16 @@ export type ConcreteGroup =
 export type Group = Exclude<ConcreteGroup, { readonly type: "surge-smart" }> | Strategy;
 export type Engine = "surge" | "sing-box" | "mihomo" | "stash";
 export type DnsRule = { readonly pattern: string; readonly server: string };
+export type Tun = {
+  readonly address: readonly string[];
+  readonly stack: "system" | "gvisor" | "mixed";
+  readonly autoRoute: boolean;
+  readonly strictRoute: boolean;
+  readonly dnsMode: "disabled" | "native" | "hijack";
+  readonly routeExcludeAddress?: readonly string[];
+};
 export type Program = {
+  readonly tun?: Tun;
   readonly dns?: readonly DnsRule[];
   readonly engine: Engine;
   readonly nodes: readonly ProxyNode[];

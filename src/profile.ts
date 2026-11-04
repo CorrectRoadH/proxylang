@@ -72,6 +72,7 @@ export type ProfileDefinition = {
   readonly surge?: SurgeConfig;
   readonly singBox?: {
     readonly mode: "fragment" | "standalone";
+    readonly tun?: import("./types.js").Tun;
     readonly listener?: { readonly port: number; readonly resolver: string };
   };
 };
@@ -126,7 +127,7 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
   if (input.surge !== undefined)
     exactDefinition(input.surge, ["managed", "general", "hosts", "names"]);
   if (input.singBox !== undefined) {
-    exactDefinition(input.singBox, ["mode", "listener"]);
+    exactDefinition(input.singBox, ["mode", "listener", "tun"]);
     if (!["fragment", "standalone"].includes(input.singBox.mode))
       fail("INVALID_PROFILE_DEFINITION");
     if (input.singBox.listener !== undefined)
@@ -411,6 +412,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
             routing,
             fallback: lower(profile.fallback),
             ...(profile.singBox?.listener ? { listener: profile.singBox.listener } : {}),
+            ...(profile.singBox?.tun ? { tun: profile.singBox.tun } : {}),
           },
         },
         targets: [

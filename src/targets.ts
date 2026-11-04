@@ -4,6 +4,17 @@ import { deepFreeze } from "./schema.js";
 export const targetCatalog = deepFreeze([
   {
     engine: "sing-box",
+    version: "1.14.4",
+    autoGroup: "urltest",
+    platforms: ["linux", "macos"],
+    protocols: ["hysteria2", "trojan", "http", "anytls", "shadowsocks", "vmess", "vless"],
+    endpoints: ["sing-box-tailscale"],
+    groups: ["select", "urltest"],
+    nativeRuleSets: ["source", "binary"],
+    dns: "typed",
+  },
+  {
+    engine: "sing-box",
     version: "1.11.0",
     autoGroup: "urltest",
     platforms: ["linux", "macos"],

@@ -23,6 +23,7 @@ import type {
 
 import { targetCatalog } from "./targets.js";
 import { isIP } from "node:net";
+import { unsafeTunResolvers } from "./tun.js";
 export { targetCatalog } from "./targets.js";
 import { lowerStrategies, validateSmartMembers } from "./strategies.js";
 export type TargetPlan = {
@@ -86,12 +87,17 @@ export function compile(input: unknown): Compilation {
     error("EMPTY_PROGRAMS", "programs", "至少需要一个程序");
   for (const [name, program] of Object.entries(config.programs)) {
     const path = `programs.${name}`;
+    const programTargets = config.targets.filter((target) => target.program === name);
+    const supportsHostname =
+      program.engine === "sing-box" &&
+      programTargets.length > 0 &&
+      programTargets.every((target) => target.version === "1.14.4");
     for (const node of program.nodes)
-      if (!isIP(node.server))
+      if (!isIP(node.server) && !supportsHostname)
         error(
           "PROXY_HOSTNAME_MODE_UNSUPPORTED",
           `${path}.nodes.${node.id}`,
-          "域名代理地址目前仅允许节点片段入口",
+          "域名代理地址仅支持节点片段入口或 sing-box 1.14.4",
         );
     validateRuleSets(program.routing, program.engine, diagnostics, path);
     const rules = lowerRuleSets(expandRules(program.routing, diagnostics, name), diagnostics, path);
@@ -132,6 +138,11 @@ export function compile(input: unknown): Compilation {
           );
     const states = new Map<string, number>();
     const tcpOnly = new Map<string, boolean>();
+    const udpVersion =
+      programTargets.length > 0 &&
+      programTargets.every((target) => target.engine === "sing-box" && target.version === "1.14.4")
+        ? "1.14.4"
+        : undefined;
     const visit = (id: string): boolean => {
       if (states.get(id) === 1) {
         error("RESOURCE_CYCLE", `${path}.${id}`, "组成员和 via 拨号依赖不能形成循环");
@@ -140,7 +151,7 @@ export function compile(input: unknown): Compilation {
       if (states.get(id) === 2) return tcpOnly.get(id) ?? false;
       states.set(id, 1);
       const item = byId.get(id);
-      let limited = !!item && "server" in item && nodeIsTcpOnly(item, program.engine);
+      let limited = !!item && "server" in item && nodeIsTcpOnly(item, program.engine, udpVersion);
       for (const ref of edges.get(id) ?? []) limited = visit(ref) || limited;
       states.set(id, 2);
       tcpOnly.set(id, limited);
@@ -199,6 +210,16 @@ export function compile(input: unknown): Compilation {
     }
     if (program.engine !== target.engine)
       error("ENGINE_MISMATCH", path, "平台程序与目标引擎不一致", target.id);
+    if (program.tun) {
+      if (
+        target.engine !== "sing-box" ||
+        target.version !== "1.14.4" ||
+        target.mode !== "standalone"
+      )
+        error("TUN_TARGET_UNSUPPORTED", path, "TUN 仅支持 sing-box 1.14.4 standalone", target.id);
+      if (unsafeTunResolvers(program).length)
+        error("TUN_DNS_LOOP", path, "TUN DNS 上游不能使用回环、未指定或 TUN 网段地址", target.id);
+    }
     if (target.mode === "standalone" && !program.listener)
       error(
         "LISTENER_REQUIRED",
@@ -229,7 +250,7 @@ export function compile(input: unknown): Compilation {
         error(
           "ENDPOINT_UNSUPPORTED",
           `${path}.endpoints.${endpoint.id}`,
-          "Tailscale 端点仅支持 sing-box 1.12.0",
+          "当前目标版本不支持 Tailscale 端点",
           target.id,
         );
       if (target.mode !== "standalone")

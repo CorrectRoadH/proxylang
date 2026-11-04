@@ -14,12 +14,12 @@ kind: engineering
 
 ## 数据与语法
 
-`ProxyNode` 是按 `type` 区分的严格联合。共同字段为 id、server（完整配置仅 IP）、port、via、label、region、provider、tags。已有 HTTP（password 必需、username 可选）、Trojan/AnyTLS（password、serverName 可选）对象保持兼容，不改旧字段语义。新增 `proxy.http/trojan/anytls/shadowsocks/vmess/vless(options)` 返回对应具体节点类型；构造器只加 type，不解析秘密，schema 是运行时权威。
+`ProxyNode` 是按 `type` 区分的严格联合。共同字段为 id、server（完整配置通常仅 IP；sing-box 1.14.4 支持域名）、port、via、label、region、provider、tags。已有 HTTP（password 必需、username 可选）、Trojan/AnyTLS（password、serverName 可选）对象保持兼容，不改旧字段语义。新增 `proxy.http/trojan/anytls/shadowsocks/vmess/vless(options)` 返回对应具体节点类型；构造器只加 type，不解析秘密，schema 是运行时权威。
 
 - Shadowsocks：type=shadowsocks，method 必填，只接受 aes-128-gcm、aes-256-gcm、chacha20-ietf-poly1305；password 为 Secret。支持 TCP/UDP，不接受 TLS、transport、SS2022 或插件字段。
 - VMess：uuid 为 Secret；本次只实现 AEAD（alterId=0）和 aes-128-gcm 加密，不暴露其它 cipher/alterId。可选 tls 和 transport；UDP 暂不承诺，因为 packet encoding 尚未建模。sing-box/Mihomo/Stash 原生显式关闭 UDP / 限定 TCP。Surge 的 VMess 自动支持 UDP，语言只保证所生成路由不将 UDP 送到该节点；组合 fragment 时不能绕过此约束。
-- VLESS：uuid 为 Secret；可选 tls 和 transport；同样 TCP-only。本次不支持 flow、Reality、XTLS、multiplex、packet encoding。
-- tls 为 `{ serverName: string, alpn?: readonly string[] }`，serverName 必填以避免 WS Host 改变证书身份。存在即启用 TLS，默认校验证书。serverName 使用域名 schema；Surge 拒绝特殊字面量 off，避免关闭 SNI。ALPN 为非空、无控制字符、每项最多255字节的唯一列表。不支持 insecure 别名。TLS+WS 只能省略 ALPN 或明确使用 ["http/1.1"]。
+- VLESS：uuid 为 Secret，可选 tls 和 transport。sing-box 1.14.4 支持 Vision、Reality、chrome uTLS 和显式 packetEncoding；未声明编码时为 TCP-only。具体约束见 [TUN 与 VLESS 扩展](../singbox-tun/README.md)。
+- tls 为 `{ serverName: string, alpn?: readonly string[], skipCertVerify?: boolean }`，serverName 必填以避免 WS Host 改变证书身份。存在即启用 TLS，默认校验证书。serverName 使用域名 schema；Surge 拒绝特殊字面量 off，避免关闭 SNI。ALPN 为非空、无控制字符、每项最多255字节的唯一列表。可用 skipCertVerify 显式控制证书校验；不接受 insecure 别名。TLS+WS 只能省略 ALPN 或明确使用 ["http/1.1"]。
 - transport 为 `{ type: "ws", path: string, host?: string }`；无 transport 即普通 TCP。path 匹配 `^/[A-Za-z0-9/._~-]*$`，同时禁止 // 开头、query/percent/空白，避免 Mihomo 从 ed 查询参数隐式启用 early data；host 使用域名 schema。不支持 arbitrary headers、early data、gRPC/XHTTP 等字段。
 
 所有未知字段严格报错。协议特有字段在类型与 schema 双重约束。UUID 仍是 Secret，compile 不读取；render 按使用位置验证规范 8-4-4-4-12 十六进制 UUID，无效报 `INVALID_UUID_SECRET`，不回显值。不同协议共用 token 只解析一次，不能因为缓存而跳过 UUID 格式验证。
@@ -31,12 +31,13 @@ kind: engineering
 |Surge macOS 6.10.0|SS、VMess|VMess TLS/WS；ALPN 暂不支持|无|
 |sing-box 1.11.0|SS、VMess、VLESS|TLS/WS/ALPN|无|
 |sing-box 1.12.0|SS、VMess、VLESS|TLS/WS/ALPN|Tailscale|
+|sing-box 1.14.4|SS、VMess、VLESS|TLS/WS/ALPN、VLESS Reality/Vision|Tailscale|
 |Mihomo 1.19.32|SS、VMess、VLESS|TLS/WS/ALPN|无|
 |Stash macOS 4.2.1|SS、VMess|TLS/WS/ALPN|无|
 
 这是 proxylang 编码范围，不代表客户端完整能力。Stash 当前文档新增协议不能证明历史4.2.1支持，因此 VLESS 拒绝，原生检查仍未验证。Surge VMess UUID 编为 username，vmess-aead 显式 true、encrypt-method=aes-128-gcm，TLS 编为 tls/sni，WS 编为 ws/ws-path/ws-headers。SS 编为 ss + encrypt-method + udp-relay=true + block-quic=off。不可无损表示的 WS path 在 schema 阶段报错，不静默改写或推迟到读取 secrets 后；秘密分隔符仍由 render 拒绝。
 
-sing-box 使用 shadowsocks/method/password，VMess uuid/security=aes-128-gcm/alter_id=0，VLESS uuid。两种 UUID 协议设 network=tcp，tls.enabled/server_name/alpn，transport.type=ws/path/headers.Host。
+sing-box 使用 shadowsocks/method/password，VMess uuid/security=aes-128-gcm/alter_id=0，VLESS uuid。VMess 及未开启 UDP 的 VLESS 设 network=tcp。1.14.4 的 VLESS 显式声明 packetEncoding 时输出 packet_encoding 并允许 UDP。其余字段为 tls.enabled/server_name/alpn，transport.type=ws/path/headers.Host。
 
 Mihomo/Stash 的 SS 为 ss/cipher/password，VMess 为 uuid/cipher=aes-128-gcm/alterId=0，VLESS 为 uuid。两种 UUID 协议设 udp=false、TLS 的 servername（Mihomo）或 sni（Stash），network=ws/ws-opts.path/headers.Host。SS设udp=true，已有节点输出不变。
 
@@ -48,7 +49,7 @@ Mihomo/Stash 的 SS 为 ss/cipher/password，VMess 为 uuid/cipher=aes-128-gcm/a
 
 可选 authKey:Secret、exitNode:IP、exitNodeAllowLanAccess:boolean（仅在 exitNode 存在时可用）。没有 authKey 表示运行方已有身份或另行登录，构建器不代办。
 
-端点只支持带 with_tailscale 构建标签的 sing-box 1.12.0。顶层 endpoints 输出 type=tailscale、tag、state_directory、hostname、accept_routes，以及可选登录密钥、出口节点及 LAN 访问设置。
+端点只支持带 with_tailscale 构建标签的 sing-box 1.12.0 / 1.14.4。顶层 endpoints 输出 type=tailscale、tag、state_directory、hostname、accept_routes，以及可选登录密钥、出口节点及 LAN 访问设置。
 
 不广告子网/出口，不自动启用 MagicDNS。新增一个固定直连的 typed UDP DNS server `pl-ts-dns-<id>`，端点 domain_resolver 指向它；它与 standalone 的普通 DNS 共存，只负责控制面引导解析。
 
@@ -84,4 +85,4 @@ types/schema 拥有判别模型与组合校验，dsl 拥有数据构造；新 pr
 
 ## 节点迁移扩展
 
-链式 builder、Surge TLS/TFO/UDP 显式参数及域名节点片段按[节点片段契约](../proxy-node-fragments/README.md)实现。完整配置仍仅接受 IP；片段允许由原生配置拥有的外部符号。AnyTLS 在 Surge 支持 UDP；SS 显式禁用 UDP 后的 TCP-only 约束沿组及 via 传播。
+链式 builder、Surge TLS/TFO/UDP 显式参数及域名节点片段按[节点片段契约](../proxy-node-fragments/README.md)实现。完整配置在 sing-box 1.14.4 接受域名，并使用生成配置的 DNS 上游解析；其它目标仍仅接受 IP。片段允许由原生配置拥有的外部符号。AnyTLS 在 Surge 支持 UDP；SS 显式禁用 UDP 后的 TCP-only 约束沿组及 via 传播。

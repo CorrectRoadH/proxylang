@@ -84,6 +84,8 @@ Mihomo 使用 `password`，Stash 使用 `auth`，两者使用 `sni`、`skip-cert
 
 ## sing-box 1.14.4
 
+普通节点的 `tcpFastOpen` 编码为 `tcp_fast_open`，Trojan/AnyTLS 的 `skipCertVerify` 编码为 `tls.insecure`。AnyTLS 的原生 UoT 支持 UDP，但不接受 `tcpFastOpen:true`。Trojan/AnyTLS/Shadowsocks 的 `surge.udpRelay:true` 与该目标已有 UDP 能力一致；其它 Surge 专属选项仍拒绝，不能因节点共享而丢弃它们。旧版目标的能力边界不变。
+
 该目标支持 VLESS Reality、uTLS chrome、Vision 与显式 UDP 编码。
 
 Vision 必须使用 TLS；
@@ -93,3 +95,7 @@ Reality 还必须声明 uTLS。
 未声明时 packetEncoding 仍为 TCP-only。
 
 字段与 TUN 约束见[sing-box TUN 配置](../../../engineering/singbox-tun/README.md)。
+
+## 显式拒绝不支持的 UDP
+
+`Profile.singBox.unsupportedUdp:"reject"`（Program 同名字段）仅在 1.14.4 允许路由或 fallback 的可选路径含 TCP-only 节点。节点能力不改变，选中 HTTP 等 TCP-only 出口时原生拒绝 UDP，不自动切换 DIRECT；支持 UDP 的选中路径继续转发。默认编译策略仍拒绝可能到达 TCP-only 出口的 UDP。此设置与 Surge Mac 6.0 起默认 REJECT 的不支持 UDP 行为对应，不保证 URLTest 与 Smart 选中同一个节点。

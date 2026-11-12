@@ -8,7 +8,7 @@
 
 Surge 支持 destination 单来源或全部三来源；其余目标仅支持 destination。其它组合返回 MATCH_OPTION_UNSUPPORTED，不自动开启嗅探。
 
-`match.ipCidr(value, { noResolve?: boolean })` 同时支持 IPv4/IPv6。true 表示此条件不为判断成员关系主动发起 DNS；false 允许目标原生解析。Surge/Mihomo/Stash 映射各自 `no-resolve`，sing-box 对显式该选项返回 `MATCH_OPTION_UNSUPPORTED`，不将配置拼写当作运行语义证明。无选项保持 Program 及 Profile 各自既有默认值；静态解释始终只使用 Request.ip，不执行解析。
+`match.ipCidr(value, { noResolve?: boolean })` 同时支持 IPv4/IPv6。true 表示此条件不为判断成员关系主动发起 DNS；false 允许目标原生解析。Surge/Mihomo/Stash 映射各自 `no-resolve`，旧版 sing-box 对显式该选项返回 `MATCH_OPTION_UNSUPPORTED`，不将配置拼写当作运行语义证明。无选项保持 Program 及 Profile 各自既有默认值；静态解释始终只使用 Request.ip，不执行解析。
 
 选项是 Match 的已知字段，schema 仅允许域名携带 includeSniffed、CIDR 携带 noResolve。递归逻辑、命名规则集展开、Program 和 Profile 均执行能力拒绝，不读秘密。通用构造器不接受 getter/未知选项并保留输入快照。
 
@@ -41,3 +41,11 @@ Surge Profile 顶层保留 update interval 和匹配选项，命名 ruleSet 透�
 ## 设计审查
 
 2026-10-24 独立原生 Codex GPT-6.1 Sol 静态审查 CONDITIONAL：唯一 P2 为新增 Surge Profile 更新间隔的嵌套与 URL 冲突语义未闭合，已按上文补齐；需以对应实现与回归验收，不将设计审查当运行证明。当前 Profile 目标仍仅 Surge/sing-box；Mihomo 构造器的条件形式用于既有 Program，不在本轮扩展 Profile 目标。
+
+## sing-box 1.14.4 的有序解析
+
+顶层 ipCidr 的 noResolve:true 不主动解析但使用已有地址；false/未提供在该规则位置解析原目的域名。resolve 使用取反的完整 IPv4/IPv6 CIDR 守卫，只在缺少目的 IP/已解析地址时执行；后续规则复用地址。解析失败终止当前请求，不到达后继和 fallback；不支持 Surge FINAL dns-failed 的例外。
+
+透明命名包装保留该语义。all/any/not 只要含需要解析的 CIDR/原生集合就拒绝，即使其它条件可短路也不提前解析；全部叶子 noResolve:true 的逻辑条件可用。原生 sing-box ruleSet 新增 resolve?:boolean，默认 false；true 只用于调用方已证明仅含需解析目标 CIDR 的资源。SDK 编译不下载资源、不替调用方证明内容。1.14.4 以外显式 resolve 选项拒绝。
+
+在静态解释中，执行到需要解析的条件而请求仅给域名、未给解析 IP 时返回 STATIC_METADATA_UNKNOWN，cases 为 CASE_INDETERMINATE；早期域名已命中不触发此不确定结果。

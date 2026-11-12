@@ -21,7 +21,9 @@ export function pathsOverlap(a: string, b: string): boolean {
 export function nodeIsTcpOnly(node: ProxyNode, engine: Engine, version?: string): boolean {
   return (
     node.type === "http" ||
-    (node.type === "anytls" && engine !== "surge") ||
+    (node.type === "anytls" &&
+      engine !== "surge" &&
+      !(engine === "sing-box" && version === "1.14.4")) ||
     node.type === "vmess" ||
     (node.type === "vless" &&
       !(engine === "sing-box" && version === "1.14.4" && node.packetEncoding)) ||
@@ -62,11 +64,20 @@ export function validateProxyOptions(
       message: "VLESS 扩展选项仅支持 sing-box 1.14.4",
     });
   if (target.engine !== "surge") {
+    const surgeOptions = "surge" in node ? node.surge : undefined;
+    const supportedUdpDeclaration =
+      modern &&
+      surgeOptions !== undefined &&
+      ["trojan", "anytls", "shadowsocks"].includes(node.type) &&
+      Object.keys(surgeOptions).length === 1 &&
+      "udpRelay" in surgeOptions &&
+      surgeOptions.udpRelay === true;
     if (
-      node.tcpFastOpen !== undefined ||
-      ("skipCertVerify" in node && node.skipCertVerify !== undefined) ||
+      (!modern && node.tcpFastOpen !== undefined) ||
+      (modern && node.type === "anytls" && node.tcpFastOpen === true) ||
+      (!modern && "skipCertVerify" in node && node.skipCertVerify !== undefined) ||
       (!modern && tls?.skipCertVerify !== undefined) ||
-      ("surge" in node && node.surge !== undefined)
+      (surgeOptions !== undefined && !supportedUdpDeclaration)
     )
       diagnostics.push({
         severity: "error",
@@ -95,6 +106,16 @@ function uuid(token: Secret, secret: Secrets): string {
     throw new RenderError("INVALID_UUID_SECRET");
   return value;
 }
+export function aliasProxyServer(
+  node: ProxyNode,
+  aliases?: Readonly<Record<string, string>>,
+): ProxyNode {
+  const server = aliases?.[node.server];
+  if (!server) return node;
+  if (node.type === "trojan" || node.type === "anytls" || node.type === "hysteria2")
+    return { ...node, server, serverName: node.serverName ?? node.server };
+  return { ...node, server };
+}
 export function singboxProxy(node: ProxyNode, secret: Secrets): Record<string, Json> {
   const result: Record<string, Json> = {
     type: node.type,
@@ -102,6 +123,7 @@ export function singboxProxy(node: ProxyNode, secret: Secrets): Record<string, J
     server: node.server,
     server_port: node.port,
     ...(node.via ? { detour: node.via } : {}),
+    ...(node.tcpFastOpen !== undefined ? { tcp_fast_open: node.tcpFastOpen } : {}),
   };
   switch (node.type) {
     case "hysteria2":
@@ -127,7 +149,11 @@ export function singboxProxy(node: ProxyNode, secret: Secrets): Record<string, J
     case "trojan":
     case "anytls":
       result.password = secret(node.password);
-      result.tls = { enabled: true, ...(node.serverName ? { server_name: node.serverName } : {}) };
+      result.tls = {
+        enabled: true,
+        ...(node.serverName ? { server_name: node.serverName } : {}),
+        ...(node.skipCertVerify !== undefined ? { insecure: node.skipCertVerify } : {}),
+      };
       break;
     case "shadowsocks":
       result.password = secret(node.password);

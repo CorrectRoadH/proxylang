@@ -2,7 +2,7 @@ import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:http";
-import { createServer as tcpServer } from "node:net";
+import { createServer as tcpServer, createConnection, type Socket } from "node:net";
 import { once } from "node:events";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -13,7 +13,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { compileProfile, render, outbound } from "../src/index.js";
 const exec = promisify(execFile);
 const enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
-for (const version of ["1.11.0", "1.12.0"]) {
+for (const version of ["1.11.0", "1.12.0", "1.14.4"]) {
   // @use-case docs/feature/target-compilation/use-case/build-targets.md
   test.skipIf(!enabled)(
     `sing-box ${version} portable DNS routes real DIRECT requests`,
@@ -21,6 +21,8 @@ for (const version of ["1.11.0", "1.12.0"]) {
       const root = await mkdtemp(join(tmpdir(), "proxylang-dns-"));
       const sockets = [createSocket("udp4"), createSocket("udp4")];
       const observed: string[][] = [[], []];
+      const udpSockets: ReturnType<typeof createSocket>[] = [];
+      const controls: Socket[] = [];
       const web = createServer((_req, res) => res.end("portable-dns-ok"));
       let child: ReturnType<typeof spawn> | undefined;
       try {
@@ -84,9 +86,11 @@ for (const version of ["1.11.0", "1.12.0"]) {
         await exec(bin, ["check", "-c", path]);
         // Only replace external DNS socket ports: no privileged port 53 or public DNS needed.
         const config = JSON.parse(content);
-        for (const [index, server] of config.dns.servers.entries()) {
+        for (const server of config.dns.servers) {
+          if (server.tag === "pl-routed-dns") continue;
+          const index = server.tag === "pl-dns" ? 0 : 1;
           const dnsPort = sockets[index]!.address().port;
-          if (version === "1.12.0") server.server_port = dnsPort;
+          if (version !== "1.11.0") server.server_port = dnsPort;
           else server.address = `udp://127.0.0.1:${dnsPort}`;
         }
         await writeFile(path, JSON.stringify(config));
@@ -133,12 +137,54 @@ for (const version of ["1.11.0", "1.12.0"]) {
         assert.ok(!observed[1]!.includes("outside.test"));
         assert.ok(observed[0]!.includes("example.test"));
         assert.ok(observed[0]!.includes("outside.test"));
+        if (version === "1.14.4") {
+          // The additional DNS listener owns UDP on the mixed TCP port. Exercise
+          // independent SOCKS associations for both literal and resolved destinations.
+          const echo = createSocket("udp4");
+          udpSockets.push(echo);
+          echo.on("message", (data, remote) => echo.send(data, remote.port, remote.address));
+          echo.bind(0, "127.0.0.1");
+          await once(echo, "listening");
+          const destinationPort = Buffer.alloc(2);
+          destinationPort.writeUInt16BE(echo.address().port);
+          const domain = Buffer.from("udp.example.test");
+          for (const address of [
+            Buffer.from([1, 127, 0, 0, 1]),
+            Buffer.concat([Buffer.from([3, domain.length]), domain]),
+          ]) {
+            const control = createConnection({ host: "127.0.0.1", port });
+            controls.push(control);
+            await once(control, "connect", { signal: AbortSignal.timeout(3000) });
+            control.write(Buffer.from([5, 1, 0]));
+            const [hello] = await once(control, "data", { signal: AbortSignal.timeout(3000) });
+            assert.deepEqual(hello, Buffer.from([5, 0]));
+            control.write(Buffer.from([5, 3, 0, 1, 127, 0, 0, 1, 0, 0]));
+            const [reply] = await once(control, "data", { signal: AbortSignal.timeout(3000) });
+            assert.equal(reply[1], 0);
+            assert.equal(reply[3], 1);
+            assert.notEqual(reply.readUInt16BE(8), port);
+            const client = createSocket("udp4");
+            udpSockets.push(client);
+            const response = once(client, "message", { signal: AbortSignal.timeout(3000) });
+            const payload = Buffer.from("socks-udp-ok");
+            client.send(
+              Buffer.concat([Buffer.from([0, 0, 0]), address, destinationPort, payload]),
+              reply.readUInt16BE(8),
+              "127.0.0.1",
+            );
+            const [packet] = await response;
+            assert.ok(packet.subarray(-payload.length).equals(payload));
+          }
+          assert.ok(observed[1]!.includes("udp.example.test"));
+          assert.ok(!observed[0]!.includes("udp.example.test"));
+        }
       } finally {
         if (child && child.exitCode === null) {
           child.kill();
           await once(child, "exit");
         }
-        for (const socket of sockets) socket.close();
+        for (const control of controls) control.destroy();
+        for (const socket of [...sockets, ...udpSockets]) socket.close();
         await new Promise<void>((resolve) => web.close(() => resolve()));
         await rm(root, { recursive: true, force: true });
       }

@@ -18,6 +18,7 @@ export type NativeRuleSet = {
       readonly engine: "sing-box";
       readonly format: "source" | "binary";
       readonly intervalSeconds: number;
+      readonly resolve?: boolean;
     }
   | {
       readonly engine: "mihomo";
@@ -227,6 +228,10 @@ export type Tun = {
   readonly routeExcludeAddress?: readonly string[];
 };
 export type Program = {
+  readonly domainMatching?: "prefer-sniffed";
+  readonly serverAliases?: Readonly<Record<string, string>>;
+  readonly cacheFile?: boolean;
+  readonly unsupportedUdp?: "reject";
   readonly tun?: Tun;
   readonly dns?: readonly DnsRule[];
   readonly engine: Engine;

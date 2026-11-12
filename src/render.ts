@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/target-compilation/README.md
 import { dnsCondition, dohUrl } from "./dns.js";
+import { needsResolve, singboxMemberTag } from "./singbox-semantics.js";
 import { stringify } from "yaml";
 import { secretReader } from "./secrets.js";
 import { clashConfig } from "./clash.js";
@@ -10,7 +11,7 @@ import { targetCatalog } from "./targets.js";
 import type { Compilation, TargetPlan } from "./compiler.js";
 import type { Action, Match, Secret } from "./types.js";
 
-import { RenderError, singboxProxy, surgeProxy, type Json } from "./proxies.js";
+import { aliasProxyServer, RenderError, singboxProxy, surgeProxy, type Json } from "./proxies.js";
 export { RenderError } from "./proxies.js";
 export type Artifact = {
   readonly target: string;
@@ -100,6 +101,8 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
       (entry) => entry.engine === target.engine && entry.version === target.version,
     )?.dns === "typed";
   const standalone = target.mode === "standalone";
+  const routedDns = target.version === "1.14.4" && standalone && !!program.dns?.length;
+  const domainResolver = routedDns ? "pl-routed-dns" : DNS;
   const outbounds: Json[] = [
     {
       type: "direct",
@@ -107,25 +110,35 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
       ...(!modern && standalone ? { domain_strategy: "prefer_ipv4" } : {}),
     },
   ];
+  if (program.groups.some((group) => group.members.includes("REJECT")))
+    outbounds.push({ type: "block", tag: "pl-reject" });
   for (const node of program.nodes)
     outbounds.push({
-      ...(singboxProxy(node, secret) as Record<string, Json>),
+      ...(singboxProxy(aliasProxyServer(node, program.serverAliases), secret) as Record<
+        string,
+        Json
+      >),
       ...(modern && program.dns?.length
-        ? { domain_resolver: { server: DNS, strategy: "prefer_ipv4" } }
+        ? { domain_resolver: { server: domainResolver, strategy: "prefer_ipv4" } }
         : {}),
     });
   for (const group of program.groups) {
-    outbounds.push(singboxGroup(group));
+    outbounds.push(singboxGroup(group, singboxMemberTag));
   }
-  const rules: Json[] = plan.rules.map((rule) => ({
-    ...singCondition(rule.when),
-    ...singAction(rule.then),
-  }));
+  const rules: Json[] = plan.rules.flatMap((rule) => [
+    ...(target.version === "1.14.4" && needsResolve(rule.when)
+      ? [{ ip_cidr: ["0.0.0.0/0", "::/0"], invert: true, action: "resolve" }]
+      : []),
+    { ...singCondition(rule.when), ...singAction(rule.then) },
+  ]);
   const routing: Record<string, Json> = { rules };
+  if (program.domainMatching === "prefer-sniffed")
+    rules.unshift({ action: "sniff", sniffer: ["http", "tls"] });
   if (program.tun) {
     rules.unshift({ inbound: ["pl-tun"], port: 53, action: "hijack-dns" });
     if (program.tun.autoRoute) routing.auto_detect_interface = true;
   }
+  if (routedDns) rules.unshift({ inbound: ["pl-dns-listener"], action: "hijack-dns" });
   if (plan.nativeRuleSets.length)
     routing.rule_set = plan.nativeRuleSets.map((r) => ({
       type: "remote",
@@ -138,10 +151,22 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
   if (program.fallback.type === "reject") rules.push(singAction(program.fallback));
   else routing.final = actionTag(program.fallback);
   const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };
+  if (program.cacheFile) config.experimental = { cache_file: { enabled: true } };
   if (standalone) {
     const listener = program.listener!;
     config.inbounds = [
       { type: "mixed", tag: "pl-listener", listen: "127.0.0.1", listen_port: listener.port },
+      ...(routedDns
+        ? [
+            {
+              type: "direct",
+              tag: "pl-dns-listener",
+              listen: "127.0.0.1",
+              listen_port: listener.port,
+              network: "udp",
+            },
+          ]
+        : []),
       ...(program.tun
         ? [
             {
@@ -171,12 +196,20 @@ function singbox(plan: TargetPlan, secret: (token: Secret) => string): Json {
       ],
       final: DNS,
       strategy: "prefer_ipv4",
+      ...(program.domainMatching ? { reverse_mapping: true } : {}),
     };
-    if (modern && !program.dns?.length)
-      routing.default_domain_resolver = { server: DNS, strategy: "prefer_ipv4" };
+    if (modern && (!program.dns?.length || target.version === "1.14.4"))
+      routing.default_domain_resolver = { server: domainResolver, strategy: "prefer_ipv4" };
   }
   if (program.dns?.length) {
     const dns = config.dns as { servers: Json[]; rules?: Json[] };
+    if (routedDns)
+      dns.servers.push({
+        type: "udp",
+        tag: "pl-routed-dns",
+        server: "127.0.0.1",
+        server_port: program.listener!.port,
+      });
     dns.rules = program.dns.map((rule, index) => {
       const tag = `pl-domain-dns-${index}`;
       if (isIP(rule.server)) {

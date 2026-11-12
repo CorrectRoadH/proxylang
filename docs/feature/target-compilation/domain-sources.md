@@ -18,7 +18,7 @@ sniff 表示连接识别动作，prefer-sniffed 表示优先使用识别域名�
 
 这三者不等价于 includeSniffed。
 
-SDK 不为这些概念新增占位接口，也不把它们作为 includeSniffed 的隐式后端实现。
+SDK 不把这些概念作为 includeSniffed 的隐式后端实现；下述程序级显式适配具有不同的来源优先契约。
 
 ## 输入契约
 
@@ -54,7 +54,7 @@ Surge true 生成 extended-matching，false/未提供不生成尾缀。
 
 直接 compileSurgeProfile 与 Program/Profile 在所有递归叶子执行一致校验。
 
-sing-box/Mihomo/Stash 的 true 返回 MATCH_OPTION_UNSUPPORTED，包括逻辑嵌套、命名规则集和 Profile 转换入口。
+未显式选择适配的 sing-box，以及 Mihomo/Stash 的 true 返回 MATCH_OPTION_UNSUPPORTED，包括逻辑嵌套、命名规则集和 Profile 转换入口。
 
 false/未提供保留旧输出。
 
@@ -141,3 +141,9 @@ SDK check、native 和隔离打包验证，消费方先临时 tgz 类型/构建/
 未运行验收。
 
 重大影响是移除已发布 sources 公共输入及其部分来源解释能力，不能仅以重命名测试替代兼容和语义边界审查。
+
+## 显式 sing-box 来源适配
+
+sing-box 1.14.4 Program.domainMatching / Profile.singBox.domainMatching 接受 `prefer-sniffed`。选择后在 DNS hijack 后、业务规则前执行 HTTP/TLS sniff，不覆盖目的地址；所有域名条件优先使用识别后的 SNI/Host，缺失时回退原域名。此程序允许 includeSniffed:true，但不实现多来源 OR，也不只改变标注的叶子。其它目标拒绝该设置。
+
+静态 explain 与 cases 先采用已提供的识别来源，不能继续三来源 OR；同时提供不同的 SNI 与 HTTP Host 而无法确定实际协议时，返回 STATIC_METADATA_UNKNOWN（cases 为 CASE_INDETERMINATE）。输入来源缺失不证明真实连接嗅探成功。命中策略、实际选中节点和真实连接分别验收。

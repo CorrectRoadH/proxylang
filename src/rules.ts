@@ -3,6 +3,7 @@
 import ipaddr from "ipaddr.js";
 import { match } from "./dsl.js";
 import { requestSchema } from "./schema.js";
+import { needsResolve, StaticMetadataUnknownError } from "./singbox-semantics.js";
 import type {
   Action,
   ConditionTrace,
@@ -213,11 +214,14 @@ export function explainRules(
   rules: readonly ExpandedRule[],
   fallback: Action,
   input: Request,
+  orderedResolve = false,
 ): Explanation {
   const parsed = requestSchema.safeParse(input);
   if (!parsed.success) throw new Error("INVALID_REQUEST");
   const trace: { id: string; origin: readonly string[]; condition: ConditionTrace }[] = [];
   for (const rule of rules) {
+    if (orderedResolve && needsResolve(rule.when) && parsed.data.domain && !parsed.data.ip)
+      throw new StaticMetadataUnknownError();
     const condition = evaluate(rule.when, parsed.data);
     trace.push({ id: rule.id, origin: rule.origin, condition });
     if (condition.matched === null) throw new StaticRuleSetUnknownError();

@@ -55,6 +55,8 @@ jobs:
             sha256: "eff0237951bfbd2381be36f114e419f10d3ed57dbf929f680e4cc9f57e319d64"
           - version: "1.12.0"
             sha256: "f59b1253ae0143997cb46915af30d14a33431dcbd7e39edacfcde8d73050faaf"
+          - version: "1.14.4"
+            sha256: "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699

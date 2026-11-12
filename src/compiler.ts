@@ -2,6 +2,12 @@
 // @concord-implements docs/feature/target-compilation/README.md
 import { collectNativeRuleSets, lowerRuleSets, validateRuleSets } from "./rulesets.js";
 import { StaticRuleSetUnknownError } from "./rules.js";
+import {
+  builtinMember,
+  needsResolve,
+  requestForProgram,
+  StaticMetadataUnknownError,
+} from "./singbox-semantics.js";
 import type { NativeRuleSet, Match } from "./types.js";
 import { nodeIsTcpOnly, pathsOverlap, validateProxyOptions } from "./proxies.js";
 import { validateClashTarget } from "./clash.js";
@@ -119,7 +125,8 @@ export function compile(input: unknown): Compilation {
     );
     for (const [id, refs] of edges)
       for (const ref of refs)
-        if (!byId.has(ref)) error("MISSING_REFERENCE", `${path}.${id}`, "节点或组引用不存在");
+        if (!byId.has(ref) && !builtinMember(ref))
+          error("MISSING_REFERENCE", `${path}.${id}`, "节点或组引用不存在");
     for (const [id, refs] of edges)
       for (const ref of refs)
         if (byId.get(ref)?.type === "sing-box-tailscale")
@@ -163,7 +170,7 @@ export function compile(input: unknown): Compilation {
     const validateAction = (action: Action, where: string, udpPossible: boolean) => {
       if (action.type !== "route") return;
       if (!byId.has(action.to)) error("MISSING_REFERENCE", where, "路由出口不存在");
-      else if (udpPossible && tcpOnly.get(action.to))
+      else if (udpPossible && tcpOnly.get(action.to) && program.unsupportedUdp !== "reject")
         error(
           "NETWORK_UNSUPPORTED",
           where,
@@ -210,6 +217,30 @@ export function compile(input: unknown): Compilation {
     }
     if (program.engine !== target.engine)
       error("ENGINE_MISMATCH", path, "平台程序与目标引擎不一致", target.id);
+    const modernSingbox = target.engine === "sing-box" && target.version === "1.14.4";
+    if (
+      !modernSingbox &&
+      (program.domainMatching !== undefined ||
+        program.serverAliases !== undefined ||
+        program.cacheFile !== undefined ||
+        program.unsupportedUdp !== undefined)
+    )
+      error("PROGRAM_OPTION_UNSUPPORTED", path, "显式 sing-box 选项仅支持 1.14.4", target.id);
+    if (program.cacheFile !== undefined && target.mode !== "standalone")
+      error(
+        "PROGRAM_OPTION_UNSUPPORTED",
+        path,
+        "持久缓存需要 standalone 的稳定工作目录",
+        target.id,
+      );
+    for (const group of program.groups)
+      if (group.members.some(builtinMember) && (!modernSingbox || group.type !== "select"))
+        error(
+          "GROUP_BUILTIN_UNSUPPORTED",
+          `${path}.groups.${group.id}`,
+          "内建组成员只支持 sing-box 1.14.4 select",
+          target.id,
+        );
     if (program.tun) {
       if (
         target.engine !== "sing-box" ||
@@ -300,20 +331,27 @@ export function compile(input: unknown): Compilation {
       for (const rule of rules)
         if (logicalDepth(rule.when) > 10)
           error("LOGICAL_DEPTH", rule.id, "Surge 逻辑条件最多嵌套 10 层", target.id);
-    const checkOptions = (condition: Match): void => {
+    const checkOptions = (condition: Match, nested = false): void => {
       if (
         ("includeSniffed" in condition &&
           condition.includeSniffed === true &&
-          target.engine !== "surge") ||
+          target.engine !== "surge" &&
+          !(modernSingbox && program.domainMatching === "prefer-sniffed")) ||
         (condition.type === "ipCidr" &&
           condition.noResolve !== undefined &&
-          target.engine === "sing-box")
+          target.engine === "sing-box" &&
+          !modernSingbox) ||
+        (condition.type === "nativeRuleSet" &&
+          condition.engine === "sing-box" &&
+          condition.resolve !== undefined &&
+          !modernSingbox) ||
+        (modernSingbox && nested && needsResolve(condition))
       )
         error("MATCH_OPTION_UNSUPPORTED", path, "目标无法等价实现显式匹配选项", target.id);
       if (condition.type === "all" || condition.type === "any")
-        condition.conditions.forEach(checkOptions);
-      else if (condition.type === "not") checkOptions(condition.condition);
-      else if (condition.type === "ruleSet") checkOptions(condition.when);
+        condition.conditions.forEach((child) => checkOptions(child, true));
+      else if (condition.type === "not") checkOptions(condition.condition, true);
+      else if (condition.type === "ruleSet") checkOptions(condition.when, nested);
     };
     rules.forEach((rule) => checkOptions(rule.when));
     const nativeRuleSets = collectNativeRuleSets(rules, target, diagnostics);
@@ -325,18 +363,38 @@ export function compile(input: unknown): Compilation {
           "精确目标不支持此原生规则资源格式",
           target.id,
         );
+    let nativeIndex =
+      target.engine === "sing-box"
+        ? Number(!!program.tun) +
+          Number(!!program.domainMatching) +
+          Number(modernSingbox && target.mode === "standalone" && !!program.dns?.length)
+        : 0;
     plans.push({
       nativeRuleSets,
       target,
       program,
       rules,
       strategySelections: lowered.selections,
-      sourceMap: rules.map((rule, nativeIndex) => ({
-        rule: rule.id,
-        nativeIndex,
-        origin: rule.origin,
-      })),
+      sourceMap: rules.map((rule) => {
+        if (modernSingbox && needsResolve(rule.when)) nativeIndex++;
+        return { rule: rule.id, nativeIndex: nativeIndex++, origin: rule.origin };
+      }),
       preconditions: [
+        ...(program.domainMatching
+          ? [
+              "显式 prefer-sniffed：HTTP/TLS 识别域名优先，回退原域名，不覆盖目的地址；不等同 includeSniffed 多来源 OR。",
+            ]
+          : []),
+        ...(program.unsupportedUdp
+          ? [
+              "显式 unsupportedUdp:reject：保留 TCP-only 候选；选中该出口时 UDP 由原生拒绝，不回退直连，不表示节点支持 UDP。",
+            ]
+          : []),
+        ...(program.cacheFile
+          ? [
+              "原生 cache.db 属于客户端稳定工作目录；SDK 不创建或清理缓存。无有效缓存且下载失败时拒绝启动。",
+            ]
+          : []),
         ...(nativeRuleSets.length
           ? [
               "原生外部规则由客户端持续下载和解释；静态布尔结果不验证 DNS 等副作用。缓存与下载失败处理沿用客户端机制，fragment 运行方提供工作目录与下载 DNS 路径。",
@@ -377,11 +435,27 @@ export function compile(input: unknown): Compilation {
     }
     let actual: Explanation;
     try {
-      actual = explainRules(expanded.get(test.program)!, program.fallback, test.request);
+      actual = explainRules(
+        expanded.get(test.program)!,
+        program.fallback,
+        requestForProgram(program, test.request),
+        program.engine === "sing-box" &&
+          config.targets
+            .filter((target) => target.program === test.program)
+            .every((target) => target.version === "1.14.4"),
+      );
     } catch (cause) {
-      if (!(cause instanceof StaticRuleSetUnknownError)) throw cause;
+      if (
+        !(cause instanceof StaticRuleSetUnknownError) &&
+        !(cause instanceof StaticMetadataUnknownError)
+      )
+        throw cause;
       cases.push({ id: test.id, passed: false, code: "CASE_INDETERMINATE" });
-      error("CASE_INDETERMINATE", `cases.${test.id}`, "外部规则内容未知，无法静态确定首命中");
+      error(
+        "CASE_INDETERMINATE",
+        `cases.${test.id}`,
+        "外部规则或所需运行时元数据未知，无法静态确定首命中",
+      );
       continue;
     }
     const passed =
@@ -407,5 +481,10 @@ export function explain(compilation: Compilation, target: string, request: Reque
   if (!compilation.ok) throw new Error("COMPILATION_FAILED");
   const plan = compilation.plans.find((plan) => plan.target.id === target);
   if (!plan) throw new Error("UNKNOWN_TARGET");
-  return explainRules(plan.rules, plan.program.fallback, request);
+  return explainRules(
+    plan.rules,
+    plan.program.fallback,
+    requestForProgram(plan.program, request),
+    plan.target.engine === "sing-box" && plan.target.version === "1.14.4",
+  );
 }

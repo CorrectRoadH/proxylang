@@ -127,6 +127,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
       "intervalSeconds",
       "noResolve",
       "includeSniffed",
+      "resolve",
       "behavior",
       "to",
     ]);
@@ -141,7 +142,7 @@ function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
         ? ["noResolve", "includeSniffed"]
         : engine === "mihomo"
           ? ["behavior"]
-          : []),
+          : ["resolve"]),
     ]);
     const parsed = nativeRuleSetSchema.safeParse({
       ...(engine === "surge" ? { format: "rule-set" } : {}),

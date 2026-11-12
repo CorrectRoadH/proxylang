@@ -90,6 +90,7 @@ export const nativeRuleSetSchema = z.discriminatedUnion("engine", [
     engine: z.literal("sing-box"),
     format: z.enum(["source", "binary"]),
     intervalSeconds: updateInterval,
+    resolve: z.boolean().optional(),
   }),
   z.strictObject({
     ...remoteBase,
@@ -312,7 +313,10 @@ const endpointSchema = z
   .refine(
     (endpoint) => endpoint.exitNodeAllowLanAccess === undefined || endpoint.exitNode !== undefined,
   );
-const members = z.array(idSchema).min(1).refine(unique);
+const members = z
+  .array(z.union([idSchema, z.enum(["DIRECT", "REJECT"])]))
+  .min(1)
+  .refine(unique);
 const url = z
   .string()
   .url()
@@ -395,6 +399,15 @@ export const configSchema: z.ZodType<Config> = z.strictObject({
     idSchema,
     z.strictObject({
       engine: z.enum(["surge", "sing-box", "mihomo", "stash"]),
+      domainMatching: z.literal("prefer-sniffed").optional(),
+      serverAliases: z
+        .record(
+          domain.refine((value) => !isIP(value)),
+          z.union([domain, ip]),
+        )
+        .optional(),
+      cacheFile: z.boolean().optional(),
+      unsupportedUdp: z.literal("reject").optional(),
       dns: dnsRulesSchema.optional(),
       nodes: z.array(nodeSchema),
       endpoints: z.array(endpointSchema).max(1000).optional(),

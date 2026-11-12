@@ -58,3 +58,9 @@ hosts.ts 改为 dns.ts，数组类型 DnsRule，移到设备 Profile 顶层 dns�
 输入顺序、大小写与重复项语义不变，不排序或去重。空数组生成空数组；相同模式仍按既有规则拒绝。多个函数结果在 Profile.dns 继续用现有片段数组组合；Program 使用平面数组。DnsRule 类型保留用于类型消费，作者无需写 satisfies DnsRule[]。
 
 这是既有数据构造的局部可回滚增强，无渲染、域名匹配、DNS 引导或资源所有权变更。验收对比函数和对象输入的编译渲染字节，验证输入变更隔离、批量限制与冲突，消费方保持四份原始字节和代理 ID。
+
+## 1.14.4 的本机解析入口
+
+1.14.4 的多服务器 DNS 必须声明 domain_resolver，但指定上游会绕过按域名分流。standalone 声明 dns 时，SDK 在已有 loopback listener.port 的 UDP 侧建立内部 DNS 入口，TCP 侧仍为 mixed 代理；二者均由同一 sing-box 进程持有和关闭。DNS 入口仅允许 127.0.0.1，以 hijack-dns 进入本机 DNS 规则；默认 resolver 和代理拨号指向该入口，上游 DoH 引导仍直接使用 listener.resolver，不能再次进入内部入口。不能把入口绑定到 LAN，也不另起服务或占用隐含的第二端口。
+
+无 dns 的 1.14.4 保持既有单服务器输出，旧精确版本保持原行为。验收使用实际 1.14.4 检查与回环请求，覆盖精确/通配域名、apex 与普通 fallback、TCP mixed 及 SOCKS UDP 协议共存；初始化或绑定失败必须终止启动，不降级为忽略 DNS 规则。

@@ -114,3 +114,11 @@ Surge 扩展对象层保留，删除调用方 surge.config 包装。
 原生 Codex / GPT-6.1 Sol 的 CONDITIONAL P2（General 共享 DAG 校验成本放大）以本次调用身份缓存及首次校验累计工作预算收敛；验收包含重复共享大叶对象、不同对象共享大列表、跨调用修改后重新校验。
 
 未改变输出合并语义。
+
+## sing-box 1.14.4 的显式选项
+
+Profile.singBox 的 domainMatching、serverAliases、cacheFile 分别传递到 Program 同名字段。serverAliases 是精确域名到域名/IP 的单跳字典，只改代理拨号 server，不改变业务 DNS；已有显式 TLS 身份保持，否则使用原 server 作为 TLS 身份。其它引擎/版本拒绝这些设置。
+
+cacheFile 为布尔值，只接受 standalone 1.14.4；true 开启 native experimental.cache_file。默认 cache.db 属于客户端稳定工作目录，SDK 不创建/删除缓存。无缓存冷启动下载失败拒绝启动；有效缓存可跨重启复用；原生更新错误保留旧内容，不承诺跨客户端同步更新。
+
+Profile select 组接受 outbound.direct/outbound.reject，低层 members 对应保留字 DIRECT/REJECT。两者不是普通资源，不参与引用环；只在 1.14.4 select 接受，Smart/urltest、其它版本和 REJECT 变体拒绝。生成 pl-direct 与按需生成的 pl-reject block outbound，保持首成员默认与成员顺序。Surge Profile 的既有 builtin 能力不变。

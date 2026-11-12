@@ -74,6 +74,10 @@ export type ProfileDefinition = {
     readonly mode: "fragment" | "standalone";
     readonly tun?: import("./types.js").Tun;
     readonly listener?: { readonly port: number; readonly resolver: string };
+    readonly domainMatching?: "prefer-sniffed";
+    readonly serverAliases?: Readonly<Record<string, string>>;
+    readonly cacheFile?: boolean;
+    readonly unsupportedUdp?: "reject";
   };
 };
 export type Profile = DeepReadonly<
@@ -127,7 +131,15 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
   if (input.surge !== undefined)
     exactDefinition(input.surge, ["managed", "general", "hosts", "names"]);
   if (input.singBox !== undefined) {
-    exactDefinition(input.singBox, ["mode", "listener", "tun"]);
+    exactDefinition(input.singBox, [
+      "mode",
+      "listener",
+      "tun",
+      "domainMatching",
+      "serverAliases",
+      "cacheFile",
+      "unsupportedUdp",
+    ]);
     if (!["fragment", "standalone"].includes(input.singBox.mode))
       fail("INVALID_PROFILE_DEFINITION");
     if (input.singBox.listener !== undefined)
@@ -385,8 +397,7 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
       );
       const members = definition.members.map((member) => {
         const action = lower(member);
-        if (action.type !== "route") return fail("PROFILE_GROUP_MEMBER_UNSUPPORTED");
-        return action.to;
+        return action.type === "route" ? action.to : action.type === "direct" ? "DIRECT" : "REJECT";
       });
       return { ...definition.algorithm, id: definition.id, members } as Group;
     });
@@ -413,6 +424,18 @@ export function compileProfile(input: ProfileDefinition | Profile): ProfileCompi
             fallback: lower(profile.fallback),
             ...(profile.singBox?.listener ? { listener: profile.singBox.listener } : {}),
             ...(profile.singBox?.tun ? { tun: profile.singBox.tun } : {}),
+            ...(profile.singBox?.domainMatching === undefined
+              ? {}
+              : { domainMatching: profile.singBox.domainMatching }),
+            ...(profile.singBox?.serverAliases === undefined
+              ? {}
+              : { serverAliases: profile.singBox.serverAliases }),
+            ...(profile.singBox?.unsupportedUdp === undefined
+              ? {}
+              : { unsupportedUdp: profile.singBox.unsupportedUdp }),
+            ...(profile.singBox?.cacheFile === undefined
+              ? {}
+              : { cacheFile: profile.singBox.cacheFile }),
           },
         },
         targets: [

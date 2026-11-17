@@ -2,16 +2,17 @@ import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineBuild, runBuild } from "proxylang";
-import { scenarios, scenarioProfile, validationValue } from "../test/fixtures/scenarios.js";
+import { scenarios, scenarioProfile, fixtureSecrets } from "../test/fixtures/scenarios.js";
 const root = await mkdtemp(join(tmpdir(), "proxylang-golden-"));
 try {
   for (let offset = 0; offset < scenarios.length; offset += 16) {
     const batch = scenarios.slice(offset, offset + 16);
     const definition = defineBuild({
       profiles: Object.fromEntries(batch.map((s, i) => [`golden-${i}`, scenarioProfile(s)])),
-      secrets: validationValue,
+      outDir: root,
+      secrets: fixtureSecrets,
     });
-    const result = await runBuild(definition, root);
+    const result = await runBuild(definition);
     if (!result.published) throw new Error(`Golden batch ${offset}: ${JSON.stringify(result)}`);
     for (const [i, s] of batch.entries()) {
       const ext = s.engine === "surge" ? "conf" : s.engine === "sing-box" ? "json" : "yaml";

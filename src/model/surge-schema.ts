@@ -3,17 +3,14 @@
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 import { z } from "zod";
-import { idSchema, nodeSchema } from "./schema.js";
+import { idSchema, nodeSchema, secretSchema } from "./schema.js";
 import { nativeNameSchema } from "./names.js";
 import type { ProxyNode } from "./types.js";
 
 const builtin = z.enum(["DIRECT", "REJECT", "REJECT-DROP", "REJECT-NO-DROP", "REJECT-TINYGIF"]);
 const policy = z.union([z.strictObject({ ref: idSchema }), z.strictObject({ builtin })]);
 export type SurgePolicy = z.infer<typeof policy>;
-const token = z.strictObject({
-  type: z.literal("env"),
-  name: z.string().regex(/^[A-Z][A-Z0-9_]{0,127}$/),
-});
+const token = secretSchema;
 const safe = z
   .string()
   .min(1)
@@ -123,7 +120,7 @@ export type SurgeGeneral = z.infer<typeof generalSchema>;
 /** Internal fragment validation; caller must inspect data descriptors before invoking. */
 export const validateSurgeGeneral = (input: unknown): boolean =>
   generalSchema.safeParse(input).success;
-const hostSchema = z
+export const hostSchema = z
   .strictObject({
     pattern: hostPattern,
     address: z.union([ip, domain]).optional(),
@@ -139,7 +136,7 @@ export const key = z
       Buffer.from(v, "base64").length === 32 && Buffer.from(v, "base64").toString("base64") === v,
   );
 const sectionName = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,127}$/);
-const tunnelSchema = z.discriminatedUnion("type", [
+export const tunnelSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("tailscale"),
     id: idSchema,
@@ -178,6 +175,9 @@ const groupSchema = z.strictObject({
   intervalSeconds: z.number().int().positive().max(2147483647).optional(),
   timeoutSeconds: z.number().int().positive().max(3600).optional(),
 });
+export const groupTestSchema = groupSchema
+  .pick({ url: true, intervalSeconds: true, timeoutSeconds: true })
+  .required({ url: true });
 export type SurgeGroup = z.infer<typeof groupSchema>;
 type NoSniff = { readonly includeSniffed?: never };
 export type SurgeCondition = { readonly noResolve?: boolean } & (
@@ -216,7 +216,7 @@ const atom = (type: string, value: z.ZodType<string>) =>
     value,
     ...(["domain", "domainSuffix"].includes(type) ? domainOptions : options),
   });
-const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
+export const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
   () =>
     z.union([
       atom("domain", domain),
@@ -259,7 +259,7 @@ const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
     ]) as z.ZodType<SurgeCondition>,
 );
 export type SurgeRule = { readonly when: SurgeCondition; readonly then: SurgePolicy };
-const managedSchema = z.strictObject({
+export const managedSchema = z.strictObject({
   url: url.refine((v) => !new URL(v).search && !v.includes("?")),
   query: z
     .record(

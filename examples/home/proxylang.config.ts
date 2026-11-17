@@ -2,31 +2,49 @@ import {
   defineBuild,
   defineProfile,
   defineRoutes,
+  defineProxyGroup,
+  group,
   proxy,
-  secret,
-  secrets,
+  defineSecrets,
   match,
   outbound,
 } from "proxylang";
+const secrets = defineSecrets({ TEST_PASSWORD: { value: "test-only", validation: "test-only" } });
 const edge = proxy.trojan({
   id: "edge",
+  name: "Edge Example",
   server: "192.0.2.10",
   port: 443,
-  password: secret("TEST_PASSWORD"),
+  password: secrets.TEST_PASSWORD,
 });
+const relay = defineProxyGroup({
+  id: "relay",
+  name: "Relay Example",
+  algorithm: group.auto(),
+  members: [edge],
+});
+const chained = proxy
+  .builder(
+    proxy.trojan({
+      id: "chained",
+      server: "192.0.2.20",
+      port: 443,
+      password: secrets.TEST_PASSWORD,
+    }),
+  )
+  .via(relay)
+  .name("Chained Example")
+  .build();
 export default defineBuild({
   outDir: "generated",
   profiles: {
     example: defineProfile({
       target: { engine: "surge", version: "6.10.0", platform: "macos" },
-      proxies: [edge],
-      groups: [],
-      routes: defineRoutes({ when: [match.domainSuffix("example.com")], to: edge }),
+      proxies: [edge, chained],
+      groups: [relay],
+      routes: defineRoutes({ when: [match.domainSuffix("example.com")], to: chained }),
       fallback: outbound.direct,
     }),
   },
-  secrets: secrets({
-    values: { TEST_PASSWORD: "test-only" },
-    validation: { TEST_PASSWORD: "test-only" },
-  }),
+  secrets,
 });

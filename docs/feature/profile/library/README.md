@@ -36,8 +36,8 @@ General 片段在每次 defineProfile 内按对象身份缓存校验，每次出
 
 | 导出 | 签名 | 说明 |
 | --- | --- | --- |
-| `defineProfile` | `(input: ProfileDefinition) => Profile` | 校验字段集合、展开片段并冻结。`target` 的类型是支持目标的字面量联合，决定可以写哪个引擎专属字段 |
-| `defineProxyGroup` | `(input: { id, name, algorithm, members }) => ProxyGroup` | `members` 展开后不能为空 |
+| `defineProfile` | `(input: ProfileDefinition) => Profile` | 校验字段集合、展开片段并冻结。返回的 Profile 中，`proxies`、`groups`、`routes`、`dns`、`cases` 是展开后按顺序排列的只读数组，元素是原来的 SDK 对象，可以直接用于使用方自己的测试。`target` 的类型是支持目标的字面量联合，决定可以写哪个引擎专属字段 |
+| `defineProxyGroup` | `(input: { id, name, algorithm, members, surge? }) => ProxyGroup` | `members` 展开后不能为空；`surge` 分支见下文 |
 | `defineRoutes` | `(input: { when: Fragments<Condition>, to: Exit }) => Route[]` | `when` 中的每个条件生成一条路由，顺序不变 |
 | `proxy.http` `proxy.trojan` `proxy.anytls` `proxy.hysteria2` `proxy.shadowsocks` `proxy.vmess` `proxy.vless` | `(options) => ProxyNode` | 协议字段见[节点](proxies.md) |
 | `proxy.builder` | `(base) => ProxyBuilder` | 为同一机场的节点共享字段的链式构造器 |
@@ -94,6 +94,8 @@ const residential = proxy.http({
 | `group.urltest({ url, intervalSeconds?, toleranceMs? })` | 固定参数测速 | sing-box 与 Mihomo 的 `urltest`；Surge 与 Stash 报 `GROUP_ALGORITHM_UNSUPPORTED` |
 | `group.auto()` | 按质量与可用性自动选择，由目标决定实现 | Surge 编码为 Smart，sing-box 与 Mihomo 编码为 URLTest；Stash 报 `GROUP_ALGORITHM_UNSUPPORTED` |
 | `surge.smart()` | Surge Smart | 只用于 Surge 目标，成员只能是普通节点或 Surge 隧道，不能是分组或内置出口 |
+
+分组的 `surge?: { url, intervalSeconds?, timeoutSeconds? }` 是 Surge 专属的可用性测试参数，只用于 Surge 目标的 select 分组，编码与取值范围见 [Surge](surge.md#分组测试参数)。这个分组出现在其它引擎的 Profile 中，或者用于 Smart 分组时，报 `GROUP_OPTION_UNSUPPORTED`。
 
 `group.auto()` 的具体选择写进 check 结果的 `selections`。urltest 的 intervalSeconds 是 1–86400 整数，toleranceMs 是 0–60000 整数。默认测速参数与 Smart 成员约束见[目标与原生输出](../../targets/README.md)。
 

@@ -2,13 +2,17 @@ import type { ProxyNode, Secret } from "../../model/types.js";
 import type { Json } from "../../model/errors.js";
 import { uuid } from "../../model/proxy-values.js";
 type Secrets = (s: Secret) => string;
-export function clashProxy(node: ProxyNode, secret: Secrets): Record<string, Json> {
+export function clashProxy(
+  node: ProxyNode,
+  secret: Secrets,
+  name: (id: string) => string = (id) => id,
+): Record<string, Json> {
   const result: Record<string, Json> = {
-    name: node.id,
+    name: name(node.id),
     type: node.type === "shadowsocks" ? "ss" : node.type,
     server: node.server,
     port: node.port,
-    ...(node.via ? { "dialer-proxy": node.via } : {}),
+    ...(node.via ? { "dialer-proxy": name(node.via) } : {}),
   };
   switch (node.type) {
     case "hysteria2":

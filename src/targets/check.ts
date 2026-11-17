@@ -127,8 +127,7 @@ export function checkTarget(
       if (!descriptor?.nativeRuleSets.includes(m.format as never))
         error("RULESET_UNSUPPORTED", path);
       const prev = sets.get(m.id);
-      if (prev && JSON.stringify(prev) !== JSON.stringify(m)) error("RULESET_ID_CONFLICT", path);
-      sets.set(m.id, m);
+      if (!prev) sets.set(m.id, m);
     }
   };
   model.rules.forEach((r, i) => inspect(r.when, `routes[${i}].when`));

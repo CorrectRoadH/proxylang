@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineBuild, runBuild } from "proxylang";
-import { scenarios, scenarioProfile, validationValue } from "../fixtures/scenarios.js";
+import { scenarios, scenarioProfile, fixtureSecrets } from "../fixtures/scenarios.js";
 // @feature docs/feature/targets/README.md#编码规则
 for (const scenario of scenarios)
   test(`golden ${scenario.id}`, async () => {
@@ -12,8 +12,7 @@ for (const scenario of scenarios)
     try {
       const p = scenarioProfile(scenario);
       const result = await runBuild(
-        defineBuild({ profiles: { fixture: p }, secrets: validationValue }),
-        dir,
+        defineBuild({ outDir: dir, profiles: { fixture: p }, secrets: fixtureSecrets }),
       );
       assert.equal(result.published, true, JSON.stringify(result));
       const ext =

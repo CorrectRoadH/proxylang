@@ -1,173 +1,247 @@
 #!/usr/bin/env node
 // @concord-file
-// @concord-implements docs/feature/build/README.md
-import {
-  runBuild,
-  checkBuild,
-  defineBuild,
-  definitionDiagnostic,
-  targetCatalog,
-} from "./build/index.js";
+// @concord-implements docs/feature/build/cli.md
+import { definitionDiagnostic, targetCatalog } from "./build/index.js";
+import type { CheckResult } from "./build/index.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { lstat, stat } from "node:fs/promises";
-import { tsImport } from "tsx/esm/api";
-
-const print = (value: unknown) => process.stdout.write(JSON.stringify(value, null, 2) + "\n");
-const failure = (code: string): number => {
-  print({ ok: false, code });
+import { register } from "tsx/esm/api";
+import { register as registerCjs } from "tsx/cjs/api";
+let json = false;
+function print(value: unknown, text?: string) {
+  process.stdout.write(
+    json ? JSON.stringify(value, null, 2) + "\n" : (text ?? human(value)) + "\n",
+  );
+}
+function human(value: unknown): string {
+  if (!value || typeof value !== "object") return String(value);
+  if ("profiles" in value) return humanCheck(value as CheckResult);
+  if ("check" in value) {
+    const result = value as {
+      check: CheckResult;
+      code: string;
+      secretName?: string;
+      hint?: string;
+    };
+    return `${humanCheck(result.check)}\n${result.code}${result.secretName ? " " + result.secretName : ""}${result.hint ? "\n" + result.hint : ""}`;
+  }
+  if ("targets" in value)
+    return (
+      value as {
+        targets: {
+          engine: string;
+          platform: string;
+          version: string;
+          modes: string[];
+          artifact: string;
+        }[];
+      }
+    ).targets
+      .map((t) => `${t.engine} ${t.platform} ${t.version}  ${t.modes.join("/")}  ${t.artifact}`)
+      .join("\n");
+  const r = value as {
+    code?: string;
+    reason?: string;
+    hint?: string;
+    paths?: string[];
+    origin?: { file: string; line: number; column: number };
+  };
+  return [
+    r.code,
+    r.reason,
+    r.hint,
+    r.paths?.join(", "),
+    r.origin ? `${r.origin.file}:${r.origin.line}:${r.origin.column}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("  ");
+}
+function humanCheck(check: CheckResult): string {
+  return (
+    check.profiles
+      .map(
+        (p) =>
+          `${p.ok ? "✓" : "✗"} ${p.key}  ${p.target.engine} ${p.target.platform} ${p.target.version}${p.selections
+            .flatMap((s) =>
+              s.kind === "algorithm"
+                ? [`  auto: ${s.group}→${s.algorithm}`]
+                : s.kind === "ruleSet"
+                  ? [`  ruleSets: ${s.ruleSet}→${s.branch} (${s.nativeName})`]
+                  : [],
+            )
+            .join(
+              "",
+            )}\n${p.diagnostics.map((d) => `  ${d.severity} ${d.code}  ${d.path}${d.origin ? `  ${d.origin.file}:${d.origin.line}:${d.origin.column}` : ""}`).join("\n")}`,
+      )
+      .join("\n") + `\n${check.code}`
+  );
+}
+function failure(code: string, detail: object = {}): number {
+  print({ ok: false, code, ...detail });
   return 1;
-};
-const usages = {
-  targets: ["proxylang targets"],
-  check: ["proxylang check"],
-  explain: [
-    "proxylang explain --target ID --request JSON",
-    "proxylang explain --target ID --request-file FILE",
-  ],
-  build: ["proxylang build [--validation]"],
-};
+}
+const usage = [
+  "proxylang check [--json]",
+  "proxylang build [--validation] [--json]",
+  "proxylang explain --profile KEY (--request JSON | --request-file FILE) [--json]",
+  "proxylang targets [--json]",
+];
 function loadFailure(cause: unknown): number {
   const diagnostic = definitionDiagnostic(cause);
-  if (diagnostic) {
-    print({
-      ok: false,
-      code: "CONFIG_LOAD_FAILED",
+  if (diagnostic)
+    return failure("CONFIG_LOAD_FAILED", {
       reason: "INVALID_CONFIGURATION",
-      diagnostic,
-      hint: "检查配置字段与库定义约束",
+      ...diagnostic,
+      code: "CONFIG_LOAD_FAILED",
+      hint: diagnostic.code,
     });
-    return 1;
-  }
-  let code: unknown;
-  let name: unknown;
+  let code: unknown, name: unknown;
   try {
     if (cause && typeof cause === "object") {
       code = Object.getOwnPropertyDescriptor(cause, "code")?.value;
       name = Object.getOwnPropertyDescriptor(cause, "name")?.value;
-      if (cause instanceof SyntaxError) name = "SyntaxError";
     }
-  } catch {
-    // Arbitrary configuration exceptions, including proxies, are not trusted diagnostics.
-  }
-  const detail =
-    code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND" || code === "ENOENT"
-      ? { reason: "MODULE_NOT_FOUND", hint: "检查配置文件和 import 路径，并安装所需依赖" }
-      : code === "EACCES" || code === "EPERM"
-        ? { reason: "ACCESS_DENIED", hint: "检查配置及导入文件的读取权限" }
-        : name === "TransformError" || name === "SyntaxError"
-          ? { reason: "INVALID_SYNTAX", hint: "使用 TypeScript 检查配置与导入文件的语法" }
-          : { reason: "EXECUTION_FAILED", hint: "检查默认导出、导入依赖和配置顶层执行逻辑" };
-  print({ ok: false, code: "CONFIG_LOAD_FAILED", ...detail });
-  return 1;
+  } catch {}
+  return failure("CONFIG_LOAD_FAILED", {
+    reason: ["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND", "ENOENT"].includes(code as string)
+      ? "MODULE_NOT_FOUND"
+      : ["EACCES", "EPERM"].includes(code as string)
+        ? "ACCESS_DENIED"
+        : ["TransformError", "SyntaxError"].includes(name as string)
+          ? "INVALID_SYNTAX"
+          : "EXECUTION_FAILED",
+  });
 }
-// @concord-code
-// @concord-implements docs/feature/build/cli.md
 async function main(args: string[]): Promise<number> {
+  json = args.includes("--json");
   const root = process.cwd();
-  const [command, ...rest] = args;
-  if (command === "targets" && args.length === 1) {
-    print(targetCatalog);
-    return 0;
-  }
-  const help = (value: string | undefined) => value === "--help" || value === "-h";
-  if (
-    !command ||
-    (help(command) && args.length === 1) ||
-    (Object.hasOwn(usages, command) && help(rest[0]) && rest.length === 1)
-  ) {
-    print({
-      usage:
-        command && Object.hasOwn(usages, command)
-          ? usages[command as keyof typeof usages]
-          : Object.values(usages).flat(),
-      configFile: "proxylang.config.ts",
-      trustedConfig: true,
-    });
-    return 0;
-  }
-  if (!["check", "explain", "build"].includes(command)) return failure("INVALID_ARGUMENTS");
+  const command = args[0];
+  const rest = args.slice(1);
   const options = new Map<string, string>();
-  let validation = false;
-  if (command === "build") {
-    if (
-      (rest.length === 1 && rest[0] === "--validation") ||
-      (rest.length === 2 && rest[0] === "--" && rest[1] === "--validation")
-    )
-      validation = true;
-    else if (rest.length) return failure("INVALID_ARGUMENTS");
-  } else if (command === "check") {
-    if (rest.length) return failure("INVALID_ARGUMENTS");
-  } else {
-    for (let i = 0; i < rest.length; i += 2) {
-      const key = rest[i]!;
-      const value = rest[i + 1];
-      if (
-        !["--target", "--request", "--request-file"].includes(key) ||
-        !value?.trim() ||
-        value.startsWith("--") ||
-        options.has(key)
-      )
+  const flags = new Set<string>();
+  if (!command || ((command === "--help" || command === "-h") && args.length === 1)) {
+    process.stdout.write(usage.join("\n") + "\n");
+    return 0;
+  }
+  if (
+    ["check", "build", "explain", "targets"].includes(command) &&
+    rest.length === 1 &&
+    ["--help", "-h"].includes(rest[0]!)
+  ) {
+    process.stdout.write(
+      usage.filter((v) => v.startsWith(`proxylang ${command}`)).join("\n") + "\n",
+    );
+    return 0;
+  }
+  if (!["check", "build", "explain", "targets"].includes(command))
+    return failure("INVALID_ARGUMENTS");
+  for (let i = 0; i < rest.length; i++) {
+    const option = rest[i]!;
+    if (option === "--json" || (command === "build" && option === "--validation")) {
+      if (flags.has(option)) return failure("INVALID_ARGUMENTS");
+      flags.add(option);
+    } else if (
+      command === "explain" &&
+      ["--profile", "--request", "--request-file"].includes(option)
+    ) {
+      const value = rest[++i];
+      if (!value?.trim() || value.startsWith("--") || options.has(option))
         return failure("INVALID_ARGUMENTS");
-      options.set(key, value);
-    }
-    if (!options.has("--target") || options.has("--request") === options.has("--request-file"))
-      return failure("INVALID_ARGUMENTS");
+      options.set(option, value);
+    } else return failure("INVALID_ARGUMENTS");
+  }
+  if (
+    command === "explain" &&
+    (!options.has("--profile") || options.has("--request") === options.has("--request-file"))
+  )
+    return failure("INVALID_ARGUMENTS");
+  if (command === "targets") {
+    const targets = targetCatalog.flatMap((t) =>
+      t.platforms.map((platform) => ({
+        engine: t.engine,
+        platform,
+        version: t.version,
+        modes:
+          t.engine === "surge"
+            ? ["standalone"]
+            : t.engine === "stash"
+              ? ["fragment"]
+              : ["standalone", "fragment"],
+        artifact: t.engine === "surge" ? ".conf" : t.engine === "sing-box" ? ".json" : ".yaml",
+      })),
+    );
+    print({ targets });
+    return 0;
   }
   const file = resolve(root, "proxylang.config.ts");
-  let found = false;
   try {
     const info = await lstat(file);
-    found = true;
     if (!(info.isSymbolicLink() ? (await stat(file)).isFile() : info.isFile()))
       return loadFailure({ code: "INVALID_CONFIG_FILE" });
-  } catch (cause) {
+  } catch (e) {
     if (
-      !found &&
-      cause &&
-      typeof cause === "object" &&
-      Object.getOwnPropertyDescriptor(cause, "code")?.value === "ENOENT"
+      e &&
+      typeof e === "object" &&
+      Object.getOwnPropertyDescriptor(e, "code")?.value === "ENOENT"
     )
       return failure("CONFIG_NOT_FOUND");
-    return loadFailure(cause);
+    return loadFailure(e);
   }
-  let config: unknown;
+  const loader = register({ namespace: "proxylang-config" });
+  const cjsLoader = registerCjs({ namespace: "proxylang-config" });
+  const log = console.log,
+    info = console.info;
+  console.log = (...args: unknown[]) => console.error(...args);
+  console.info = (...args: unknown[]) => console.error(...args);
   try {
-    const loaded = await tsImport(pathToFileURL(resolve(file)).href, import.meta.url);
-    // tsx follows the config's package scope: TS outside type:module uses CJS interop.
-    config = loaded.default?.__esModule === true ? loaded.default.default : loaded.default;
-  } catch (cause) {
-    return loadFailure(cause);
-  }
-  const profileDescriptor =
-    config && typeof config === "object"
-      ? Object.getOwnPropertyDescriptor(config, "profiles")
-      : undefined;
-  if (profileDescriptor) {
+    let sdk = (await loader.import("./index.js", import.meta.url)) as typeof import("./index.js");
+    let loaded;
+    try {
+      loaded = await loader.import(pathToFileURL(file).href, import.meta.url);
+    } catch (e) {
+      return loadFailure(e);
+    }
+    const config = loaded.default?.__esModule === true ? loaded.default.default : loaded.default;
     let definition;
     try {
-      definition = defineBuild(config as Parameters<typeof defineBuild>[0]);
-      if (definition.outDir !== undefined)
-        definition = { ...definition, outDir: resolve(root, definition.outDir) };
+      definition = sdk.defineBuild(config);
     } catch {
-      return failure("INVALID_BUILD_DEFINITION");
-    }
-    if (command !== "build") {
-      const checked = checkBuild(definition);
-      if (!checked.ok || command === "check") {
-        print(checked);
-        return checked.ok ? 0 : 1;
+      sdk = cjsLoader.require("./index.js", import.meta.url) as typeof import("./index.js");
+      try {
+        definition = sdk.defineBuild(config);
+      } catch {
+        return failure("INVALID_BUILD_DEFINITION");
       }
+    }
+    if (definition.outDir !== undefined)
+      definition = sdk.defineBuild({ ...definition, outDir: resolve(root, definition.outDir) });
+    const { checkBuild, runBuild } = sdk;
+    if (command === "check") {
+      const checked = checkBuild(definition);
+      print(checked);
+      return checked.ok ? 0 : 1;
+    }
+    if (command === "explain") {
+      const checked = checkBuild(definition);
+      if (!checked.ok) {
+        print(checked);
+        return 1;
+      }
+      if (!Object.hasOwn(definition.profiles, options.get("--profile")!))
+        return failure("UNKNOWN_PROFILE");
       return failure("EXPLAIN_PROFILE_UNSUPPORTED");
     }
-    if (definition.outDir === undefined) return failure("OUTPUT_DIRECTORY_REQUIRED");
-    const built = await runBuild(definition, definition.outDir, { validation });
+    const built = await runBuild(definition, { validation: flags.has("--validation") });
     print(built);
     return built.exitCode;
+  } finally {
+    console.log = log;
+    console.info = info;
+    cjsLoader.unregister();
+    await loader.unregister();
   }
-  return failure("INVALID_BUILD_DEFINITION");
 }
-
 try {
   process.exitCode = await main(process.argv.slice(2));
 } catch {

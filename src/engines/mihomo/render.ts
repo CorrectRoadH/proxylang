@@ -47,8 +47,8 @@ function conditionText(condition: Match): string {
       return `${condition.type === "port" ? "DST-PORT" : "SRC-PORT"},${condition.from === condition.to ? condition.from : `${condition.from}-${condition.to}`}`;
   }
 }
-const policy = (action: Action): string =>
-  action.type === "route" ? action.to : action.type === "direct" ? "DIRECT" : "REJECT";
+const policy = (action: Action, name: (id: string) => string): string =>
+  action.type === "route" ? name(action.to) : action.type === "direct" ? "DIRECT" : "REJECT";
 
 export function clashConfig(
   plan: EnginePlan,
@@ -56,16 +56,17 @@ export function clashConfig(
 ): Record<string, unknown> {
   const model = plan.model,
     target = model.target;
+  const name = (id: string) => plan.names?.get(id) ?? id;
   const config: Record<string, unknown> = {
-    proxies: model.nodes.map((node) => clashProxy(node, secret)),
-    "proxy-groups": model.groups.map((g) => clashGroup(g)),
+    proxies: model.nodes.map((node) => clashProxy(node, secret, name)),
+    "proxy-groups": model.groups.map((g) => clashGroup(g, name)),
     rules: [
       ...model.rules.map((rule) =>
         rule.when.type === "ipCidr"
-          ? `${conditionText(rule.when).replace(/,no-resolve$/, "")},${policy(rule.then)}${rule.when.noResolve !== false ? ",no-resolve" : ""}`
-          : `${conditionText(rule.when)},${policy(rule.then)}`,
+          ? `${conditionText(rule.when).replace(/,no-resolve$/, "")},${policy(rule.then, name)}${rule.when.noResolve !== false ? ",no-resolve" : ""}`
+          : `${conditionText(rule.when)},${policy(rule.then, name)}`,
       ),
-      `MATCH,${policy(model.fallback)}`,
+      `MATCH,${policy(model.fallback, name)}`,
     ],
   };
   if (plan.nativeRuleSets.length)

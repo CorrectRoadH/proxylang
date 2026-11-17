@@ -46,3 +46,7 @@
 两种隧道的 sectionName 都匹配 `^[A-Za-z][A-Za-z0-9_-]{0,127}$`，Profile 内唯一。SDK 生成 Proxy 行与专属 section，保留显式字段，不管理运行身份、登录或连接。
 
 select 和 Smart 都可包含 Surge 隧道；Smart 不能包含分组或内置出口。Surge 隧道不能用作 `via`。名称、编码和逻辑选项位置见[Surge 输出](../../targets/format/surge.md)。
+
+## 分组测试参数
+
+`defineProxyGroup` 的 `surge` 分支为 select 分组设置可用性测试：`url` 是 HTTP(S) 测试地址，`intervalSeconds` 与 `timeoutSeconds` 是正整数秒，分别编码为该分组的 `url`、`interval`、`timeout` 参数，取值范围沿用现行实现。省略 `surge` 分支时不输出这些参数。

@@ -73,6 +73,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `PROTOCOL_UNSUPPORTED` | error | 节点协议不被目标支持 |
 | `PROXY_OPTION_UNSUPPORTED` | error | 节点选项不被目标支持，例如某个版本不支持的 vless 扩展 |
 | `GROUP_ALGORITHM_UNSUPPORTED` | error | 分组算法不被目标支持 |
+| `GROUP_OPTION_UNSUPPORTED` | error | 分组的引擎专属参数用在了别的引擎，或者用在不支持它的算法上 |
 | `ALGORITHM_ENGINE_MISMATCH` | error | 引擎专属算法用在了别的引擎 |
 | `CONDITION_UNSUPPORTED` | error | 条件或条件选项不被目标支持，例如 iOS 上的 `processName`、Mihomo 上的 `includeSniffed: true` |
 | `RESOLVE_NESTED` | error | 会触发解析的条件出现在 `all`、`any`、`not` 内部，而目标只能在整条规则之前解析 |

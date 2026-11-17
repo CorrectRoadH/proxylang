@@ -1,149 +1,139 @@
 // @concord-file
-// @concord-implements docs/feature/build/use-case/publish-device-configs.md
-import { defineBuild, record } from "../authoring/build.js";
-import type { BuildDefinition } from "../model/build-types.js";
-export type { BuildContext, BuildDefinition } from "../model/build-types.js";
-export { defineBuild } from "../authoring/build.js";
+// @concord-implements docs/feature/build/library.md
 import { join, resolve } from "node:path";
-import type { Profile, ProfileDefinition } from "../authoring/profile.js";
-import { prepareProfile, renderPrepared, type PreparedProfile } from "./plans.js";
-import { RenderError } from "../model/errors.js";
+import { ProfileDefinitionError } from "../model/definitions.js";
+import { kindOf, originOf } from "../model/identity.js";
+import type { BuildDefinition } from "../model/build-types.js";
+import type { Target } from "../model/profile-types.js";
+import type { Diagnostic, ProfileDiagnostic } from "../model/types.js";
+import type { Selection } from "../model/inspect-profile.js";
+import { prepareProfile, renderPrepared } from "./plans.js";
 import { pathsOverlap } from "../model/paths.js";
 import { secretReader, secretFailure } from "./secrets.js";
 import { publishProfiles, SurgePublishError } from "./publish.js";
-export type BuildResult = {
-  published: boolean;
-  exitCode: 0 | 1 | 2;
-  code: string;
-  active?: string;
-  hint?: string;
-};
-import type { Secret, Diagnostic } from "../model/types.js";
-function compileBatch(
-  profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
-  output?: string,
-) {
-  const entries = Object.entries(profiles);
-  const compiled: PreparedProfile[] = [];
-  let outputDirectoryChecked = false;
-  const result = (code: string, paths?: readonly string[]) => ({
-    ...(paths ? { paths } : {}),
-    ok: code === "CHECKED",
-    code,
-    entries,
-    compiled,
-    outputDirectoryChecked,
-  });
-  if (
-    !entries.length ||
-    entries.length > 16 ||
-    entries.some(([id]) => !/^[a-z0-9][a-z0-9-]*$/.test(id))
-  )
-    return result("INVALID_PROFILE_FILENAMES");
-  compiled.push(...entries.map(([, profile]) => prepareProfile(profile)));
-  const invalid = compiled.find((profile) => !profile.ok);
-  if (invalid) return result(invalid.code ?? "COMPILATION_FAILED", invalid.paths);
-  if (output !== undefined) {
-    outputDirectoryChecked = true;
-    if (
-      compiled.some((profile) =>
-        profile.plan?.model.endpoints.some((endpoint) =>
-          pathsOverlap(output, endpoint.stateDirectory),
-        ),
-      )
-    )
-      return result("ENDPOINT_STATE_OVERLAP");
-  }
-  return result("CHECKED");
-}
-export type ProfileCheckResult = {
+import { RenderError } from "../model/errors.js";
+export { defineBuild } from "../authoring/build.js";
+export type { BuildDefinition };
+export type { Origin } from "../model/identity.js";
+export type { Selection };
+export type CheckResult = {
   readonly ok: boolean;
-  readonly code: string;
-  readonly profileCount: number;
+  readonly code: "CHECKED" | "CHECK_FAILED" | "CASE_FAILED";
   readonly outputDirectoryChecked: boolean;
   readonly profiles: readonly {
-    readonly id: string;
-    readonly engine: "surge" | "sing-box" | "mihomo" | "stash";
+    readonly key: string;
+    readonly target: Target;
     readonly ok: boolean;
-    readonly code?: string;
-    readonly paths?: readonly string[];
-    readonly diagnostics: readonly Diagnostic[];
+    readonly diagnostics: readonly ProfileDiagnostic[];
+    readonly selections: readonly Selection[];
   }[];
+  readonly cases: readonly never[];
 };
-// @concord-code
-// @concord-implements docs/feature/build/format/project-config.md
-export function checkBuild(input: BuildDefinition): ProfileCheckResult {
-  const root = process.cwd();
-  let definition: BuildDefinition;
-  try {
-    definition = defineBuild(input);
-  } catch {
-    return {
-      ok: false,
-      code: "INVALID_BUILD_DEFINITION",
-      profileCount: 0,
-      outputDirectoryChecked: false,
-      profiles: [],
-    };
-  }
-  const checked = compileBatch(
-    definition.profiles,
-    definition.outDir === undefined ? undefined : resolve(root, definition.outDir),
+export type BuildResult = {
+  readonly published: boolean;
+  readonly exitCode: 0 | 1 | 2;
+  readonly code: string;
+  readonly check: CheckResult;
+  readonly active?: string;
+  readonly hint?: string;
+  readonly secretName?: string;
+};
+function compile(definition: BuildDefinition) {
+  if (kindOf(definition) !== "build") throw new ProfileDefinitionError("INVALID_BUILD_DEFINITION");
+  const entries = Object.entries(definition.profiles);
+  const prepared = entries.map(([key, p]) => prepareProfile(p, key, definition.secrets));
+  const extra = entries.map(() => [] as Diagnostic[]);
+  const endpoints = entries.flatMap(([key, p], index) =>
+    p.proxies.flatMap((resource) =>
+      resource.type === "sing-box-tailscale" ? [{ key, index, resource }] : [],
+    ),
   );
-  return {
-    ok: checked.ok,
-    code: checked.code,
-    profileCount: checked.entries.length,
-    outputDirectoryChecked: checked.outputDirectoryChecked,
-    profiles: checked.compiled.map((profile, index) => ({
-      id: checked.entries[index]![0],
-      engine: profile.engine,
-      ok: profile.ok,
-      ...(profile.code ? { code: profile.code, paths: profile.paths } : {}),
-      diagnostics: profile.diagnostics,
-    })),
-  };
-}
-async function publish(
-  profiles: Readonly<Record<string, Profile | ProfileDefinition>>,
-  output: string,
-  readSecret: (token: Secret) => string | undefined,
-): Promise<BuildResult> {
-  try {
-    const checked = compileBatch(profiles, output);
-    if (!checked.ok)
-      return {
-        published: false,
-        exitCode: 1,
-        code: checked.code,
-        ...(checked.paths ? { paths: checked.paths } : {}),
-      };
-    const { entries, compiled } = checked;
-    const read = secretReader(readSecret);
-    const files = new Map<string, string>();
-    for (const [index, profile] of compiled.entries()) {
-      files.set(
-        `${entries[index]![0]}.${profile.engine === "surge" ? "conf" : profile.engine === "sing-box" ? "json" : "yaml"}`,
-        renderPrepared(profile, read),
-      );
+  for (let i = 0; i < endpoints.length; i++) {
+    const a = endpoints[i]!;
+    const add = (index: number, key: string, resource: typeof a.resource) =>
+      extra[index]!.push({
+        severity: "error",
+        code: "ENDPOINT_STATE_OVERLAP",
+        profile: key,
+        path: `proxies.${resource.id}.stateDirectory`,
+        message: "Endpoint state directories must be exclusive",
+        origin: originOf(resource),
+      });
+    if (
+      definition.outDir !== undefined &&
+      pathsOverlap(resolve(definition.outDir), a.resource.stateDirectory)
+    )
+      add(a.index, a.key, a.resource);
+    for (let j = 0; j < i; j++) {
+      const b = endpoints[j]!;
+      if (pathsOverlap(a.resource.stateDirectory, b.resource.stateDirectory)) {
+        add(a.index, a.key, a.resource);
+        add(b.index, b.key, b.resource);
+      }
     }
-    await publishProfiles(files, output);
+  }
+  const profiles = prepared.map((p, i) => {
+    const diagnostics = [...p.diagnostics, ...extra[i]!].map((d) => {
+      const { target: _target, ...rest } = d;
+      return { ...rest, profile: entries[i]![0] };
+    });
     return {
-      published: true,
-      exitCode: 0,
-      code: "PUBLISHED",
-      active: join(resolve(output), "out"),
+      key: entries[i]![0],
+      target: entries[i]![1].target,
+      ok: p.ok && !diagnostics.some((d) => d.severity === "error"),
+      diagnostics,
+      selections: p.selections,
     };
+  });
+  const ok = profiles.every((p) => p.ok);
+  const check: CheckResult = Object.freeze({
+    ok,
+    code: ok ? "CHECKED" : "CHECK_FAILED",
+    outputDirectoryChecked: definition.outDir !== undefined,
+    profiles,
+    cases: [],
+  });
+  return { check, prepared, entries };
+}
+export function checkBuild(definition: BuildDefinition): CheckResult {
+  return compile(definition).check;
+}
+export async function runBuild(
+  definition: BuildDefinition,
+  options: { readonly validation?: boolean } = {},
+): Promise<BuildResult> {
+  const { check, prepared, entries } = compile(definition);
+  if (
+    Object.keys(options).some((k) => k !== "validation") ||
+    (options.validation !== undefined && typeof options.validation !== "boolean")
+  )
+    return { published: false, exitCode: 1, code: "INVALID_BUILD_OPTIONS", check };
+  if (!check.ok) return { published: false, exitCode: 1, code: check.code, check };
+  if (definition.outDir === undefined)
+    return { published: false, exitCode: 1, code: "OUTPUT_DIRECTORY_REQUIRED", check };
+  const output = resolve(definition.outDir);
+  const active = join(output, "out");
+  try {
+    const read = secretReader(definition.secrets, options.validation ?? false);
+    const files = new Map<string, string>();
+    for (const [i, p] of prepared.entries())
+      files.set(
+        `${entries[i]![0]}.${p.engine === "surge" ? "conf" : p.engine === "sing-box" ? "json" : "yaml"}`,
+        renderPrepared(p, read),
+      );
+    await publishProfiles(files, output);
+    return { published: true, exitCode: 0, code: "PUBLISHED", check, active };
   } catch (error) {
     if (error instanceof SurgePublishError)
       return {
         published: error.published,
         exitCode: error.published || error.message === "PUBLISH_RECOVERY_REQUIRED" ? 2 : 1,
         code: error.message,
-        ...(error.published ? { active: join(resolve(output), "out") } : {}),
+        check,
+        ...(error.published ? { active } : {}),
         ...(error.message === "PUBLISH_RECOVERY_REQUIRED"
           ? {
-              hint: "out may be absent; preserve the lock, backup, generation and temporary pointer for manual recovery",
+              hint: "Preserve the lock, backup, generation and temporary pointer for manual recovery",
             }
           : {}),
       };
@@ -151,59 +141,10 @@ async function publish(
       published: false,
       exitCode: 1,
       code: error instanceof RenderError ? error.code : "BUILD_FAILED",
+      check,
       ...secretFailure(error),
     };
   }
 }
-export type ProfileBuildResult = BuildResult & {
-  readonly warnings: Readonly<Record<string, number>>;
-  readonly validation: boolean;
-  readonly profileCount: number;
-};
-export function profileBuildFailure(
-  code: string,
-  validation = false,
-  profileCount = 0,
-): ProfileBuildResult {
-  return { published: false, exitCode: 1, code, warnings: {}, validation, profileCount };
-}
-/** Pure orchestration result; the CLI owns stdout and process exit status. */
-export async function runBuild(
-  input: BuildDefinition,
-  output: string,
-  options: { readonly validation?: boolean } = {},
-): Promise<ProfileBuildResult> {
-  const root = process.cwd();
-  let validation: boolean;
-  try {
-    record(options, ["validation"]);
-    if (options.validation !== undefined && typeof options.validation !== "boolean")
-      throw new Error();
-    validation = options.validation ?? false;
-  } catch {
-    return profileBuildFailure("INVALID_BUILD_OPTIONS");
-  }
-  let definition: BuildDefinition;
-  try {
-    definition = defineBuild(input);
-  } catch {
-    return profileBuildFailure("INVALID_BUILD_DEFINITION", validation);
-  }
-  const profileCount = Object.keys(definition.profiles).length;
-  const failure = (code: string) => profileBuildFailure(code, validation, profileCount);
-  if (typeof output !== "string" || !output.trim()) return failure("INVALID_OUTPUT_DIRECTORY");
-  output = resolve(root, output);
-  if (validation && !definition.secrets) return failure("VALIDATION_SECRETS_REQUIRED");
-  const warnings: Record<string, number> = {};
-  const context = Object.freeze({ validation });
-  const readSecret = definition.secrets;
-  const result = await publish(
-    definition.profiles,
-    output,
-    readSecret ? (token) => readSecret(token, context) : (token) => process.env[token.name],
-  );
-  return { ...result, warnings, validation, profileCount };
-}
-
 export { definitionDiagnostic } from "../model/definitions.js";
 export { targetCatalog } from "../targets/catalog.js";

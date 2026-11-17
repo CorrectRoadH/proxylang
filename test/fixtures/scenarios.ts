@@ -6,13 +6,14 @@ import {
   match,
   outbound,
   proxy,
-  secret,
+  defineSecrets,
+  ruleSet,
   singbox,
   surge,
   type ProfileDefinition,
   type Profile,
-  type ProfileCondition,
-  type ProfileDestination,
+  type Condition as ProfileCondition,
+  type Exit as ProfileDestination,
 } from "proxylang";
 
 const defineRoutes = (input: {
@@ -24,12 +25,20 @@ const defineRoutes = (input: {
     when: Array.isArray(input.when) ? input.when : [input.when],
   } as Parameters<typeof routeBatch>[0]);
 
-export const validationValue = (token: { name: string }): string =>
-  token.name === "TEST_UUID"
-    ? "11111111-2222-4333-8444-555555555555"
-    : token.name === "TEST_KEY"
-      ? "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      : "test-only";
+export const fixtureSecrets = defineSecrets({
+  TEST_PASSWORD: { value: "test-only", validation: "test-only" },
+  TEST_USER: { value: "test-only", validation: "test-only" },
+  TEST_UUID: {
+    value: "11111111-2222-4333-8444-555555555555",
+    validation: "11111111-2222-4333-8444-555555555555",
+  },
+  TEST_AUTH: { value: "test-only", validation: "test-only" },
+  TEST_KEY: {
+    value: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    validation: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  },
+});
+const secret = (name: Extract<keyof typeof fixtureSecrets, string>) => fixtureSecrets[name];
 export type Scenario = {
   id: string;
   engine: "surge" | "sing-box" | "mihomo" | "stash";
@@ -49,7 +58,8 @@ for (const [engine, version, platforms, modes] of [
 ] as const)
   for (const platform of platforms)
     for (const mode of modes) {
-      const scenes = ["protocols", "groups", "chain", "conditions"];
+      const scenes = ["protocols", "groups", "chain", "conditions", "names"];
+      if (engine === "surge") scenes.push("group-options");
       if (engine !== "stash") scenes.push("rulesets");
       if (engine === "surge" || (engine === "sing-box" && mode === "standalone"))
         scenes.push("dns", "tunnel");
@@ -72,6 +82,7 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
   const nodes = [
     proxy.trojan({
       id: "edge",
+      ...(s.scene === "names" ? { name: "Edge Example" } : {}),
       server: "192.0.2.10",
       port: 443,
       password: pass,
@@ -163,9 +174,71 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
   }
   if (s.scene === "chain") {
     resources.push(
-      proxy.http({ id: "chained", server: "192.0.2.20", port: 8080, password: pass, via: "edge" }),
+      proxy.http({
+        id: "chained",
+        server: "192.0.2.20",
+        port: 8080,
+        password: pass,
+        via: nodes[0],
+      }),
     );
     routes.push(...defineRoutes({ when: match.network("tcp"), to: resources[1] as never }));
+  }
+  if (s.scene === "group-options") {
+    const tested = defineProxyGroup({
+      id: "tested-select",
+      name: "Tested Select",
+      algorithm: group.select(),
+      members: nodes,
+      surge: { url: "https://test.example.com/probe", intervalSeconds: 300, timeoutSeconds: 10 },
+    });
+    groups.push(tested);
+    routes.unshift(...defineRoutes({ when: match.domain("selected.example"), to: tested }));
+  }
+  if (s.scene === "names") {
+    const choice = defineProxyGroup({
+      id: "named-choice",
+      name: "Route Choice",
+      algorithm: group.select(),
+      members: nodes,
+    });
+    groups.push(choice);
+    const chained = proxy.http({
+      id: "named-chain",
+      name: "Chained Example",
+      server: "192.0.2.20",
+      port: 8080,
+      password: pass,
+      via: choice,
+    });
+    resources.push(chained);
+    routes.unshift(
+      ...defineRoutes({ when: match.domain("choice.example"), to: choice }),
+      ...defineRoutes({ when: match.network("tcp"), to: chained }),
+    );
+    if (s.engine === "surge") {
+      const mesh = surge.tailscale({
+        id: "named-mesh",
+        name: "Mesh Example",
+        sectionName: "NamedMesh",
+        hostname: "example-device",
+        authKey: fixtureSecrets.TEST_AUTH,
+      });
+      resources.push(mesh);
+      routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: mesh }));
+    }
+    if (s.engine === "sing-box" && s.mode === "standalone") {
+      const mesh = singbox.tailscale({
+        id: "named-mesh",
+        name: "Mesh Example",
+        hostname: "example-device",
+        stateDirectory: "/var/lib/example-named-mesh",
+        acceptRoutes: true,
+        bootstrapResolver: "192.0.2.53",
+      });
+      resources.push(mesh);
+      routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: mesh }));
+    }
   }
   if (s.scene === "conditions") {
     const conditions: ProfileCondition[] = [
@@ -190,45 +263,35 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
     routes.push(...defineRoutes({ when: conditions, to: outbound.direct }));
   }
   if (s.scene === "rulesets") {
-    const when =
-      s.engine === "surge"
-        ? surge.ruleSet({
-            id: "external",
-            url: "https://rules.example.com/list.txt",
-            intervalSeconds: 86400,
-          })
-        : s.engine === "sing-box"
-          ? singbox.ruleSet({
-              id: "external",
-              url: "https://rules.example.com/list.json",
-              format: "source",
-              intervalSeconds: 86400,
-            })
-          : {
-              type: "nativeRuleSet",
-              engine: "mihomo",
-              id: "external",
-              url: "https://rules.example.com/list.yaml",
-              format: "yaml",
-              behavior: "domain",
-              intervalSeconds: 86400,
-            };
+    const when = ruleSet({
+      id: "external",
+      surge: { url: "https://rules.example.com/list.txt", intervalSeconds: 86400 },
+      singBox: {
+        url: "https://rules.example.com/list.json",
+        format: "source",
+        intervalSeconds: 86400,
+      },
+      mihomo: {
+        url: "https://rules.example.com/list.yaml",
+        format: "yaml",
+        behavior: "domain",
+        intervalSeconds: 86400,
+      },
+    });
     routes.unshift(...defineRoutes({ when: when as never, to: outbound.direct }));
   }
   if (s.engine === "surge") {
     extensions = { surge: { general: { loglevel: "notify", "dns-server": ["192.0.2.53"] } } };
     if (s.scene === "tunnel") {
       resources.push(
-        {
+        surge.tailscale({
           id: "tunnel",
-          type: "tailscale",
           sectionName: "ExampleMesh",
           authKey: secret("TEST_AUTH"),
           hostname: "test-device",
-        },
-        {
+        }),
+        surge.wireguard({
           id: "wireguard",
-          type: "wireguard",
           sectionName: "ExampleWire",
           privateKey: secret("TEST_KEY"),
           selfIp: "192.0.2.2",
@@ -241,7 +304,7 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
               persistentKeepalive: 25,
             },
           ],
-        },
+        }),
       );
       routes.unshift(
         ...defineRoutes({ when: match.domain("mesh.example"), to: resources[1] as never }),

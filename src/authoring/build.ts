@@ -1,6 +1,7 @@
 import { ProfileDefinitionError } from "../model/definitions.js";
-import { snapshotProfile } from "./profile.js";
-import type { Profile, ProfileDefinition } from "../model/profile-types.js";
+import { created, requireKind } from "./data.js";
+import { kindOf } from "../model/identity.js";
+import type { SDK } from "../model/identity.js";
 import type { BuildDefinition } from "../model/build-types.js";
 export function record(
   value: unknown,
@@ -24,7 +25,8 @@ export function record(
   }
 }
 /** Capture the immutable batch before any secret source is invoked. */
-export function defineBuild(input: BuildDefinition): BuildDefinition {
+export function defineBuild(input: Omit<BuildDefinition, keyof SDK<"build">>): BuildDefinition {
+  if (kindOf(input) === "build") return input as BuildDefinition;
   try {
     record(input, ["profiles", "secrets", "outDir"]);
     if (
@@ -36,15 +38,19 @@ export function defineBuild(input: BuildDefinition): BuildDefinition {
     )
       throw new Error();
     record(input.profiles);
-    for (const callback of [input.secrets])
-      if (callback !== undefined && typeof callback !== "function") throw new Error();
-    return Object.freeze({
-      ...(input.outDir === undefined ? {} : { outDir: input.outDir }),
-      profiles: snapshotProfile(input.profiles as unknown) as Readonly<
-        Record<string, Profile | ProfileDefinition>
-      >,
-      ...(input.secrets === undefined ? {} : { secrets: input.secrets }),
-    });
+    const keys = Object.keys(input.profiles);
+    if (!keys.length || keys.length > 16 || keys.some((k) => !/^[a-z0-9][a-z0-9-]*$/.test(k)))
+      throw new Error();
+    for (const p of Object.values(input.profiles)) requireKind(p, ["profile"]);
+    if (input.secrets !== undefined) requireKind(input.secrets, ["secrets"]);
+    return created(
+      {
+        ...(input.outDir === undefined ? {} : { outDir: input.outDir }),
+        profiles: input.profiles,
+        ...(input.secrets === undefined ? {} : { secrets: input.secrets }),
+      },
+      "build",
+    );
   } catch {
     throw new ProfileDefinitionError("INVALID_BUILD_DEFINITION");
   }

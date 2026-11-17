@@ -1,31 +1,31 @@
 // @concord-file
-// @concord-implements docs/feature/profile/use-case/define-proxies.md
-import { assertData, deepFreeze } from "../model/schema.js";
-import type { ProxyNode } from "../model/types.js";
-
+// @concord-implements docs/feature/profile/library/proxies.md#builder
+import type { ProxyNode, ProxyGroup } from "../model/profile-types.js";
+import { created, requireKind } from "./data.js";
+import { ProfileDefinitionError } from "../model/definitions.js";
 export type ProxyBuilder<N extends ProxyNode> = {
-  readonly via: (id: string) => ProxyBuilder<N>;
-  readonly label: (text: string) => ProxyBuilder<N>;
+  readonly via: (exit: ProxyNode | ProxyGroup) => ProxyBuilder<N>;
+  readonly name: (text: string) => ProxyBuilder<N>;
   readonly tcpFastOpen: (enabled: boolean) => ProxyBuilder<N>;
   readonly build: () => N;
 };
-
-/** Fluent construction is separate from the plain-data node consumed by the compiler. */
-export function proxyBuilder<N extends ProxyNode>(
-  node: N,
-): ProxyBuilder<Extract<ProxyNode, { type: N["type"] }>> {
-  assertData(node);
-  type Node = Extract<ProxyNode, { type: N["type"] }>;
-  const copy = deepFreeze(structuredClone(node)) as unknown as Node;
-  const fork = (patch: {
-    via?: string;
-    label?: string;
-    tcpFastOpen?: boolean;
-  }): ProxyBuilder<Node> => proxyBuilder({ ...copy, ...patch }) as ProxyBuilder<Node>;
+export function proxyBuilder<N extends ProxyNode>(node: N): ProxyBuilder<N> {
+  requireKind(node, ["node"]);
+  const fork = (patch: object) => proxyBuilder(created({ ...node, ...patch }, "node") as N);
   return Object.freeze({
-    via: (id: string) => fork({ via: id }),
-    label: (text: string) => fork({ label: text }),
-    tcpFastOpen: (enabled: boolean) => fork({ tcpFastOpen: enabled }),
-    build: () => deepFreeze(structuredClone(copy)),
+    via: (value: ProxyNode | ProxyGroup) => {
+      requireKind(value, ["node", "group"]);
+      return fork({ via: value });
+    },
+    name: (text: string) => {
+      if (typeof text !== "string") throw new ProfileDefinitionError("INVALID_FIELD");
+      return fork({ name: text });
+    },
+    tcpFastOpen: (enabled: boolean) => {
+      if (typeof enabled !== "boolean") throw new ProfileDefinitionError("INVALID_FIELD");
+      if (node.type === "hysteria2") throw new ProfileDefinitionError("INVALID_FIELD");
+      return fork({ tcpFastOpen: enabled });
+    },
+    build: () => created({ ...node }, "node") as N,
   });
 }

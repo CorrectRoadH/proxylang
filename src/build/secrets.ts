@@ -1,45 +1,35 @@
 // @concord-file
-// @concord-implements docs/feature/build/README.md
+// @concord-implements docs/feature/profile/library/README.md#秘密
 import { RenderError } from "../model/errors.js";
+import { sourceFor } from "../model/secret-store.js";
 import type { Secret } from "../model/types.js";
-
-export type SecretFailure = {
-  readonly secretName?: string;
-  readonly secretReason?: "MISSING" | "RESOLUTION_FAILED";
-};
-const failures = new WeakMap<object, SecretFailure>();
-export function secretFailure(error: unknown): SecretFailure {
-  return error !== null && typeof error === "object" ? (failures.get(error) ?? {}) : {};
+import type { Secrets, SecretRef } from "../model/profile-types.js";
+const failures = new WeakMap<object, { secretName: string }>();
+export function secretFailure(error: unknown): { secretName?: string } {
+  return error && typeof error === "object" ? (failures.get(error) ?? {}) : {};
 }
-function failure(code: string, name: string, reason: "MISSING" | "RESOLUTION_FAILED") {
-  const error = new RenderError(code);
-  if (/^[A-Z][A-Z0-9_]{0,127}$/.test(name))
-    failures.set(error, Object.freeze({ secretName: name, secretReason: reason }));
-  return error;
-}
-/** One reader per rendering batch; exceptions and missing values never disclose credentials. */
 export function secretReader(
-  resolveSecret: (token: Secret) => string | undefined,
-): (token: Secret) => string {
-  const values = new Map<string, string>();
+  secrets: Secrets | undefined,
+  validation: boolean,
+): (ref: Secret) => string {
+  const values = new Map<Secret, string>();
   return (token) => {
-    if (values.has(token.name)) return values.get(token.name)!;
+    if (values.has(token)) return values.get(token)!;
+    const source = sourceFor(secrets, token as SecretRef);
+    let code: string | undefined;
     let value: string | undefined;
-    try {
-      value = resolveSecret(token);
-    } catch (error) {
-      const nested = secretFailure(error);
-      throw failure(
-        "SECRET_RESOLUTION_FAILED",
-        token.name,
-        nested.secretName === token.name && nested.secretReason === "MISSING"
-          ? "MISSING"
-          : "RESOLUTION_FAILED",
-      );
+    if (!source) code = "SECRET_UNDECLARED";
+    else if (validation) {
+      if (source.validation === undefined) code = "SECRET_VALIDATION_MISSING";
+      else value = source.validation;
+    } else value = source.value ?? (source.env === undefined ? undefined : process.env[source.env]);
+    if (!code && (typeof value !== "string" || !value.length)) code = "SECRET_MISSING";
+    if (code) {
+      const error = new RenderError(code);
+      failures.set(error, { secretName: token.name });
+      throw error;
     }
-    if (typeof value !== "string" || value.length === 0)
-      throw failure("SECRET_MISSING", token.name, "MISSING");
-    values.set(token.name, value);
-    return value;
+    values.set(token, value!);
+    return value!;
   };
 }

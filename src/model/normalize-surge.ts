@@ -1,3 +1,4 @@
+import { deepFreeze } from "./schema.js";
 import { isIP } from "node:net";
 import type { Profile, ProfileCondition } from "./profile-types.js";
 import type { SurgeCondition } from "./surge-schema.js";
@@ -45,19 +46,13 @@ function lowerSurgeProfile(input: SurgeDefinitionInput) {
     (input.tunnels !== undefined && !Array.isArray(input.tunnels))
   )
     fail("DEFINITION_NOT_DATA");
-  const registry = new Map<string, ProfileDestination>();
+  const registry = new Map<string, { readonly id: string }>();
   const names: Record<string, string> = Object.assign(Object.create(null), input.names);
   for (const resource of [...input.nodes, ...(input.tunnels ?? []), ...input.groups]) {
     if (!resource || typeof resource !== "object" || typeof resource.id !== "string")
       fail("INVALID_RESOURCE_DEFINITION");
-    if (registry.has(resource.id)) fail("DUPLICATE_RESOURCE_ID");
     registry.set(resource.id, resource);
-    const name =
-      resource.type === "proxy-group"
-        ? resource.name
-        : "label" in resource
-          ? (resource.label ?? resource.id)
-          : resource.id;
+    const name = "name" in resource ? (resource.name ?? resource.id) : resource.id;
     if (
       resource.type === "proxy-group" &&
       names[resource.id] !== undefined &&
@@ -72,10 +67,6 @@ function lowerSurgeProfile(input: SurgeDefinitionInput) {
     });
   }
   function lower(destination: ProfileDestination): SurgePolicy {
-    if (typeof destination === "string") {
-      if (!registry.has(destination)) fail("UNKNOWN_DESTINATION_ID");
-      return { ref: destination };
-    }
     if (!destination || typeof destination !== "object") fail("INVALID_DESTINATION");
     if ("builtin" in destination) {
       exactDefinition(destination, ["builtin"]);
@@ -83,20 +74,10 @@ function lowerSurgeProfile(input: SurgeDefinitionInput) {
         fail("INVALID_DESTINATION");
       return { builtin: destination.builtin };
     }
-    if (registry.get(destination.id) !== destination) fail("UNREGISTERED_DESTINATION_INSTANCE");
     return { ref: destination.id };
   }
   const groups = input.groups.map((definition) => {
-    exactDefinition(definition, [
-      "type",
-      "id",
-      "name",
-      "algorithm",
-      "members",
-      "url",
-      "intervalSeconds",
-      "timeoutSeconds",
-    ]);
+    exactDefinition(definition, ["type", "id", "name", "algorithm", "members", "surge"]);
     if (definition.type !== "proxy-group") fail("INVALID_GROUP_DEFINITION");
     if (
       !definition.algorithm ||
@@ -105,14 +86,12 @@ function lowerSurgeProfile(input: SurgeDefinitionInput) {
       fail("UNSUPPORTED_GROUP_ALGORITHM");
     exactDefinition(definition.algorithm, ["type"]);
     if (!Array.isArray(definition.members)) fail("INVALID_GROUP_DEFINITION");
-    const { id, url, intervalSeconds, timeoutSeconds } = definition;
+    const { id } = definition;
     return {
       id,
       type: definition.algorithm.type === "select" ? ("select" as const) : ("smart" as const),
       members: definition.members.map(lower),
-      ...(url === undefined ? {} : { url }),
-      ...(intervalSeconds === undefined ? {} : { intervalSeconds }),
-      ...(timeoutSeconds === undefined ? {} : { timeoutSeconds }),
+      ...definition.surge,
     };
   });
   const rules = input.routes.map((definition) => {
@@ -121,9 +100,14 @@ function lowerSurgeProfile(input: SurgeDefinitionInput) {
     return { when: definition.when, then: lower(definition.to) };
   });
   const { routes: _routes, groups: _groups, fallback, ...rest } = input;
-  return snapshotDefinition({ ...rest, names, groups, rules, fallback: lower(fallback) });
+  return deepFreeze(
+    snapshotDefinition({ ...rest, names, groups, rules, fallback: lower(fallback) }),
+  );
 }
-function surgeCondition(c: ProfileCondition, depth = 0): SurgeCondition {
+function surgeCondition(
+  c: ProfileCondition | import("./types.js").Match,
+  depth = 0,
+): SurgeCondition {
   if (depth > 10) throw new ProfileDefinitionError("LOGICAL_DEPTH_EXCEEDED");
   if (c.type === "nativeRuleSet") {
     if (c.engine !== "surge") throw new ProfileDefinitionError("PROFILE_CONDITION_UNSUPPORTED");
@@ -132,6 +116,7 @@ function surgeCondition(c: ProfileCondition, depth = 0): SurgeCondition {
     const { engine: _engine, id: _id, ...fields } = c;
     return { ...fields, type: "ruleSet" };
   }
+  if (c.type === "ruleSet") return { type: "ruleSet", format: "rule-set", builtin: c.builtin };
   if (c.type === "all" || c.type === "any")
     return c.conditions.length === 1
       ? surgeCondition(c.conditions[0]!, depth + 1)
@@ -153,8 +138,15 @@ export function normalizeSurgeProfile(p: Profile) {
     target: p.target,
     ...p.surge,
     ...(p.dns?.length ? { hosts: [...p.dns, ...(p.surge?.hosts ?? [])] } : {}),
-    nodes,
-    tunnels,
+    nodes: nodes.map((n) => {
+      const { name: _name, ...rest } = n;
+      return { ...rest, ...("via" in rest && rest.via ? { via: rest.via.id } : {}) };
+    }),
+    tunnels: tunnels.map((t) => {
+      const { name: _name, ...rest } = t;
+      return rest;
+    }),
+    names: Object.fromEntries([...p.proxies, ...p.groups].map((r) => [r.id, r.name ?? r.id])),
     groups,
     routes: p.routes.map((r) => ({ ...r, when: surgeCondition(r.when) })),
     fallback: p.fallback,

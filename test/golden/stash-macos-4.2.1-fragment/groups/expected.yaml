@@ -8,11 +8,11 @@ proxies:
     sni: proxy.example.com
     udp: true
 proxy-groups:
-  - name: choice
+  - name: Choice
     type: select
     proxies:
       - edge
 rules:
   - DOMAIN-SUFFIX,example.com,edge
-  - DST-PORT,2000,choice
+  - DST-PORT,2000,Choice
   - MATCH,edge

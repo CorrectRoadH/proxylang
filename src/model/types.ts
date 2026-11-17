@@ -52,7 +52,6 @@ export type ProxyBase = {
   readonly port: number;
   readonly via?: string;
   readonly tcpFastOpen?: boolean;
-  readonly label?: string;
 };
 export type ProxyTLS = {
   readonly serverName: string;
@@ -197,11 +196,16 @@ export type Request = {
   readonly sourcePort?: number;
 };
 export type Diagnostic = {
+  readonly profile?: string;
+  readonly origin?: import("./identity.js").Origin;
   readonly severity: "error" | "warning";
   readonly code: string;
   readonly path: string;
   readonly message: string;
   readonly target?: string;
+};
+export type ProfileDiagnostic = Omit<Diagnostic, "target" | "profile"> & {
+  readonly profile: string;
 };
 export type ExpandedRule = {
   readonly id: string;
@@ -226,6 +230,7 @@ export type NormalizedProfile = {
   readonly unsupportedUdp?: "reject";
 };
 export type EnginePlan = {
+  readonly names?: ReadonlyMap<string, string>;
   readonly model: NormalizedProfile;
   readonly nativeRuleSets: readonly NativeRuleSet[];
 };

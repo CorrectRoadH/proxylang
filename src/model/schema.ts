@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/profile/README.md
+import { kindOf } from "./identity.js";
+import type { SecretRef } from "./profile-types.js";
 import { z } from "zod";
 import { validTunAddresses } from "./tun.js";
 import { isIP } from "node:net";
@@ -116,17 +118,13 @@ export const matchSchema: z.ZodType<Match> = z.lazy(() =>
   ]),
 );
 const unique = (values: readonly string[]) => new Set(values).size === values.length;
-const secretSchema = z.strictObject({
-  type: z.literal("env"),
-  name: z.string().regex(/^[A-Z][A-Z0-9_]{0,127}$/),
-});
+export const secretSchema = z.custom<SecretRef>((v) => kindOf(v) === "secret");
 const nodeBase = {
   id: idSchema,
   server: z.union([ip, domain]),
   port,
   via: idSchema.optional(),
   tcpFastOpen: z.boolean().optional(),
-  label: z.string().min(1).max(256).optional(),
 };
 const tlsSchema = z.strictObject({
   serverName: domain,

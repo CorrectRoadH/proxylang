@@ -1,0 +1,26 @@
+proxies:
+  - name: Edge Example
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    block-quic: off
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+  - name: Chained Example
+    type: http
+    server: 192.0.2.20
+    port: 8080
+    dialer-proxy: Route Choice
+    block-quic: off
+    password: test-only
+proxy-groups:
+  - name: Route Choice
+    type: select
+    proxies:
+      - Edge Example
+rules:
+  - DOMAIN,choice.example,Route Choice
+  - NETWORK,tcp,Chained Example
+  - DOMAIN-SUFFIX,example.com,Edge Example
+  - MATCH,Edge Example

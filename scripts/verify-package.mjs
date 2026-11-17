@@ -18,23 +18,28 @@ try {
   writeFileSync(join(temp, "package.json"), JSON.stringify({ private: true, type: "module" }));
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", join(temp, pack.filename)]);
   const cli = join(temp, "node_modules/proxylang/dist/cli.js");
-  const config = `import {defineBuild,defineProfile,defineRoutes,match,outbound,proxy,secret,secrets} from 'proxylang';
- const edge=proxy.trojan({id:'edge',server:'192.0.2.10',port:443,password:secret('TEST_PASSWORD')});
- export default defineBuild({outDir:'generated',profiles:{laptop:defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[edge],groups:[],routes:defineRoutes({when:[match.domain('example.com')],to:edge}),fallback:outbound.direct})},secrets:secrets({env:['TEST_PASSWORD'],validation:{TEST_PASSWORD:'test-only'}})});`;
+  const config = `import {defineBuild,defineProfile,defineRoutes,match,outbound,proxy,defineSecrets} from 'proxylang';
+ const secrets=defineSecrets({TEST_PASSWORD:{env:'TEST_PASSWORD',validation:'test-valid'}});
+ const edge=proxy.trojan({id:'edge',server:'192.0.2.10',port:443,password:secrets.TEST_PASSWORD});
+ export default defineBuild({outDir:'generated',profiles:{laptop:defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[edge],groups:[],routes:defineRoutes({when:match.domain('example.com'),to:edge}),fallback:outbound.direct})},secrets});`;
   for (const format of ["module", "commonjs"]) {
     const cwd = join(temp, format);
     mkdirSync(cwd);
     writeFileSync(join(cwd, "package.json"), JSON.stringify({ type: format }));
     writeFileSync(join(cwd, "proxylang.config.ts"), config);
-    assert.equal(JSON.parse(run(process.execPath, [cli, "check"], cwd)).ok, true);
+    assert.equal(JSON.parse(run(process.execPath, [cli, "check", "--json"], cwd)).ok, true);
     assert.equal(
-      JSON.parse(run(process.execPath, [cli, "build", "--validation"], cwd)).published,
+      JSON.parse(run(process.execPath, [cli, "build", "--validation", "--json"], cwd)).published,
       true,
     );
     assert.ok(readFileSync(join(cwd, "generated/out/laptop.conf"), "utf8").length);
     let explain;
     try {
-      run(process.execPath, [cli, "explain", "--target", "laptop", "--request", "{}"], cwd);
+      run(
+        process.execPath,
+        [cli, "explain", "--profile", "laptop", "--request", "{}", "--json"],
+        cwd,
+      );
     } catch (e) {
       explain = JSON.parse(e.stdout);
     }

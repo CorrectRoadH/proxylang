@@ -5,7 +5,10 @@ import {
   inspectDefinition,
   ProfileDefinitionError,
 } from "../model/definitions.js";
-import { deepFreeze } from "../model/schema.js";
+import { created, frozen, requireKind, parsed } from "./data.js";
+import { kindOf } from "../model/identity.js";
+import { engineOptionsSchema } from "../model/schema.js";
+import { hostSchema, managedSchema } from "../model/surge-schema.js";
 import { dnsRulesSchema } from "../model/dns.js";
 import { validateSurgeGeneral, type SurgeGeneral, type SurgeHost } from "../model/surge-schema.js";
 import type {
@@ -24,9 +27,11 @@ const fail = (code: string): never => {
 /** Keep aliases across nodes, groups and destinations; reject accessors before cloning. */
 export function snapshotProfile<T>(input: T): DeepReadonly<T> {
   inspectDefinition(input);
-  return deepFreeze(structuredClone(input)) as DeepReadonly<T>;
+  return frozen(input) as DeepReadonly<T>;
 }
+export function defineProfile<const D extends ProfileDefinition>(input: D): Profile<D>;
 export function defineProfile(input: ProfileDefinition | Profile): Profile {
+  if (kindOf(input) === "profile") return input as Profile;
   inspectDefinition(input);
   exactDefinition(input, [
     "target",
@@ -38,10 +43,10 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
     "singBox",
     "mihomo",
     "dns",
+    "cases",
   ]);
   exactDefinition(input.target, ["engine", "platform", "version"]);
-  if (input.surge !== undefined)
-    exactDefinition(input.surge, ["managed", "general", "hosts", "names"]);
+  if (input.surge !== undefined) exactDefinition(input.surge, ["managed", "general", "hosts"]);
   if (input.singBox !== undefined) {
     exactDefinition(input.singBox, [
       "mode",
@@ -64,10 +69,23 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
     exactDefinition(input.mihomo, ["mode", "listener"]);
     if (input.mihomo.listener) exactDefinition(input.mihomo.listener, ["port", "resolver"]);
   }
+  if (
+    (input.surge !== undefined && input.target.engine !== "surge") ||
+    (input.singBox !== undefined && input.target.engine !== "sing-box") ||
+    (input.mihomo !== undefined && input.target.engine !== "mihomo")
+  )
+    fail("PROFILE_EXTENSION_UNSUPPORTED");
+  if (
+    ![input.target.engine, input.target.platform, input.target.version].every(
+      (v) => typeof v === "string",
+    )
+  )
+    fail("INVALID_FIELD");
+  if (input.singBox !== undefined) parsed(engineOptionsSchema, input.singBox);
+  if (input.mihomo !== undefined) parsed(engineOptionsSchema, input.mihomo);
   // Inspection above rejects getters/cycles before traversal. Count repeated DAG visits too.
   let remaining = 100000;
   function flatten<T>(fragments: unknown): T[] {
-    if (!Array.isArray(fragments)) fail("INVALID_PROFILE_DEFINITION");
     const result: T[] = [];
     function visit(value: unknown): void {
       if (--remaining < 0) fail("DEFINITION_OUTPUT_BUDGET_EXCEEDED");
@@ -81,10 +99,27 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
     visit(fragments);
     return result;
   }
-  const proxies = flatten<DeepReadonly<ProfileProxy>>(input.proxies);
-  const groups = flatten<DeepReadonly<ProxyGroupDefinition>>(input.groups);
+  const proxies = [...new Set(flatten<DeepReadonly<ProfileProxy>>(input.proxies))];
+  for (const proxy of proxies) requireKind(proxy, ["node", "tunnel", "endpoint"]);
+  const groups = [...new Set(flatten<DeepReadonly<ProxyGroupDefinition>>(input.groups))];
+  for (const group of groups) requireKind(group, ["group"]);
   const routes = flatten<DeepReadonly<RouteDefinition>>(input.routes);
-  const dns = input.dns === undefined ? undefined : flatten<DnsRule>(input.dns);
+  for (const route of routes) {
+    requireKind(route, ["route"]);
+    requireKind(route.to, ["node", "group", "tunnel", "endpoint", "builtin"]);
+  }
+  requireKind(input.fallback, ["node", "group", "tunnel", "endpoint", "builtin"]);
+  const cases =
+    input.cases === undefined
+      ? []
+      : flatten<import("../model/routing-types.js").RouteCase>(input.cases);
+  if (cases)
+    for (const item of cases) {
+      exactDefinition(item, ["name", "request", "assume", "expect"]);
+      if (typeof item.name !== "string" || !item.name) fail("INVALID_FIELD");
+      requireKind(item.expect, ["node", "group", "tunnel", "endpoint", "builtin"]);
+    }
+  const dns = input.dns === undefined ? [] : flatten<DnsRule>(input.dns);
   if (dns) {
     const checked = dnsRulesSchema.safeParse(dns);
     if (!checked.success)
@@ -135,6 +170,8 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
         : { hosts: flatten<DeepReadonly<SurgeHost>>(input.surge.hosts) }),
     } as Profile["surge"];
   }
+  if (surge?.hosts) for (const host of surge.hosts) parsed(hostSchema, host);
+  if (surge?.managed) parsed(managedSchema, surge.managed);
   if (dns?.length && surge?.hosts?.length) {
     if (dns.length + surge.hosts.length > 2000) fail("INVALID_SURGE_HOSTS");
     const patterns = new Map(dns.map((entry, index) => [entry.pattern.toLowerCase(), index]));
@@ -156,12 +193,16 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
     routes: _routes,
     ...rest
   } = input;
-  return snapshotProfile({
-    ...rest,
-    ...(dns === undefined ? {} : { dns }),
-    proxies,
-    groups,
-    routes,
-    ...(surge === undefined ? {} : { surge }),
-  }) as Profile;
+  return created(
+    {
+      ...rest,
+      dns,
+      cases: cases.map((item) => (kindOf(item) === "case" ? item : created(item, "case"))),
+      proxies,
+      groups,
+      routes,
+      ...(surge === undefined ? {} : { surge }),
+    },
+    "profile",
+  ) as Profile;
 }

@@ -1,7 +1,20 @@
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
-import { checkBuild, defineBuild, proxy, secret, match, defineRoutes, outbound } from "proxylang";
-import { scenarioDefinition, scenarioProfile, scenarios } from "../fixtures/scenarios.js";
+import {
+  checkBuild,
+  defineBuild,
+  proxy,
+  defineProfile,
+  match,
+  defineRoutes,
+  outbound,
+} from "proxylang";
+import {
+  scenarioDefinition,
+  scenarioProfile,
+  scenarios,
+  fixtureSecrets,
+} from "../fixtures/scenarios.js";
 const scenario = scenarios.find(
   (s) =>
     s.engine === "sing-box" &&
@@ -9,8 +22,10 @@ const scenario = scenarios.find(
     s.mode === "standalone" &&
     s.scene === "protocols",
 )!;
-const check = (p: Parameters<typeof defineBuild>[0]["profiles"][string]) =>
-  checkBuild(defineBuild({ profiles: { fixture: p } }));
+const check = (p: unknown) =>
+  checkBuild(
+    defineBuild({ profiles: { fixture: defineProfile(p as never) }, secrets: fixtureSecrets }),
+  );
 // @feature docs/feature/profile/library/proxies.md
 for (const patch of [
   { port: 0 },
@@ -23,7 +38,7 @@ for (const patch of [
 ])
   test(`strict protocol fields reject ${Object.keys(patch).join(",")}`, () => {
     const p = scenarioProfile(scenario);
-    assert.equal(check({ ...p, proxies: [{ ...p.proxies[0], ...patch }] as never }).ok, false);
+    assert.throws(() => proxy.trojan({ ...p.proxies[0], ...patch } as never));
   });
 // @feature docs/feature/profile/library/sing-box.md#版本与模式矩阵
 for (const version of ["1.12.0", "1.14.4"])
@@ -69,7 +84,7 @@ test("TCP-only propagation retains nested Boolean proofs of network constraints"
     id: "tcp",
     server: "192.0.2.20",
     port: 8080,
-    password: secret("TEST_PASSWORD"),
+    password: fixtureSecrets.TEST_PASSWORD,
   });
   const cases = [
     [match.network("tcp"), true],
@@ -91,4 +106,37 @@ test("TCP-only propagation retains nested Boolean proofs of network constraints"
       }).ok,
       ok,
     );
+});
+
+// @feature docs/feature/targets/README.md#资源图
+test("defensive dependency checking reports every id on a mixed group/via cycle", async () => {
+  const { inspectProfile } = await import("../../src/model/inspect-profile.js");
+  const { register } = await import("../../src/model/identity.js");
+  const a = {
+    type: "trojan",
+    id: "node-a",
+    server: "192.0.2.10",
+    port: 443,
+    password: fixtureSecrets.TEST_PASSWORD,
+  } as Record<string, unknown>;
+  const members: unknown[] = [a];
+  const g = { type: "proxy-group", id: "group-b", algorithm: { type: "select" }, members };
+  a.via = g;
+  register(a, "node");
+  register(g, "group");
+  const result = inspectProfile(
+    {
+      target: { engine: "surge", platform: "macos", version: "6.10.0" },
+      proxies: [a],
+      groups: [g],
+      routes: [],
+      fallback: outbound.direct,
+    } as never,
+    "fixture",
+    fixtureSecrets as never,
+  );
+  const diagnostic = result.diagnostics.find((d) => d.code === "GROUP_CYCLE");
+  assert.ok(diagnostic);
+  assert.match(diagnostic.message, /node-a/);
+  assert.match(diagnostic.message, /group-b/);
 });

@@ -20,7 +20,7 @@
     },
     {
       "type": "selector",
-      "tag": "choice",
+      "tag": "Choice",
       "outbounds": [
         "edge"
       ],
@@ -29,7 +29,7 @@
     },
     {
       "type": "urltest",
-      "tag": "automatic",
+      "tag": "Automatic",
       "outbounds": [
         "edge"
       ],
@@ -41,7 +41,7 @@
     },
     {
       "type": "urltest",
-      "tag": "speed",
+      "tag": "Speed",
       "outbounds": [
         "edge"
       ],
@@ -66,21 +66,21 @@
           2000
         ],
         "action": "route",
-        "outbound": "choice"
+        "outbound": "Choice"
       },
       {
         "port": [
           2001
         ],
         "action": "route",
-        "outbound": "automatic"
+        "outbound": "Automatic"
       },
       {
         "port": [
           2002
         ],
         "action": "route",
-        "outbound": "speed"
+        "outbound": "Speed"
       }
     ],
     "final": "edge",

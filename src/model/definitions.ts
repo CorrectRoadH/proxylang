@@ -1,80 +1,91 @@
+import { kindOf, captureOrigin, type Origin } from "./identity.js";
 // tsx can load a second SDK instance: classify data descriptors, never messages or getters.
-const definitionCodes = new Set([
-  "DEFINITION_CYCLE",
-  "DEFINITION_DEPTH_EXCEEDED",
-  "DEFINITION_EDGE_BUDGET_EXCEEDED",
-  "DEFINITION_NOT_DATA",
-  "DEFINITION_OBJECT_BUDGET_EXCEEDED",
-  "DEFINITION_OUTPUT_BUDGET_EXCEEDED",
-  "DEFINITION_UNKNOWN_FIELD",
-  "DNS_HOSTS_CONFLICT",
-  "DNS_RULE_CONFLICT",
-  "DUPLICATE_RESOURCE_ID",
-  "GROUP_NAME_CONFLICT",
-  "INVALID_BUILD_DEFINITION",
-  "INVALID_DESTINATION",
-  "INVALID_DNS_RULE",
-  "INVALID_DNS_RULES",
-  "INVALID_GROUP_DEFINITION",
-  "INVALID_MATCH_OPTIONS",
-  "INVALID_NATIVE_RULESET",
-  "INVALID_PROFILE_DEFINITION",
-  "INVALID_RESOURCE_DEFINITION",
-  "INVALID_ROUTE_DEFINITION",
-  "INVALID_SECRETS_DEFINITION",
-  "INVALID_SURGE_GENERAL",
-  "INVALID_SURGE_HOSTS",
-  "LOGICAL_DEPTH_EXCEEDED",
-  "PROFILE_CONDITION_UNSUPPORTED",
-  "PROFILE_DESTINATION_UNSUPPORTED",
-  "PROFILE_ENDPOINT_UNSUPPORTED",
-  "PROFILE_EXTENSION_UNSUPPORTED",
-  "PROFILE_GROUP_MEMBER_UNSUPPORTED",
-  "PROFILE_GROUP_OPTIONS_UNSUPPORTED",
-  "PROFILE_TARGET_UNSUPPORTED",
-  "RULESET_COMPOSITION_UNSUPPORTED",
-  "UNKNOWN_DESTINATION_ID",
-  "UNREGISTERED_DESTINATION_INSTANCE",
-  "UNSUPPORTED_GROUP_ALGORITHM",
-]);
 function validDiagnosticPath(path: unknown): path is string {
-  return typeof path === "string" && /^(dns|surge\.hosts)\[\d{1,4}\]$/.test(path);
+  return (
+    typeof path === "string" && path.length <= 512 && /^[a-zA-Z][a-zA-Z0-9_.[\]-]*$/.test(path)
+  );
 }
 export function definitionDiagnostic(
   error: unknown,
-): { readonly code: string; readonly paths?: readonly string[] } | undefined {
+):
+  | { readonly code: string; readonly paths?: readonly string[]; readonly origin?: Origin }
+  | undefined {
   try {
     if (!error || typeof error !== "object") return;
-    const name: unknown = Object.getOwnPropertyDescriptor(error, "name")?.value;
-    const code: unknown = Object.getOwnPropertyDescriptor(error, "code")?.value;
-    if (name !== "ProfileDefinitionError" || typeof code !== "string" || !definitionCodes.has(code))
-      return;
-    const paths: unknown = Object.getOwnPropertyDescriptor(error, "paths")?.value;
-    // Copy only two own data fields; do not iterate arbitrary arrays or invoke getters.
+    const own = (key: string): unknown => Object.getOwnPropertyDescriptor(error, key)?.value;
+    const code = own("code");
     if (
-      code === "DNS_HOSTS_CONFLICT" &&
-      Array.isArray(paths) &&
-      Object.getOwnPropertyDescriptor(paths, "length")?.value === 2
-    ) {
-      const first: unknown = Object.getOwnPropertyDescriptor(paths, "0")?.value;
-      const second: unknown = Object.getOwnPropertyDescriptor(paths, "1")?.value;
-      if (validDiagnosticPath(first) && validDiagnosticPath(second))
-        return { code, paths: [first, second] };
+      own("name") !== "ProfileDefinitionError" ||
+      typeof code !== "string" ||
+      ![
+        "INVALID_RESOURCE",
+        "INVALID_FIELD",
+        "UNKNOWN_FIELD",
+        "EMPTY_FRAGMENT",
+        "INVALID_PROFILE_DEFINITION",
+        "INVALID_BUILD_DEFINITION",
+        "PROFILE_EXTENSION_UNSUPPORTED",
+        "DNS_HOSTS_CONFLICT",
+        "DNS_RULE_CONFLICT",
+      ].includes(code)
+    )
+      return;
+    const output: { code: string; paths?: string[]; origin?: Origin } = { code };
+    const paths = own("paths");
+    if (Array.isArray(paths) && paths.length <= 16) {
+      const values = Array.from(
+        { length: paths.length },
+        (_, i) => Object.getOwnPropertyDescriptor(paths, String(i))?.value as unknown,
+      );
+      if (values.every(validDiagnosticPath)) output.paths = values;
     }
-    return { code };
+    const origin = own("origin");
+    if (origin && typeof origin === "object") {
+      const field = (key: string): unknown => Object.getOwnPropertyDescriptor(origin, key)?.value;
+      const file = field("file"),
+        line = field("line"),
+        column = field("column");
+      if (
+        typeof file === "string" &&
+        file.length <= 4096 &&
+        !/[\p{C}]/u.test(file) &&
+        Number.isInteger(line) &&
+        Number.isInteger(column) &&
+        (line as number) > 0 &&
+        (column as number) > 0
+      )
+        output.origin = { file, line: line as number, column: column as number };
+    }
+    return output;
   } catch {
     return;
   }
 }
 export class ProfileDefinitionError extends Error {
   readonly paths?: readonly string[];
+  readonly origin?: Origin;
   constructor(
     readonly code: string,
     paths?: readonly string[],
   ) {
-    super(code);
+    const normalized =
+      code === "DEFINITION_UNKNOWN_FIELD"
+        ? "UNKNOWN_FIELD"
+        : code.startsWith("DEFINITION_")
+          ? "INVALID_PROFILE_DEFINITION"
+          : code.startsWith("INVALID_") &&
+              ![
+                "INVALID_BUILD_DEFINITION",
+                "INVALID_PROFILE_DEFINITION",
+                "INVALID_RESOURCE",
+              ].includes(code)
+            ? "INVALID_FIELD"
+            : code;
+    super(normalized);
+    this.code = normalized;
+    this.origin = captureOrigin();
     this.name = "ProfileDefinitionError";
-    if (paths?.length === 2 && paths.every(validDiagnosticPath))
+    if (paths?.length && paths.every((p) => typeof p === "string"))
       this.paths = Object.freeze([...paths]);
   }
 }
@@ -137,6 +148,7 @@ function snapshot<T>(input: T): T {
     if (--remaining < 0) fail("DEFINITION_OUTPUT_BUDGET_EXCEEDED");
     if (depth > 64) fail("DEFINITION_DEPTH_EXCEEDED");
     if (value === null || typeof value !== "object") return value;
+    if (kindOf(value)) return value;
     if (Array.isArray(value)) {
       const output: unknown[] = [];
       for (const item of value) output.push(copy(item, depth + 1));
@@ -160,5 +172,6 @@ export function snapshotDefinition<T>(input: T): T {
 }
 export function exactDefinition(value: object, keys: readonly string[]): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("DEFINITION_NOT_DATA");
-  if (Object.keys(value).some((key) => !keys.includes(key))) fail("DEFINITION_UNKNOWN_FIELD");
+  const unknown = Object.keys(value).filter((key) => !keys.includes(key));
+  if (unknown.length) throw new ProfileDefinitionError("UNKNOWN_FIELD", unknown);
 }

@@ -11,8 +11,8 @@ import type { EnginePlan, Match, Action, Secret } from "../../model/types.js";
 import { isIP } from "node:net";
 const DIRECT = "pl-direct",
   DNS = "pl-dns";
-const actionTag = (a: Action) =>
-  a.type === "route" ? a.to : a.type === "direct" ? DIRECT : "pl-reject";
+const actionTag = (a: Action, name: (id: string) => string) =>
+  a.type === "route" ? name(a.to) : a.type === "direct" ? DIRECT : "pl-reject";
 function singCondition(condition: Match): Record<string, Json> {
   switch (condition.type) {
     case "nativeRuleSet":
@@ -58,14 +58,15 @@ function singCondition(condition: Match): Record<string, Json> {
     }
   }
 }
-function singAction(action: Action): Record<string, Json> {
+function singAction(action: Action, name: (id: string) => string): Record<string, Json> {
   return action.type === "reject"
     ? { action: "reject", method: "default", no_drop: true }
-    : { action: "route", outbound: actionTag(action) };
+    : { action: "route", outbound: actionTag(action, name) };
 }
 export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Json {
   const model = plan.model,
     target = model.target;
+  const name = (id: string) => plan.names?.get(id) ?? id;
   const modern =
     targetCatalog.find(
       (entry) => entry.engine === target.engine && entry.version === target.version,
@@ -88,18 +89,20 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
         string,
         Json
       >),
+      tag: name(node.id),
+      ...(node.via ? { detour: name(node.via) } : {}),
       ...(modern && model.dns?.length
         ? { domain_resolver: { server: domainResolver, strategy: "prefer_ipv4" } }
         : {}),
     });
   for (const group of model.groups) {
-    outbounds.push(singboxGroup(group, singboxMemberTag));
+    outbounds.push(singboxGroup(group, (id) => singboxMemberTag(name(id))));
   }
   const rules: Json[] = model.rules.flatMap((rule) => [
     ...(target.version === "1.14.4" && needsResolve(rule.when)
       ? [{ ip_cidr: ["0.0.0.0/0", "::/0"], invert: true, action: "resolve" }]
       : []),
-    { ...singCondition(rule.when), ...singAction(rule.then) },
+    { ...singCondition(rule.when), ...singAction(rule.then, name) },
   ]);
   const routing: Record<string, Json> = { rules };
   if (model.domainMatching === "prefer-sniffed")
@@ -118,8 +121,8 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
       update_interval: `${r.intervalSeconds}s`,
       download_detour: DIRECT,
     }));
-  if (model.fallback.type === "reject") rules.push(singAction(model.fallback));
-  else routing.final = actionTag(model.fallback);
+  if (model.fallback.type === "reject") rules.push(singAction(model.fallback, name));
+  else routing.final = actionTag(model.fallback, name);
   const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };
   if (model.cacheFile) config.experimental = { cache_file: { enabled: true } };
   if (standalone) {
@@ -214,7 +217,7 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
   if (model.endpoints?.length) {
     config.endpoints = model.endpoints.map((endpoint) => ({
       type: "tailscale",
-      tag: endpoint.id,
+      tag: name(endpoint.id),
       hostname: endpoint.hostname,
       state_directory: endpoint.stateDirectory,
       accept_routes: endpoint.acceptRoutes,

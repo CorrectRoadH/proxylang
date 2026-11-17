@@ -10,7 +10,13 @@ import type {
   TailscaleEndpoint,
 } from "./types.js";
 import { exactDefinition, ProfileDefinitionError, snapshotDefinition } from "./definitions.js";
-import { nodeSchema, endpointSchema, matchSchema, engineOptionsSchema } from "./schema.js";
+import {
+  deepFreeze,
+  nodeSchema,
+  endpointSchema,
+  matchSchema,
+  engineOptionsSchema,
+} from "./schema.js";
 const fail = (code: string): never => {
   throw new ProfileDefinitionError(code);
 };
@@ -18,14 +24,9 @@ export function normalizeProfile(profile: Profile): NormalizedProfile {
   const byId = new Map<string, object>();
   for (const resource of [...profile.proxies, ...profile.groups]) {
     if (!resource || typeof resource.id !== "string") fail("INVALID_RESOURCE_DEFINITION");
-    if (byId.has(resource.id)) fail("DUPLICATE_RESOURCE_ID");
     byId.set(resource.id, resource);
   }
   const destination = (value: DeepReadonly<ProfileDestination>): Action => {
-    if (typeof value === "string") {
-      if (!byId.has(value)) fail("UNKNOWN_DESTINATION_ID");
-      return { type: "route", to: value };
-    }
     if (!value || typeof value !== "object") return fail("INVALID_DESTINATION");
     if ("builtin" in value) {
       exactDefinition(value, ["builtin"]);
@@ -33,33 +34,11 @@ export function normalizeProfile(profile: Profile): NormalizedProfile {
       if (value.builtin === "REJECT") return { type: "reject" };
       return fail("PROFILE_DESTINATION_UNSUPPORTED");
     }
-    if (byId.get(value.id) !== value) fail("UNREGISTERED_DESTINATION_INSTANCE");
     return { type: "route", to: value.id };
   };
   const algorithm = (group: Profile["groups"][number]): ConcreteGroup => {
-    exactDefinition(group, [
-      "type",
-      "id",
-      "name",
-      "algorithm",
-      "members",
-      "url",
-      "intervalSeconds",
-      "timeoutSeconds",
-    ]);
-    if (
-      group.type !== "proxy-group" ||
-      typeof group.name !== "string" ||
-      !group.name.trim() ||
-      !group.members.length
-    )
-      fail("INVALID_GROUP_DEFINITION");
-    if (
-      group.url !== undefined ||
-      group.intervalSeconds !== undefined ||
-      group.timeoutSeconds !== undefined
-    )
-      fail("PROFILE_GROUP_OPTIONS_UNSUPPORTED");
+    exactDefinition(group, ["type", "id", "name", "algorithm", "members", "surge"]);
+    if (group.type !== "proxy-group" || !group.members.length) fail("INVALID_GROUP_DEFINITION");
     const a = group.algorithm;
     exactDefinition(
       a,
@@ -105,11 +84,14 @@ export function normalizeProfile(profile: Profile): NormalizedProfile {
     endpoints: TailscaleEndpoint[] = [];
   for (const item of profile.proxies) {
     if (item.type === "sing-box-tailscale") {
-      const parsed = endpointSchema.safeParse(item);
+      const { name: _name, ...native } = item;
+      const parsed = endpointSchema.safeParse(native);
       if (!parsed.success) fail("INVALID_RESOURCE_DEFINITION");
       endpoints.push(parsed.data!);
     } else {
-      const parsed = nodeSchema.safeParse(item);
+      const { name: _name, ...native } = item;
+      if ("via" in native && native.via) Object.assign(native, { via: native.via.id });
+      const parsed = nodeSchema.safeParse(native);
       if (!parsed.success) fail("INVALID_RESOURCE_DEFINITION");
       nodes.push(parsed.data as ProxyNode);
     }
@@ -119,25 +101,28 @@ export function normalizeProfile(profile: Profile): NormalizedProfile {
   if (!parsedOptions.success) fail("INVALID_PROFILE_DEFINITION");
   const mode =
     extension?.mode ?? (profile.target.engine === "sing-box" ? "standalone" : "fragment");
-  return snapshotDefinition({
-    target: { ...profile.target, id: "profile", mode },
-    nodes,
-    endpoints,
-    groups: profile.groups.map(algorithm),
-    rules: profile.routes.map((r, i) => {
-      exactDefinition(r, ["type", "when", "to"]);
-      if (r.type !== "route") fail("INVALID_ROUTE_DEFINITION");
-      const when = matchSchema.safeParse(r.when);
-      if (!when.success) fail("PROFILE_CONDITION_UNSUPPORTED");
-      return {
-        id: `route-${i + 1}`,
-        when: when.data as Match,
-        then: destination(r.to),
-        origin: [],
-      };
+  return deepFreeze(
+    snapshotDefinition({
+      target: { ...profile.target, id: "profile", mode },
+      nodes,
+      endpoints,
+      groups: profile.groups.map(algorithm),
+      rules: profile.routes.map((r, i) => {
+        exactDefinition(r, ["type", "when", "to"]);
+        if (r.type !== "route") fail("INVALID_ROUTE_DEFINITION");
+        const when = matchSchema.safeParse(r.when);
+        if (!when.success)
+          throw new ProfileDefinitionError("PROFILE_CONDITION_UNSUPPORTED", [`routes[${i}].when`]);
+        return {
+          id: `route-${i + 1}`,
+          when: when.data as Match,
+          then: destination(r.to),
+          origin: [],
+        };
+      }),
+      fallback: destination(profile.fallback),
+      ...(profile.dns === undefined ? {} : { dns: profile.dns }),
+      ...extension,
     }),
-    fallback: destination(profile.fallback),
-    ...(profile.dns === undefined ? {} : { dns: profile.dns }),
-    ...extension,
-  }) as NormalizedProfile;
+  ) as NormalizedProfile;
 }

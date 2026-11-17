@@ -7,18 +7,18 @@ proxies:
     sni: proxy.example.com
     udp: true
 proxy-groups:
-  - name: choice
+  - name: Choice
     type: select
     proxies:
       - edge
-  - name: automatic
+  - name: Automatic
     type: url-test
     proxies:
       - edge
     url: https://www.gstatic.com/generate_204
     interval: 180
     tolerance: 50
-  - name: speed
+  - name: Speed
     type: url-test
     proxies:
       - edge
@@ -27,9 +27,9 @@ proxy-groups:
     tolerance: 50
 rules:
   - DOMAIN-SUFFIX,example.com,edge
-  - DST-PORT,2000,choice
-  - DST-PORT,2001,automatic
-  - DST-PORT,2002,speed
+  - DST-PORT,2000,Choice
+  - DST-PORT,2001,Automatic
+  - DST-PORT,2002,Speed
   - MATCH,edge
 mixed-port: 16900
 allow-lan: false

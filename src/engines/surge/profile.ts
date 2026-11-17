@@ -28,8 +28,8 @@ const plans = new WeakMap<SurgeProfileCompilation, SurgeProfileInput>();
 
 export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
   const diagnostics: Diagnostic[] = [];
-  const error = (code: string) =>
-    diagnostics.push({ severity: "error", code, path: "$", message: code });
+  const error = (code: string, path = "$") =>
+    diagnostics.push({ severity: "error", code, path, message: code });
   const failure = (): SurgeProfileCompilation =>
     deepFreeze({ ok: false, artifactKind: "surge-profile", diagnostics, bindings: [] });
   try {
@@ -82,17 +82,17 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
     error("PLATFORM_OPTION_UNSUPPORTED");
   if (new Set((p.hosts ?? []).map((h) => h.pattern.toLowerCase())).size !== (p.hosts ?? []).length)
     error("DUPLICATE_HOST_PATTERN");
-  const checkPolicy = (action: SurgePolicy) => {
-    if ("ref" in action && !ids.has(action.ref)) error("MISSING_REFERENCE");
+  const checkPolicy = (action: SurgePolicy, path = "$") => {
+    if ("ref" in action && !ids.has(action.ref)) error("MISSING_REFERENCE", path);
   };
   const edges = new Map(resources.map((r) => [r.id, [] as string[]]));
   const proxyIds = new Set([...p.nodes, ...tunnels].map((n) => n.id));
   for (const node of p.nodes) {
-    if (node.type === "vless") error("PROTOCOL_UNSUPPORTED");
+    if (node.type === "vless") error("PROTOCOL_UNSUPPORTED", `proxies.${node.id}`);
     // Option validation is shared across Surge platforms; the profile target is checked above.
     validateProxyOptions(node, { id: "profile", engine: "surge" }, diagnostics);
     if (node.via) {
-      checkPolicy({ ref: node.via });
+      checkPolicy({ ref: node.via }, `proxies.${node.id}.via`);
       edges.get(node.id)!.push(node.via);
     }
   }
@@ -104,10 +104,10 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
         group.timeoutSeconds !== undefined)
     )
       error("GROUP_OPTION_UNSUPPORTED");
-    for (const member of group.members) {
-      checkPolicy(member);
+    for (const [i, member] of group.members.entries()) {
+      checkPolicy(member, `groups.${group.id}.members[${i}]`);
       if (group.type === "smart" && (!("ref" in member) || !proxyIds.has(member.ref)))
-        error("SMART_MEMBER_UNSUPPORTED");
+        error("SMART_MEMBER_UNSUPPORTED", `groups.${group.id}.members[${i}]`);
       if ("ref" in member) edges.get(group.id)!.push(member.ref);
     }
   }
@@ -126,37 +126,38 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
   };
   if (resources.length <= 1000) for (const id of ids) visit(id);
   const formats = new Map<string, string>();
-  const checkCondition = (c: SurgeCondition, depth: number): void => {
+  const checkCondition = (c: SurgeCondition, depth: number, path: string): void => {
     if (depth > 10) {
-      error("LOGICAL_DEPTH_EXCEEDED");
+      error("LOGICAL_DEPTH_EXCEEDED", path);
       return;
     }
     if (c.noResolve !== undefined && !["ipCidr", "ipCidr6", "ipAsn", "ruleSet"].includes(c.type))
-      error("RULE_OPTION_UNSUPPORTED");
+      error("RULE_OPTION_UNSUPPORTED", path);
     if (c.includeSniffed !== undefined && !["domain", "domainSuffix", "ruleSet"].includes(c.type))
-      error("RULE_OPTION_UNSUPPORTED");
+      error("RULE_OPTION_UNSUPPORTED", path);
     if (p.target.platform === "ios" && ["processName", "macAddress"].includes(c.type))
-      error("PLATFORM_RULE_UNSUPPORTED");
+      error("PLATFORM_RULE_UNSUPPORTED", path);
     if (c.type === "all" || c.type === "any")
-      for (const child of c.conditions) checkCondition(child, depth + 1);
-    if (c.type === "not") checkCondition(c.condition, depth + 1);
+      for (const [i, child] of c.conditions.entries())
+        checkCondition(child, depth + 1, `${path}.conditions[${i}]`);
+    if (c.type === "not") checkCondition(c.condition, depth + 1, path + ".condition");
     if (c.type === "ruleSet") {
       if (c.intervalSeconds !== undefined && (depth > 0 || c.builtin))
-        error("RULESET_COMPOSITION_UNSUPPORTED");
+        error("RULESET_COMPOSITION_UNSUPPORTED", path);
       if (c.builtin && c.format !== "rule-set") error("BUILTIN_RULESET_FORMAT");
       if (c.url) {
-        const key = new URL(c.url).href;
+        const key = c.url;
         const settings = `${c.format}:${c.intervalSeconds ?? 86400}`;
         if (formats.has(key) && formats.get(key) !== settings) error("RULESET_FORMAT_CONFLICT");
         formats.set(key, settings);
       }
     }
   };
-  for (const rule of p.rules) {
-    checkPolicy(rule.then);
-    checkCondition(rule.when, 0);
+  for (const [i, rule] of p.rules.entries()) {
+    checkPolicy(rule.then, `routes[${i}].to`);
+    checkCondition(rule.when, 0, `routes[${i}].when`);
   }
-  checkPolicy(p.fallback);
+  checkPolicy(p.fallback, "fallback");
   if (diagnostics.some((d) => d.severity === "error")) return failure();
   if (formats.size)
     diagnostics.push({

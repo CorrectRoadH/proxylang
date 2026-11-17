@@ -1,16 +1,5 @@
-import type { ProxyNode, Engine, Target, Diagnostic } from "../model/types.js";
-export function nodeIsTcpOnly(node: ProxyNode, engine: Engine, version?: string): boolean {
-  return (
-    node.type === "http" ||
-    (node.type === "anytls" &&
-      engine !== "surge" &&
-      !(engine === "sing-box" && version === "1.14.4")) ||
-    node.type === "vmess" ||
-    (node.type === "vless" &&
-      !(engine === "sing-box" && version === "1.14.4" && node.packetEncoding)) ||
-    (engine === "surge" && node.type === "shadowsocks" && node.surge?.udpRelay === false)
-  );
-}
+import type { ProxyNode, Target, Diagnostic } from "../model/types.js";
+export { nodeIsTcpOnly } from "../model/protocols.js";
 export function validateProxyOptions(
   node: ProxyNode,
   target: Pick<Target, "engine" | "id"> & Partial<Omit<Target, "engine" | "id">>,
@@ -22,7 +11,7 @@ export function validateProxyOptions(
         severity: "error",
         code: "PROXY_OPTION_UNSUPPORTED",
         target: target.id,
-        path: `targets.${target.id}.nodes.${node.id}`,
+        path: `proxies.${node.id}`,
         message: "Surge 端口跳跃不能与 underlying-proxy 同用",
       });
     return;
@@ -41,7 +30,7 @@ export function validateProxyOptions(
       severity: "error",
       code: "PROXY_OPTION_UNSUPPORTED",
       target: target.id,
-      path: `targets.${target.id}.nodes.${node.id}`,
+      path: `proxies.${node.id}`,
       message: "VLESS 扩展选项仅支持 sing-box 1.14.4",
     });
   if (target.engine !== "surge") {
@@ -64,7 +53,7 @@ export function validateProxyOptions(
         severity: "error",
         code: "PROXY_OPTION_UNSUPPORTED",
         target: target.id,
-        path: `targets.${target.id}.nodes.${node.id}`,
+        path: `proxies.${node.id}`,
         message: "显式节点选项尚未实现此精确目标的编码",
       });
     return;
@@ -75,7 +64,7 @@ export function validateProxyOptions(
       severity: "error",
       code: "PROXY_OPTION_UNSUPPORTED",
       target: target.id,
-      path: `targets.${target.id}.nodes.${node.id}`,
+      path: `proxies.${node.id}`,
       message: "Surge 编码不接受特殊 SNI off 或显式 ALPN；不会丢弃 TLS 选项",
     });
   }

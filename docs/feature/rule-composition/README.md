@@ -1,13 +1,3 @@
----
-format: concord.document/v1
-id: rule-composition
-title: 组合与复用路由策略
-createdAt: 2026-10-21T10:12:46.707Z
-kind: feature
-constitutionRefs:
-  - docs/constitution.md#c-001
----
-
 # 组合与复用路由策略
 
 维护多台设备的代理配置时，用户可以把同一组条件和有序规则复用到多个平台程序，并为每个实例绑定不同出口。
@@ -22,3 +12,5 @@ constitutionRefs:
 - [按元数据组合出口](use-case/select-resources.md)
 
 - [组合命名规则集与原生外部条件](use-case/compose-native-rule-sets.md)
+
+项目原则：[t-1](../../taste.md#t-1)。

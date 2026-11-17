@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: early-language-design
-title: 早期语言设计快照
-createdAt: 2026-10-21T10:13:34.225Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # proxylang：TypeScript 代理配置语言
 
 > 阅读提示：本文件保留早期“公共配置＋平台扩展”草案。最新方向讨论见[平台机制说明](./how-proxylang-handles-platforms.md)，采用共享策略与平台程序分层。本文件的顶层结构及扩展插入 API 暂不作为后续实现的定案依据；历史审查结论不覆盖这一方向调整。

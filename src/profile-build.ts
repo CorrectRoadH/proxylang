@@ -76,7 +76,7 @@ export type ProfileCheckResult = {
   }[];
 };
 // @concord-code
-// @concord-implements docs/feature/artifact-publication/project-config.md
+// @concord-implements docs/feature/artifact-publication/format/project-config.md
 export function checkBuild(input: BuildDefinition): ProfileCheckResult {
   const root = process.cwd();
   let definition: BuildDefinition;

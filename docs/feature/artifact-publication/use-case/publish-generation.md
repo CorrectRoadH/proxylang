@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: publish-generation
-title: 失败时继续使用上一批配置
-createdAt: 2026-10-21T10:12:51.630Z
-kind: use-case
-feature: docs/feature/artifact-publication/README.md
----
-
 # 失败时继续使用上一批配置
 
 ## 用户目标
@@ -51,4 +42,4 @@ Profile key 与引擎决定 .conf/.json 文件名，整批以 out 单次切换�
 
 设备构建只有 defineBuild/runBuild/profile-build 一套实现，不提供 Surge 专用包装 host、旧函数名或 CLI 转发。输出落盘与恢复协议不因 authoring API 收敛而改变。
 
-0.7.0 新增 secrets 声明构造器，具体读取与替代边界见[秘密值声明](../secret-inputs.md)。
+0.7.0 新增 secrets 声明构造器，具体读取与替代边界见[秘密值声明](../library/secret-inputs.md)。

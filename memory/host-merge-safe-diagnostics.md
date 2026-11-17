@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: host-merge-safe-diagnostics
-title: Host 合并与安全诊断验证
-createdAt: 2026-10-26T04:51:29.749Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # Host 合并与安全诊断验证
 
 2026-10-26：实现 dns 与 surge.hosts 合并，重复模式保留字段索引；配置加载显示受控定义错误，秘密失败附带 token 名与底层原因，外层错误码保持兼容。

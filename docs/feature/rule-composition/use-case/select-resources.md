@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: select-resources
-title: 按元数据组合出口
-createdAt: 2026-10-21T10:12:47.797Z
-kind: use-case
-feature: docs/feature/rule-composition/README.md
----
-
 # 按元数据组合出口
 
 ## 用户目标

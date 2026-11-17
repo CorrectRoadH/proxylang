@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: composable-rule-sets
-title: 可组合规则集与客户端外部资源
-createdAt: 2026-10-22T06:03:31.422Z
-kind: engineering
----
-
 # 可组合规则与平台原生能力入口
 
 ## 统一组合，不抹平平台机制

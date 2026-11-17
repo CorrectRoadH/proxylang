@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: surge-profile
-title: 构建完整 Surge 配置
-createdAt: 2026-10-23T05:33:09.767Z
-kind: use-case
-feature: docs/feature/target-compilation/README.md
----
-
 # 构建完整 Surge 配置
 
 ## 用户目标
@@ -113,4 +104,4 @@ RouteDefinition 的 when/to 直接采用 ProfileCondition/ProfileDestination。
 
 ProxyGroupDefinition 的 algorithm/members 直接采用 GroupAlgorithm/ProfileDestination[]，不使用旧窄类型默认泛型。内部降低函数不经包入口导出。
 
-includeSniffed 的校验和渲染遵守[嗅探域名参与匹配](../domain-sources.md)。
+includeSniffed 的校验和渲染遵守[嗅探域名参与匹配](../library/domain-sources.md)。

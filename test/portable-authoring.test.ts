@@ -259,7 +259,7 @@ test("DNS functions preserve batch order and compile identically to data", () =>
   assert.equal(reads, 0);
 });
 
-// @feature docs/feature/target-compilation/portable-authoring.md
+// @feature docs/feature/target-compilation/library/portable-authoring.md
 test("Surge merges portable DNS and native Host fragments without overwriting", () => {
   const input = {
     ...fixture([{ pattern: "lan.example", server: "192.0.2.53" }]),
@@ -285,7 +285,7 @@ test("Surge merges portable DNS and native Host fragments without overwriting", 
   );
 });
 
-// @feature docs/feature/target-compilation/portable-authoring.md
+// @feature docs/feature/target-compilation/library/portable-authoring.md
 test("combined Host limits and conflict paths survive plain profile checks", () => {
   const input = {
     ...fixture([{ pattern: "edge.example", server: "1.1.1.1" }]),

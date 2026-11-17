@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: npm-release
-title: npm 版本发布
-createdAt: 2026-10-22T07:00:37.537Z
-kind: engineering
----
-
 # npm 版本发布
 
 发布目标是 npm 包 proxylang。版本 tag `vX.Y.Z` 必须与 package.json 和 package-lock.json 的版本一致，且提交属于 main。普通分支与 PR 只运行检查，不发布。首版采用稳定版本，不接收预发布 tag。

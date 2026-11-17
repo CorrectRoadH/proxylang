@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: provider-review
-title: Provider 方案审查
-createdAt: 2026-10-21T10:12:53.265Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # Build Provider 设计审查
 
 日期：2026-10-21。状态：初审 CONDITIONAL，修订复核 PASS（文档契约范围）。

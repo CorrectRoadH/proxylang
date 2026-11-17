@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: platform-model
-title: 平台模型与 Provider 设计依据
-createdAt: 2026-10-21T10:13:35.832Z
-kind: research
-sources: []
----
-
 # 平台模型与 Provider 设计依据
 
 [平台机制说明](../../how-proxylang-handles-platforms.md)解释为什么共享策略与平台程序分开；[Provider 设计](../../build-providers.md)讨论目标能力、转换与产物职责。

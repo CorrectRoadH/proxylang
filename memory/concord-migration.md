@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: concord-migration
-title: Concord 迁移验收
-createdAt: 2026-10-21T10:16:37.694Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # Concord 迁移验收
 
 2026-10-21，按 Voices 的文档分层迁移 proxylang。创建四个 Feature、七个叶级 Use Case、一个 CLI 页面，以及工程工作流和平台研究入口。源码与测试仅添加关系注释，SDK 和 CLI 行为未改。

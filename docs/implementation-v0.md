@@ -1,6 +1,6 @@
 # 首期实现：先让规则好组合，再编译到客户端
 
-本文补充 [Feature 目录](feature/README.md) 的 SDK 参数与转换约束。历史审查通过 `concord memory recall initial-contract --json` 查询。
+本文补充 [Feature 目录](feature/README.md) 的 SDK 参数与转换约束。历史审查通过 `concord show memory/initial-contract.md --json` 查询。
 
 ## 用户实际在写什么
 

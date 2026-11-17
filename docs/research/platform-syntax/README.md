@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: platform-syntax
-title: 从家庭代理需求反推语言语法
-createdAt: 2026-10-21T11:05:41.401Z
-kind: research
-sources: []
----
-
 # 从家庭代理需求反推 proxylang 的语法
 
 这是一份待审查的语言设计提案，不是现有 SDK 的支持声明。它解决 it-infra 的规则、出口、规则集与平台机制如何进入语言的问题。先确定语义，再扩展编译器，最后迁移消费者；不以保留原生文本完成语言设计。

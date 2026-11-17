@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: compose-policy
-title: 复用规则而保留优先级
-createdAt: 2026-10-21T10:12:47.258Z
-kind: use-case
-feature: docs/feature/rule-composition/README.md
----
-
 # 复用规则而保留优先级
 
 ## 用户目标

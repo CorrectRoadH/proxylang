@@ -1,13 +1,3 @@
----
-format: concord.document/v1
-id: artifact-publication
-title: 可靠生成本地配置产物
-createdAt: 2026-10-21T10:12:51.064Z
-kind: feature
-constitutionRefs:
-  - docs/constitution.md#c-003
----
-
 # 可靠生成本地配置产物
 
 用户从可信 TypeScript 配置生成一批本地产物。检查与解释不解析密码，构建按 token 在批次内解析一次。配置使用结构化编码，不能安全表达的秘密使整批失败。
@@ -18,6 +8,8 @@ constitutionRefs:
 
 - [失败时继续使用上一批配置](use-case/publish-generation.md)
 
-- [强制项目配置与只读检查](project-config.md)
+- [强制项目配置与只读检查](format/project-config.md)
 
-- [秘密值声明](secret-inputs.md)：0.7.0 公共编写接口与能力边界。
+- [秘密值声明](library/secret-inputs.md)：0.7.0 公共编写接口与能力边界。
+
+项目原则：[t-3](../../taste.md#t-3)。

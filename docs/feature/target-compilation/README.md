@@ -1,13 +1,3 @@
----
-format: concord.document/v1
-id: target-compilation
-title: 面向精确目标生成配置
-createdAt: 2026-10-21T10:12:49.961Z
-kind: feature
-constitutionRefs:
-  - docs/constitution.md#c-002
----
-
 # 面向精确目标生成配置
 
 用户为独立平台程序选择引擎、平台和精确版本；共享规则不抹平平台专属机制。目录明确协议、组和 DNS 编码能力，未知组合拒绝。
@@ -30,12 +20,14 @@ constitutionRefs:
 
 ## Profile 组合
 
-[片段组合与代理出口](profile-composition.md)定义嵌套数组、统一代理出口和资源 ID 引用契约。
+[片段组合与代理出口](library/profile-composition.md)定义嵌套数组、统一代理出口和资源 ID 引用契约。
 
-- [通用匹配、DNS 与代理身份](portable-authoring.md)
+- [通用匹配、DNS 与代理身份](library/portable-authoring.md)
 
-- [通用条件选项与外部规则函数](match-options.md)
+- [通用条件选项与外部规则函数](library/match-options.md)
 
-- [嗅探域名参与匹配](domain-sources.md)：includeSniffed 公共编写接口与能力边界。
+- [嗅探域名参与匹配](library/domain-sources.md)：includeSniffed 公共编写接口与能力边界。
 
-代理连接声明与应用业务信息的边界见[代理业务信息](business-data.md)。
+代理连接声明与应用业务信息的边界见[代理业务信息](library/business-data.md)。
+
+项目原则：[t-2](../../taste.md#t-2)。

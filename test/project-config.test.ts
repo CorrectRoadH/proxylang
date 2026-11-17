@@ -41,7 +41,7 @@ async function call(root: string, args: string[]) {
     return { status: result.code, ...result, json: JSON.parse(result.stdout) };
   }
 }
-// @feature docs/feature/artifact-publication/project-config.md
+// @feature docs/feature/artifact-publication/format/project-config.md
 test("checkBuild shares batch validation without callbacks, secrets or output writes", async (t) => {
   const root = await workspace(t);
   let calls = 0;
@@ -94,7 +94,7 @@ test("checkBuild shares batch validation without callbacks, secrets or output wr
   assert.equal(checkBuild({ profiles: { mac: { ...profile, fallback: "missing" } } }).ok, false);
   assert.equal(checkBuild({ ...snapshot, outDir: " bad " }).code, "INVALID_BUILD_DEFINITION");
 });
-// @feature docs/feature/artifact-publication/project-config.md
+// @feature docs/feature/artifact-publication/format/project-config.md
 test("CLI requires local convention, rejects retired syntax before import, and preserves error precedence", async (t) => {
   const root = await workspace(t);
   const child = join(root, "child");
@@ -147,7 +147,7 @@ test("CLI requires local convention, rejects retired syntax before import, and p
     "VALIDATION_PROFILE_REQUIRED",
   );
 });
-// @feature docs/feature/artifact-publication/project-config.md
+// @feature docs/feature/artifact-publication/format/project-config.md
 test("CLI import and SDK callbacks cannot redirect the captured output root", async (t) => {
   const root = await workspace(t);
   const changed = join(root, "changed");

@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: proxy-resources
-title: 代理节点与平台端点
-createdAt: 2026-10-21T12:39:43.405Z
-kind: engineering
----
-
 # 代理节点与平台端点
 
 ## 要解决的问题

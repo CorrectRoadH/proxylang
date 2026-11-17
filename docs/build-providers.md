@@ -2,7 +2,7 @@
 
 状态：Provider 框架契约经独立 Review 修订复核 PASS；已有固定内置后端子集，具体范围见[首期执行契约](implementation-v0.md)与[验收记录](implementation-validation.md)，本文的长期框架不代表全部实现。日期：2026-10-21。
 
-本文承接[平台机制说明](./how-proxylang-handles-platforms.md)，用 Markdown 描述构建后端的契约，不提供实现代码。这里的 Build Provider 是编译后端，不是客户端运行时的代理订阅 provider；后者是平台程序中的一种资源。
+本文承接[平台机制说明](how-proxylang-handles-platforms.md)，用 Markdown 描述构建后端的契约，不提供实现代码。这里的 Build Provider 是编译后端，不是客户端运行时的代理订阅 provider；后者是平台程序中的一种资源。
 
 ## 从一个容易误解的支持声明开始
 
@@ -247,4 +247,4 @@ CLI 退出状态固定区分：0 为已发布且无维护失败（允许未被�
 
 本文把博客提出的“共享定义＋平台程序＋版本适配”落实到 Build Provider 边界。在本主题上，本文与博客优先于早期公共配置／扩展插入方案。旧文档中的命名、严格语义、warning 和资源生命周期原则仍有参考价值，但其 API 不能直接当成本文已经实现的接口。
 
-首次确定 provider 与 host 的公共契约、计划输入边界和转换职责属于重大设计，须独立审查后才作为实现依据。审查状态见 [Provider 审查记录](./build-providers-review.md)。
+首次确定 provider 与 host 的公共契约、计划输入边界和转换职责属于重大设计，须独立审查后才作为实现依据。审查状态见 [Provider 审查记录](build-providers-review.md)。

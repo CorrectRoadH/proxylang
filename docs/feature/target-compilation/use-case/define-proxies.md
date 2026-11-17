@@ -1,13 +1,3 @@
----
-format: concord.document/v1
-id: define-proxies
-title: 按协议定义代理与有状态端点
-createdAt: 2026-10-21T12:39:44.031Z
-kind: use-case
-feature: docs/feature/target-compilation/README.md
----
-
-
 # 按协议定义代理与有状态端点
 
 作为复用路由规则的配置作者，我希望通过协议专属字段定义节点，让类型检查阻止密码、UUID、加密方法与传输参数混用；同时将家庭网络端点绑定到相同的规则出口槽位。
@@ -56,7 +46,7 @@ route可以引用，组成员和via暂不支持引用端点。
 
 原生配置检查和实际网络验证分别报告。
 
-代理只承载连接参数及配置身份，应用在协议对象外维护业务分类；完整边界见[代理业务信息](../business-data.md)。
+代理只承载连接参数及配置身份，应用在协议对象外维护业务分类；完整边界见[代理业务信息](../library/business-data.md)。
 
 ## Hysteria2
 

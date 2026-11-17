@@ -108,6 +108,8 @@ export function compile(input: unknown): Compilation {
     validateRuleSets(program.routing, program.engine, diagnostics, path);
     const rules = lowerRuleSets(expandRules(program.routing, diagnostics, name), diagnostics, path);
     expanded.set(name, rules);
+    // @concord-begin
+    // @concord-implements docs/feature/rule-composition/use-case/select-resources.md
     const endpoints = program.endpoints ?? [];
     const resources = [...program.nodes, ...program.groups, ...endpoints];
     const byId = new Map(resources.map((resource) => [resource.id, resource]));
@@ -192,6 +194,7 @@ export function compile(input: unknown): Compilation {
     };
     validateBindings(program.routing, name);
     validateAction(program.fallback, `${path}.fallback`, true);
+    // @concord-end
   }
   const targetIds = new Set<string>();
   for (const target of config.targets) {

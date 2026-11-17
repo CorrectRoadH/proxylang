@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: clash-backends
-title: Mihomo 与 Stash 后端边界
-createdAt: 2026-10-21T12:15:57.882Z
-kind: engineering
----
-
 # Mihomo 与 Stash：复用规则，不合并平台身份
 
 同一个策略模板应能在 Mihomo 和 Stash 中复用，但两个客户端不能被表示成一个笼统的 clash target。它们都使用 YAML，只说明传输格式相近；来源匹配、代理链和系统入口仍有不同版本边界。

@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: initial-contract
-title: 初始实现契约与审查快照
-createdAt: 2026-10-21T10:13:34.745Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 首期实现：先让规则好组合，再编译到客户端
 
 日期：2026-10-21。状态：独立设计审查 PASS，已实现固定内置后端与规则 SDK；[验收边界](implementation-validation.md)单独记录。本文是首期执行契约，细化 provider 设计；未列功能不作为首期支持承诺。

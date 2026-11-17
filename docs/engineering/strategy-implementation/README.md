@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: strategy-implementation
-title: 通用机制与策略实现
-createdAt: 2026-10-21T11:27:36.268Z
-kind: engineering
----
-
 # 通用机制、具名策略与平台算法
 
 ## 实施边界
@@ -70,4 +62,4 @@ Mihomo / Stash 的 YAML 策略片段及名称约束见[后端契约](../clash-ba
 
 strategy 支持 algorithm 与可选 implementations；旧 implementations-only 模式保持行为不变。group.auto() 表示按质量与可用性自动选择，精确目标目录决定默认 Smart/URLTest 实现。group.select()/group.urltest() 则要求指定机制。
 
-具体归属、默认参数、覆写约束及公共类型见 [已定设计](../../design/portable-capabilities/plans/semantic-adapters/README.md)。前文 implementations-only 语法是保留的显式模式，不再要求每个通用策略重复平台分支。
+具体归属、默认参数、覆写约束及公共类型见 [已定设计](../../feature/target-compilation/architecture/README.md)。前文 implementations-only 语法是保留的显式模式，不再要求每个通用策略重复平台分支。

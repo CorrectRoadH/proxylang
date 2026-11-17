@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: singbox-tun
-title: sing-box 1.14.4 与 TUN 配置
-createdAt: 2026-11-04T02:50:28.068Z
-kind: engineering
----
-
-
 # sing-box 1.14.4 与 TUN 配置
 
 ## 目标与责任

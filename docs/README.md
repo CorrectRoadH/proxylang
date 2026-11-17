@@ -4,7 +4,7 @@ proxylang 用 TypeScript 组合规则，再按精确目标编译配置。产品�
 
 - [规则组合](feature/rule-composition/README.md)：复用模板、保留优先级、绑定不同出口。
 - [策略解释](feature/policy-explanation/README.md)：解释首命中，用回归案例保护路由意图。
-- [通用语义与平台实现边界](design/portable-capabilities/plans/semantic-adapters/README.md)：规则、资源、算法与平台扩展的归属及适配器契约。
+- [通用语义与平台实现边界](feature/target-compilation/architecture/README.md)：规则、资源、算法与平台扩展的归属及适配器契约。
 - [通用机制与策略实现](engineering/strategy-implementation/README.md)：为什么共享出口与候选成员、显式选择平台算法，以及 it-infra 的消费边界。
 - [Mihomo 与 Stash 转换边界](engineering/clash-backends/README.md)：共享规则、独立能力与拒绝有损转换。
 - [代理节点与平台端点](engineering/proxy-resources/README.md)：协议字段、TLS/WS、精确目标和 Tailscale 身份生命周期。
@@ -16,8 +16,8 @@ proxylang 用 TypeScript 组合规则，再按精确目标编译配置。产品�
 - [平台机制语法提案](research/platform-syntax/README.md)：用 it-infra 需求设计条件槽位、平台出口、规则集和信息来源；尚未定案或实现。
 - [架构](architecture.md)与[设计依据](research/platform-model/README.md)：模块职责与平台差异。
 - [文档与验收工作流](engineering/development/README.md)：用户故事写法、代码关系和验证尺度。
-- [宪法](constitution.md)与[Concord 操作指南](concord.md)：项目约束及工具入口。
+- [项目原则](taste.md)与[Concord 操作指南](concord.md)：项目约束及工具入口。
 
-用法与可运行示例见[项目 README](../README.md)。历史调查、审查及验收记录使用 `concord memory index` 和 `concord memory recall` 查询；历史检查不代表本次执行结果。
+用法与可运行示例见[项目 README](../README.md)。历史调查、审查及验收记录使用 `concord list memory` 和 `concord memory search <关键词>` 查询；历史检查不代表本次执行结果。
 
 - [可组合规则与原生能力入口](engineering/composable-rule-sets/README.md)：客户端外部规则与组合边界。

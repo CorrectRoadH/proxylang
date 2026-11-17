@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: early-design-review
-title: 早期语言方案审查
-createdAt: 2026-10-21T10:12:52.738Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 语言设计审查记录
 
 日期：2026-10-21。

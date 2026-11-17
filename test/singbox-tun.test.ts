@@ -71,7 +71,7 @@ function failure(config: unknown, code: string) {
   );
 }
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("Profile lowers dual-stack TUN and Reality/Vision with explicit UDP encoding", () => {
   const node = proxy.vless({ ...edge, server: "edge.example.com" });
   const choice = defineProxyGroup({
@@ -122,7 +122,7 @@ test("Profile lowers dual-stack TUN and Reality/Vision with explicit UDP encodin
   });
 });
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("hostname support remains gated by every consuming target", () => {
   const config = fixture({ nodes: [{ ...edge, server: "edge.example.com" }], tun: undefined });
   failure(
@@ -134,7 +134,7 @@ test("hostname support remains gated by every consuming target", () => {
   );
 });
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("Reality and Vision reject invalid combinations before native validation", () => {
   for (const invalid of [
     { ...edge, tls: undefined },
@@ -154,7 +154,7 @@ test("Reality and Vision reject invalid combinations before native validation", 
   );
 });
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("TUN rejects ambiguous address allocation and unsupported targets", () => {
   for (const address of [
     [],
@@ -185,7 +185,7 @@ test("TUN rejects ambiguous address allocation and unsupported targets", () => {
   }
 });
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("TUN rejects self-referential bootstrap and DNS upstream addresses", () => {
   for (const resolver of [
     "127.0.0.1",
@@ -207,7 +207,7 @@ test("TUN rejects self-referential bootstrap and DNS upstream addresses", () => 
   );
 });
 
-// @test docs/engineering/singbox-tun/README.md
+// @feature docs/engineering/singbox-tun/README.md
 test("explicit packet encoding enables UDP through groups while TCP dependencies remain rejected", () => {
   const groups: Program["groups"] = [
     {

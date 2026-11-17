@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: protect-routing
-title: 让回归案例阻止错误构建
-createdAt: 2026-10-21T10:12:49.423Z
-kind: use-case
-feature: docs/feature/policy-explanation/README.md
----
-
 # 让回归案例阻止错误构建
 
 ## 用户目标

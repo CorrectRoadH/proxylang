@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: clash-backends
-title: 复用组合规则构建 Mihomo 与 Stash
-createdAt: 2026-10-21T12:16:59.491Z
-kind: use-case
-feature: docs/feature/target-compilation/README.md
----
-
 # 复用组合规则构建 Mihomo 与 Stash
 
 ## 用户目标

@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: initial-validation
-title: 初始实现验证记录
-createdAt: 2026-10-21T10:12:52.219Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 首期实现与验收记录
 
 日期：2026-10-21。本期实现以[执行契约](implementation-v0.md)为准，主目标是可复用、可组合、可解释的规则。

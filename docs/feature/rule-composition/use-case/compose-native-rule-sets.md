@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: compose-native-rule-sets
-title: 组合命名规则集与原生外部条件
-createdAt: 2026-10-22T06:07:29.418Z
-kind: use-case
-feature: docs/feature/rule-composition/README.md
----
-
 # 组合命名规则集与原生外部条件
 
 用户将可复用的匹配条件命名为规则集，在规则使用处绑定出口。集合支持 any/all/not、嵌套集合及平台原生条件；具有顺序和动作的模板仍使用 policy/use。

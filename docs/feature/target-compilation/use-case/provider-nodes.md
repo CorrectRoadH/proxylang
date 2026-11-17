@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: provider-nodes
-title: 将 provider 节点接入原生配置
-createdAt: 2026-10-22T08:27:47.907Z
-kind: use-case
-feature: docs/feature/target-compilation/README.md
----
-
 # 将 provider 节点接入原生配置
 
 作为已有代理配置的维护者，我希望由 TypeScript 组合节点并交给 SDK 编码，保留原生名称、节点顺序、协议参数和拨号链，逐步替换 Shell 渲染器。
@@ -29,4 +20,4 @@ API、目标范围、字段边界及验证责任见[节点片段与链式声明]
 
 消费端用旧配置基线检查协议、地址、端口及全部参数；字段顺序差异单独解释，不忽略新增或遗漏选项。原生离线检查与实际连接验证分别报告。
 
-代理只承载连接参数及配置身份，应用在协议对象外维护业务分类；完整边界见[代理业务信息](../business-data.md)。
+代理只承载连接参数及配置身份，应用在协议对象外维护业务分类；完整边界见[代理业务信息](../library/business-data.md)。

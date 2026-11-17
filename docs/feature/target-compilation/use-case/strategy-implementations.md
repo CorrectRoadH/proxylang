@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: strategy-implementations
-title: 为同一出口声明不同平台算法
-createdAt: 2026-10-21T11:37:18.248Z
-kind: use-case
-feature: docs/feature/target-compilation/README.md
----
-
 # 为同一出口声明不同平台算法
 
 ## 用户目标
@@ -37,4 +28,4 @@ implementations 可覆写通用算法的目标实现。auto 仅允许 Smart 或 
 
 通用模式的 strategySelections 增加归一化 requestedAlgorithm 和 implementationSource（default 或 override）；algorithm 仍记录实际实现。旧模式不增加这两个字段。所有对象深冻结，check 与 manifest 保留证据。explain 返回策略 ID，不预测原生客户端最终选择的节点。
 
-结构、类型、默认映射、成员限制、固定参数、未选分支、安装包和原生配置检查分别验收。完整设计见 [通用语义与平台实现边界](../../../design/portable-capabilities/plans/semantic-adapters/README.md)。
+结构、类型、默认映射、成员限制、固定参数、未选分支、安装包和原生配置检查分别验收。完整设计见 [通用语义与平台实现边界](../architecture/README.md)。

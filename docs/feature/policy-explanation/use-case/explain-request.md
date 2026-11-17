@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: explain-request
-title: 说明请求为何使用某个出口
-createdAt: 2026-10-21T10:12:48.879Z
-kind: use-case
-feature: docs/feature/policy-explanation/README.md
----
-
 # 说明请求为何使用某个出口
 
 ## 用户目标

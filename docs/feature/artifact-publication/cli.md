@@ -4,7 +4,7 @@
 
 CLI 固定读取调用目录中的 `proxylang.config.ts`，默认导出 `defineConfig(...)` 或 `defineBuild(...)`。不向父目录搜索、不接受位置配置路径、--config 或 --out。profile-build、surge-build 已移除。构建的 outDir 由配置显式提供。
 
-配置是可信可执行 TS 模块，支持所在 package scope 的 ESM/CJS interop。不是隔离环境。相对 import 仍按配置文件解析。CLI 在 import 前捕获 cwd，配置及回调的 chdir 不改变配置发现、请求文件或输出目录的基准。完整行为见[约定项目配置](project-config.md)。
+配置是可信可执行 TS 模块，支持所在 package scope 的 ESM/CJS interop。不是隔离环境。相对 import 仍按配置文件解析。CLI 在 import 前捕获 cwd，配置及回调的 chdir 不改变配置发现、请求文件或输出目录的基准。完整行为见[约定项目配置](format/project-config.md)。
 
 ## 命令清单
 
@@ -46,7 +46,7 @@ Profile构建先验证envelope与validation 秘密解析函数，再preflight、
 
 在包含约定配置的示例目录运行 `node ../../dist/cli.js check`，例如 `examples/home`。检查不需要秘密。build需要配置outDir和应用实际凭据。实际运行证据通过测试或工程Memory独立记录。
 
-0.7.0 构建秘密入口为 `secrets: secrets({ values, env, validation })`；旧回调字段移除，完整行为见[秘密值声明](secret-inputs.md)。
+0.7.0 构建秘密入口为 `secrets: secrets({ values, env, validation })`；旧回调字段移除，完整行为见[秘密值声明](library/secret-inputs.md)。
 
 ## 可定位的受控诊断
 

@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/secret-inputs.md
+// @concord-implements docs/feature/artifact-publication/library/secret-inputs.md
 import type { Secret } from "./types.js";
 import type { BuildContext } from "./profile-build.js";
 import { exactDefinition, inspectDefinition, ProfileDefinitionError } from "./surge-definitions.js";

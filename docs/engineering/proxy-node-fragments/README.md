@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: proxy-node-fragments
-title: 节点片段与链式声明
-createdAt: 2026-10-22T08:23:19.608Z
-kind: engineering
----
-
 # 节点片段与链式声明
 
 本文定义 SDK 契约，支持 it-infra 将 provider 节点编码交给 proxylang。继承规则与文件布局归消费方，协议编码、名称与引用检查归 SDK。该边界不把局部片段通过当作完整设备配置有效。

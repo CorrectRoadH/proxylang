@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: authoring-quality
-title: DSL 作者体验与持续验收
-createdAt: 2026-10-23T05:27:59.684Z
-kind: engineering
----
-
 # DSL 作者体验与持续验收
 
 ## 目标与边界

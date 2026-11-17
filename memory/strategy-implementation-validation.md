@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: strategy-implementation-validation
-title: Strategy 实现与真实消费者验收
-createdAt: 2026-10-21T11:42:23.117Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # Strategy 实现与真实消费者验收
 
 2026-10-21，采用具名 strategy、共同成员、显式 per-engine 算法。Herdr 原生 Codex / gpt-6.1-sol 的 pl-strategy-review 在 wC:p2R 完成只读审查，结论 CONDITIONAL。主 agent 收敛四项条件：统一 names 输入与 artifactKind 返回；拒绝空白名称并按最终名字全局查重；只迁 M4 六组、不改共用 ai_default.conf；期望编译目标不冒充设备实测版本。审查 pane 已关闭，无残留。

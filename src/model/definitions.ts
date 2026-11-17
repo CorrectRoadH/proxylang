@@ -18,6 +18,8 @@ export function definitionDiagnostic(
       own("name") !== "ProfileDefinitionError" ||
       typeof code !== "string" ||
       ![
+        "INVALID_REQUEST",
+        "INVALID_ASSUMPTIONS",
         "INVALID_RESOURCE",
         "INVALID_FIELD",
         "UNKNOWN_FIELD",
@@ -78,6 +80,8 @@ export class ProfileDefinitionError extends Error {
                 "INVALID_BUILD_DEFINITION",
                 "INVALID_PROFILE_DEFINITION",
                 "INVALID_RESOURCE",
+                "INVALID_REQUEST",
+                "INVALID_ASSUMPTIONS",
               ].includes(code)
             ? "INVALID_FIELD"
             : code;

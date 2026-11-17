@@ -5,7 +5,16 @@ import { definitionDiagnostic, targetCatalog } from "./build/index.js";
 import type { CheckResult } from "./build/index.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { lstat, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import type {
+  Condition,
+  RuleSet,
+  Assumptions,
+  RouteRequest,
+  Profile,
+  Explanation,
+} from "./build/index.js";
+import { lstat, stat, open } from "node:fs/promises";
 import { register } from "tsx/esm/api";
 import { register as registerCjs } from "tsx/cjs/api";
 let json = false;
@@ -16,6 +25,15 @@ function print(value: unknown, text?: string) {
 }
 function human(value: unknown): string {
   if (!value || typeof value !== "object") return String(value);
+  if ("explanation" in value) {
+    const r = value as { profile: string; explanation: Explanation };
+    const e = r.explanation;
+    return `${r.profile}: ${e.outcome}${e.exit ? " → " + e.exit : ""}${e.needs ? " needs: " + e.needs.kind + (e.needs.kind === "ruleSet" ? " " + e.needs.id : "") : ""}\n${e.trace.map((t) => `  routes[${t.index}]: ${t.matched === null ? "unknown" : t.matched ? "hit" : "miss"}${t.origin ? `  ${t.origin.file}:${t.origin.line}:${t.origin.column}` : ""}`).join("\n")}`;
+  }
+  if ("diagnostics" in value)
+    return (value as { diagnostics: { code: string; path: string }[] }).diagnostics
+      .map((d) => `${d.code} ${d.path}`)
+      .join("\n");
   if ("profiles" in value) return humanCheck(value as CheckResult);
   if ("check" in value) {
     const result = value as {
@@ -74,7 +92,8 @@ function humanCheck(check: CheckResult): string {
               "",
             )}\n${p.diagnostics.map((d) => `  ${d.severity} ${d.code}  ${d.path}${d.origin ? `  ${d.origin.file}:${d.origin.line}:${d.origin.column}` : ""}`).join("\n")}`,
       )
-      .join("\n") + `\n${check.code}`
+      .join("\n") +
+    `\ncases: ${check.cases.filter((c) => c.ok).length} passed, ${check.cases.filter((c) => !c.ok).length} failed\n${check.cases.map((c) => `  ${c.ok ? "✓" : "✗"} ${c.profile} "${c.name}": expected ${c.expected}, ${c.actual ? "got " + c.actual : c.outcome}${c.needs ? " needs: " + c.needs.kind + (c.needs.kind === "ruleSet" ? " " + c.needs.id : "") : ""}${c.route ? ` at routes[${c.route.index}]${c.route.origin ? ` ${c.route.origin.file}:${c.route.origin.line}:${c.route.origin.column}` : ""}` : ""}`).join("\n")}\n${check.code}`
   );
 }
 function failure(code: string, detail: object = {}): number {
@@ -112,6 +131,39 @@ function loadFailure(cause: unknown): number {
           ? "INVALID_SYNTAX"
           : "EXECUTION_FAILED",
   });
+}
+async function requestFile(path: string): Promise<{ text: string } | { code: string }> {
+  let file;
+  try {
+    file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
+    const info = await file.stat();
+    if (!info.isFile()) return { code: "REQUEST_FILE_READ_FAILED" };
+    const max = 1024 * 1024;
+    if (info.size > max) return { code: "REQUEST_FILE_TOO_LARGE" };
+    const buffer = Buffer.alloc(max + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await file.read(buffer, length, buffer.length - length, null);
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    if (length > max) return { code: "REQUEST_FILE_TOO_LARGE" };
+    return { text: new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, length)) };
+  } catch {
+    return { code: "REQUEST_FILE_READ_FAILED" };
+  } finally {
+    await file?.close();
+  }
+}
+function usedRuleSets(profile: Profile): Map<string, RuleSet> {
+  const used = new Map<string, RuleSet>();
+  const visit = (c: Condition) => {
+    if (c.type === "all" || c.type === "any") c.conditions.forEach(visit);
+    else if (c.type === "not") visit(c.condition);
+    else if (c.type === "ruleSetSource" || c.type === "ruleSet") used.set(c.id, c);
+  };
+  profile.routes.forEach((r) => visit(r.when));
+  return used;
 }
 async function main(args: string[]): Promise<number> {
   json = args.includes("--json");
@@ -224,13 +276,53 @@ async function main(args: string[]): Promise<number> {
     }
     if (command === "explain") {
       const checked = checkBuild(definition);
-      if (!checked.ok) {
+      if (checked.code === "CHECK_FAILED") {
         print(checked);
         return 1;
       }
       if (!Object.hasOwn(definition.profiles, options.get("--profile")!))
         return failure("UNKNOWN_PROFILE");
-      return failure("EXPLAIN_PROFILE_UNSUPPORTED");
+      const profileKey = options.get("--profile")!;
+      const profile = definition.profiles[profileKey]!;
+      let content = options.get("--request");
+      if (content === undefined) {
+        const read = await requestFile(resolve(root, options.get("--request-file")!));
+        if ("code" in read) return failure(read.code);
+        content = read.text;
+      }
+      let input: unknown;
+      try {
+        input = JSON.parse(content);
+      } catch {
+        return failure("INVALID_REQUEST");
+      }
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return failure("INVALID_REQUEST");
+      const { ruleSets, ...request } = input as Record<string, unknown>;
+      const assume: { hit: RuleSet[]; miss: RuleSet[] } = { hit: [], miss: [] };
+      if (ruleSets !== undefined) {
+        if (!ruleSets || typeof ruleSets !== "object" || Array.isArray(ruleSets))
+          return failure("INVALID_REQUEST", { paths: ["ruleSets"] });
+        const used = usedRuleSets(profile);
+        for (const [id, hit] of Object.entries(ruleSets)) {
+          if (typeof hit !== "boolean") return failure("INVALID_REQUEST", { paths: ["ruleSets"] });
+          const ref = used.get(id);
+          if (!ref) return failure("ASSUMPTION_UNKNOWN_RULESET", { paths: ["ruleSets"] });
+          assume[hit ? "hit" : "miss"].push(ref);
+        }
+      }
+      try {
+        const result = sdk.explainProfile(profile, request as RouteRequest, assume as Assumptions);
+        if (!result.ok)
+          return failure(result.diagnostics[0]?.code ?? "INVALID_ASSUMPTIONS", {
+            paths: ["ruleSets"],
+          });
+        print({ ...result, profile: profileKey });
+        return result.ok ? 0 : 1;
+      } catch (e) {
+        const d = definitionDiagnostic(e);
+        return failure("INVALID_REQUEST", d?.paths ? { paths: d.paths } : {});
+      }
     }
     const built = await runBuild(definition, { validation: flags.has("--validation") });
     print(built);

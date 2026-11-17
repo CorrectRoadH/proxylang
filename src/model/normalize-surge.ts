@@ -118,9 +118,7 @@ function surgeCondition(
   }
   if (c.type === "ruleSet") return { type: "ruleSet", format: "rule-set", builtin: c.builtin };
   if (c.type === "all" || c.type === "any")
-    return c.conditions.length === 1
-      ? surgeCondition(c.conditions[0]!, depth + 1)
-      : { ...c, conditions: c.conditions.map((x) => surgeCondition(x, depth + 1)) };
+    return { ...c, conditions: c.conditions.map((x) => surgeCondition(x, depth + 1)) };
   if (c.type === "not") return { ...c, condition: surgeCondition(c.condition, depth + 1) };
   if (c.type === "ipCidr" && isIP(c.value.split("/")[0]!) === 6) return { ...c, type: "ipCidr6" };
   return c as SurgeCondition;

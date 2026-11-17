@@ -115,7 +115,7 @@ export function compileSurgeProfile(input: unknown): SurgeProfileCompilation {
     visited = new Set<string>();
   const visit = (id: string): void => {
     if (active.has(id)) {
-      error("RESOURCE_CYCLE");
+      error("RESOURCE_CYCLE", `${p.groups.some((g) => g.id === id) ? "groups" : "proxies"}.${id}`);
       return;
     }
     if (visited.has(id)) return;

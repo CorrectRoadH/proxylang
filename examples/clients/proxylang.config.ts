@@ -1,12 +1,11 @@
+import { sharedRoutes, sharedCases } from "../shared.js";
 import {
   defineBuild,
   defineProfile,
-  defineRoutes,
   defineProxyGroup,
   group,
   proxy,
   defineSecrets,
-  match,
   outbound,
 } from "proxylang";
 const secrets = defineSecrets({ TEST_PASSWORD: { value: "test-only", validation: "test-only" } });
@@ -42,7 +41,9 @@ export default defineBuild({
       target: { engine: "stash", version: "4.2.1", platform: "macos" },
       proxies: [edge, chained],
       groups: [relay],
-      routes: defineRoutes({ when: [match.domainSuffix("example.com")], to: chained }),
+      // Stash does not support external rule sets.
+      routes: sharedRoutes(chained, false),
+      cases: sharedCases(chained, false),
       fallback: outbound.direct,
     }),
   },

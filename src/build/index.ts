@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/build/library.md
+import { checkCases } from "./cases.js";
+import type { CaseResult } from "../model/routing-types.js";
 import { join, resolve } from "node:path";
 import { ProfileDefinitionError } from "../model/definitions.js";
 import { kindOf, originOf } from "../model/identity.js";
@@ -27,7 +29,7 @@ export type CheckResult = {
     readonly diagnostics: readonly ProfileDiagnostic[];
     readonly selections: readonly Selection[];
   }[];
-  readonly cases: readonly never[];
+  readonly cases: readonly CaseResult[];
 };
 export type BuildResult = {
   readonly published: boolean;
@@ -85,13 +87,20 @@ function compile(definition: BuildDefinition) {
       selections: p.selections,
     };
   });
-  const ok = profiles.every((p) => p.ok);
+  const cases = profiles.flatMap((p, i) => {
+    const result = checkCases(entries[i]![1], p.key, prepared[i]!, p.ok);
+    p.diagnostics.push(...result.diagnostics);
+    p.ok = p.ok && result.diagnostics.length === 0;
+    return result.cases;
+  });
+  const profileOk = profiles.every((p) => p.ok);
+  const ok = profileOk && cases.every((c) => c.ok);
   const check: CheckResult = Object.freeze({
     ok,
-    code: ok ? "CHECKED" : "CHECK_FAILED",
+    code: !profileOk ? "CHECK_FAILED" : ok ? "CHECKED" : "CASE_FAILED",
     outputDirectoryChecked: definition.outDir !== undefined,
     profiles,
-    cases: [],
+    cases,
   });
   return { check, prepared, entries };
 }
@@ -148,3 +157,8 @@ export async function runBuild(
 }
 export { definitionDiagnostic } from "../model/definitions.js";
 export { targetCatalog } from "../targets/catalog.js";
+
+export { explainProfile } from "./explain.js";
+
+export type { Condition, RuleSet, Profile } from "../model/profile-types.js";
+export type { Assumptions, RouteRequest, Explanation } from "../model/routing-types.js";

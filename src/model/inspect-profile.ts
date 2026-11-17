@@ -34,7 +34,12 @@ export type InspectedProfile = {
   ruleSets: Set<RuleSet>;
   mapped: Map<ExternalRuleSet, NativeRuleSet>;
 };
-export function inspectProfile(profile: Profile, key: string, secrets?: Secrets): InspectedProfile {
+export function inspectProfile(
+  profile: Profile,
+  key: string,
+  secrets?: Secrets,
+  checkSecrets = true,
+): InspectedProfile {
   const diagnostics: Diagnostic[] = [];
   const selections: Selection[] = [];
   const error = (code: string, path: string, object: unknown, message = code) =>
@@ -104,6 +109,12 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
   }
   const reference = (exit: Exit, path: string, owner: unknown) => {
     if (kindOf(exit) !== "builtin" && !listed.has(exit)) error("UNLISTED_EXIT", path, owner);
+    if (
+      profile.target.engine !== "surge" &&
+      "builtin" in exit &&
+      !["DIRECT", "REJECT"].includes(exit.builtin)
+    )
+      error("EXIT_UNSUPPORTED", path, owner);
   };
   const edges = new Map<object, object[]>();
   for (const resource of resources) {
@@ -150,7 +161,12 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
       const signature = [...ids].sort().join(",");
       if (!cycleKeys.has(signature)) {
         cycleKeys.add(signature);
-        error("GROUP_CYCLE", `proxies.${ids[0]}`, v, `Dependency cycle: ${ids.join(" -> ")}`);
+        error(
+          "GROUP_CYCLE",
+          `${kindOf(v) === "group" ? "groups" : "proxies"}.${ids[0]}`,
+          v,
+          `Dependency cycle: ${ids.join(" -> ")}`,
+        );
       }
       return;
     }
@@ -196,15 +212,21 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
   const secretRefs = new Set<SecretRef>();
   const scanned = new WeakSet<object>();
   function scan(value: unknown, path: string, owner: unknown) {
-    if (!value || typeof value !== "object" || scanned.has(value)) return;
-    scanned.add(value);
+    if (!value || typeof value !== "object") return;
     if (kindOf(value) === "secret") {
       const ref = value as SecretRef;
       secretRefs.add(ref);
-      if (!sourceFor(secrets, ref)) error("SECRET_UNDECLARED", path, owner);
+      if (checkSecrets && !sourceFor(secrets, ref)) error("SECRET_UNDECLARED", path, owner);
       return;
     }
-    for (const [k, v] of Object.entries(value)) scan(v, `${path}.${k}`, owner);
+    // References own their diagnostics; shared containers are checked at every use path.
+    if (value !== owner && ["node", "group", "tunnel", "endpoint"].includes(kindOf(value) ?? ""))
+      return;
+    if (scanned.has(value)) return;
+    scanned.add(value);
+    if (Array.isArray(value)) value.forEach((v, i) => scan(v, `${path}[${i}]`, owner));
+    else for (const [k, v] of Object.entries(value)) scan(v, `${path}.${k}`, owner);
+    scanned.delete(value);
   }
   profile.proxies.forEach((r) => scan(r, `proxies.${r.id}`, r));
   if (profile.surge) scan(profile.surge, "surge", profile);
@@ -218,6 +240,14 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
         ? "mihomo"
         : "surge";
   function lower(condition: Condition, path: string, depth = 0): Match | Condition {
+    if (
+      profile.target.engine === "surge" &&
+      depth >= 10 &&
+      ["all", "any", "not"].includes(condition.type)
+    ) {
+      error("LOGICAL_DEPTH_EXCEEDED", path, condition);
+      return { type: "domain", value: "diagnostic.example" };
+    }
     if (condition.type === "all" || condition.type === "any")
       return {
         ...condition,
@@ -230,17 +260,35 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
         ...condition,
         condition: lower(condition.condition, path + ".condition", depth + 1),
       } as Condition;
+    const placeholder: Match = { type: "domain", value: "diagnostic.example" };
+    if (profile.target.engine === "surge" && depth > 10) {
+      error("LOGICAL_DEPTH_EXCEEDED", path, condition);
+      return placeholder;
+    }
+    if (
+      profile.target.engine !== "surge" &&
+      ["ruleSet", "ipAsn", "ipCidr6", "macAddress"].includes(condition.type)
+    ) {
+      error(
+        condition.type === "ruleSet" && profile.target.engine === "stash"
+          ? "RULESET_UNSUPPORTED"
+          : "CONDITION_UNSUPPORTED",
+        path,
+        condition,
+      );
+      return placeholder;
+    }
     if (condition.type !== "ruleSetSource") return condition;
     const set = condition;
     id(set, path);
     if (profile.target.engine === "stash") {
       error("RULESET_UNSUPPORTED", path, set);
-      return condition;
+      return placeholder;
     }
     const source = set[branch];
     if (!source) {
       error("RULESET_SOURCE_MISSING", path, set);
-      return condition;
+      return placeholder;
     }
     const format = "format" in source ? (source.format ?? "rule-set") : "rule-set";
     const signature = JSON.stringify([
@@ -264,6 +312,7 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
       engine: profile.target.engine,
       format,
       ...source,
+      ...(branch === "surge" && depth ? { intervalSeconds: undefined } : {}),
     } as NativeRuleSet;
     mapped.set(set, native);
     return native;
@@ -273,6 +322,6 @@ export function inspectProfile(profile: Profile, key: string, secrets?: Secrets)
     return { ...route, when: lower(route.when, `routes[${i}].when`) };
   });
   reference(profile.fallback, "fallback", profile);
-  profile.cases?.forEach((c, i) => reference(c.expect, `cases[${i}].expect`, profile));
+  profile.cases?.forEach((c, i) => reference(c.expect, `cases[${i}].expect`, c));
   return { diagnostics, selections, names, rules, secretRefs, ruleSets: usedSets, mapped };
 }

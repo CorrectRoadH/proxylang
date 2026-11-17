@@ -242,7 +242,7 @@ export const conditionSchema: z.ZodType<SurgeCondition> = z.lazy(
       z.strictObject({ type: z.literal("network"), value: z.enum(["tcp", "udp"]), ...options }),
       z.strictObject({
         type: z.enum(["all", "any"]),
-        conditions: z.array(conditionSchema).min(2).max(100),
+        conditions: z.array(conditionSchema).min(1).max(100),
         ...options,
       }),
       z.strictObject({ type: z.literal("not"), condition: conditionSchema, ...options }),

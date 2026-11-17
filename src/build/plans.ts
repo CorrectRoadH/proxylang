@@ -1,9 +1,11 @@
 // @concord-file
 // @concord-implements docs/feature/targets/README.md#编码规则
+import { diagnosticView } from "../model/diagnostic-view.js";
+import { normalizeRouting, type RoutingModel } from "../model/routing-model.js";
 import { stringify } from "yaml";
 import { defineProfile } from "../authoring/profile.js";
 import { inspectProfile, type Selection } from "../model/inspect-profile.js";
-import type { Secrets } from "../model/profile-types.js";
+import type { RuleSet, Secrets } from "../model/profile-types.js";
 import { originOf } from "../model/identity.js";
 import { snapshotDefinition, ProfileDefinitionError } from "../model/definitions.js";
 import { normalizeProfile } from "../model/normalize.js";
@@ -26,6 +28,8 @@ import { targetCatalog } from "../targets/catalog.js";
 export type PreparedProfile = {
   engine: Profile["target"]["engine"];
   selections: readonly Selection[];
+  routing?: RoutingModel;
+  ruleSets?: ReadonlyMap<RuleSet, string>;
   ok: boolean;
   diagnostics: readonly Diagnostic[];
   native?: SurgeProfileCompilation;
@@ -33,17 +37,29 @@ export type PreparedProfile = {
   code?: string;
   paths?: readonly string[];
 };
-export function prepareProfile(input: Profile, key: string, secrets?: Secrets): PreparedProfile {
+export function prepareProfile(
+  input: Profile,
+  key: string,
+  secrets?: Secrets,
+  checkSecrets = true,
+): PreparedProfile {
   let engine: Profile["target"]["engine"] = "surge";
   const collected: Diagnostic[] = [];
+  let selections: readonly Selection[] = [];
+  let ruleSets: ReadonlyMap<RuleSet, string> | undefined;
   try {
     const p = defineProfile(input);
     engine = p.target.engine;
     snapshotDefinition(p.routes.map((r) => r.when));
-    const inspected = inspectProfile(p, key, secrets);
-    const selections = inspected.selections;
+    const inspected = inspectProfile(p, key, secrets, checkSecrets);
+    selections = inspected.selections;
+    const routing = normalizeRouting(p, inspected);
+    ruleSets = routing.ruleSets;
     collected.push(...inspected.diagnostics);
-    const view = { ...p, routes: inspected.rules } as unknown as Profile;
+    const invalid = collected.some((d) => d.severity === "error");
+    const view = invalid
+      ? diagnosticView(p, inspected)
+      : ({ ...p, routes: inspected.rules } as unknown as Profile);
     const project = (d: Diagnostic): Diagnostic => ({
       ...d,
       code: diagnosticCode(d.code),
@@ -60,6 +76,7 @@ export function prepareProfile(input: Profile, key: string, secrets?: Secrets): 
       return {
         engine,
         selections,
+        ruleSets,
         ok: false,
         diagnostics: [
           ...collected,
@@ -73,27 +90,15 @@ export function prepareProfile(input: Profile, key: string, secrets?: Secrets): 
           },
         ],
       };
-    if (
-      collected.some((d) =>
-        [
-          "NAME_UNSAFE",
-          "DUPLICATE_NATIVE_NAME",
-          "RULESET_SOURCE_MISSING",
-          "RULESET_UNSUPPORTED",
-          "RULESET_SOURCE_CONFLICT",
-          "TUNNEL_UNSUPPORTED",
-          "GROUP_ALGORITHM_UNSUPPORTED",
-          "GROUP_OPTION_UNSUPPORTED",
-          "ALGORITHM_ENGINE_MISMATCH",
-          "GROUP_CYCLE",
-        ].includes(d.code),
-      )
-    )
-      return { engine, selections, ok: false, diagnostics: collected };
-    const allDiagnostics = (ds: readonly Diagnostic[]) => [
-      ...collected,
-      ...ds.map(project).filter((d) => !collected.some((existing) => existing.code === d.code)),
-    ];
+    const allDiagnostics = (ds: readonly Diagnostic[]) => {
+      const seen = new Set<string>();
+      return [...collected, ...ds.map(project)].filter((d) => {
+        const key = JSON.stringify([d.code, d.path]);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
     if (
       (p.surge && engine !== "surge") ||
       (p.singBox && engine !== "sing-box") ||
@@ -106,9 +111,10 @@ export function prepareProfile(input: Profile, key: string, secrets?: Secrets): 
       return {
         engine,
         selections,
+        ruleSets,
         ok: native.ok && !collected.some((d) => d.severity === "error"),
         diagnostics: allDiagnostics(native.diagnostics),
-        native,
+        ...(!invalid && native.ok ? { native, routing } : {}),
       };
     }
     const model = normalizeProfile(view);
@@ -119,14 +125,21 @@ export function prepareProfile(input: Profile, key: string, secrets?: Secrets): 
     return {
       engine,
       selections,
+      ruleSets,
       ok: result.ok && !collected.some((d) => d.severity === "error"),
       diagnostics: allDiagnostics(result.diagnostics),
-      plan: { ...result.plan, names: inspected.names },
+      ...(!invalid && result.ok
+        ? {
+            plan: { ...result.plan, names: inspected.names },
+            routing,
+          }
+        : {}),
     };
   } catch (e) {
     return {
       engine,
-      selections: [],
+      selections,
+      ruleSets,
       ok: false,
       code: e instanceof ProfileDefinitionError ? e.code : "INVALID_PROFILE_DEFINITION",
       paths: e instanceof ProfileDefinitionError ? e.paths : undefined,

@@ -59,7 +59,7 @@
 
 ## 诊断
 
-check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能取得定义位置时还有 `origin: { file, line, column }`。`path` 指向规范化模型，例如 `routes[12].to`、`groups.ai.members[3]`。
+check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能取得定义位置时还有 `origin: { file, line, column }`。`path` 指向规范化模型，例如 `routes[12].to`、`groups.ai.members[3]`。结构有效的 Profile 会汇总各处可独立判断的诊断；一处资源或路由错误不遮蔽其它位置的错误。相同 `code` 出现在不同 `path` 时分别保留，已确定的 `selections` 不因后续不支持项而清空。
 
 | code | severity | 触发 |
 | --- | --- | --- |
@@ -68,6 +68,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `UNLISTED_EXIT` | error | 路由、分组成员、`via`、`fallback` 或案例引用的对象没有列在这份 Profile 的 `proxies` 或 `groups` 中 |
 | `SECRET_UNDECLARED` | error | 引用的秘密不属于构建定义的秘密集合 |
 | `GROUP_CYCLE` | error | 分组成员与 `via` 构成环，诊断列出环上的全部 id |
+| `EXIT_UNSUPPORTED` | error | 内置出口不被目标支持，例如非 Surge 目标使用 `outbound.rejectDrop`；诊断指向路由出口、成员或 fallback 的实际路径 |
 | `MEMBER_TYPE_UNSUPPORTED` | error | 分组成员或 `via` 的类型不被目标允许，例如 sing-box endpoint |
 | `TCP_ONLY_EXIT` | error | 出口的可选路径上有 TCP-only 节点，但路由没有限定 TCP，或者用作 `fallback` |
 | `PROTOCOL_UNSUPPORTED` | error | 节点协议不被目标支持 |

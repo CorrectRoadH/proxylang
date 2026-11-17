@@ -49,16 +49,24 @@ export function checkTarget(
   );
   if (resources.length > 1000) error("RESOURCE_LIMIT", "proxies");
   for (const [id, refs] of edges)
-    for (const ref of refs) {
-      if (!registry.has(ref) && !["DIRECT", "REJECT"].includes(ref)) error("MISSING_REFERENCE", id);
+    for (const [index, ref] of refs.entries()) {
+      const path =
+        registry.get(id)?.type === "select" || registry.get(id)?.type === "urltest"
+          ? `groups.${id}.members[${index}]`
+          : `proxies.${id}.via`;
+      if (!registry.has(ref) && !["DIRECT", "REJECT"].includes(ref))
+        error("MISSING_REFERENCE", path);
       if (registry.get(ref)?.type === "sing-box-tailscale")
-        error("ENDPOINT_REFERENCE_UNSUPPORTED", id);
+        error("ENDPOINT_REFERENCE_UNSUPPORTED", path);
     }
   const state = new Map<string, number>(),
     tcp = new Map<string, boolean>();
   const visit = (id: string): boolean => {
     if (state.get(id) === 1) {
-      error("RESOURCE_CYCLE", id);
+      error(
+        "RESOURCE_CYCLE",
+        `${model.groups.some((g) => g.id === id) ? "groups" : "proxies"}.${id}`,
+      );
       return true;
     }
     if (state.get(id) === 2) return tcp.get(id) ?? false;

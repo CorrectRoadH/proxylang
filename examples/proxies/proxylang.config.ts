@@ -1,12 +1,11 @@
+import { sharedRoutes, sharedCases } from "../shared.js";
 import {
   defineBuild,
   defineProfile,
-  defineRoutes,
   defineProxyGroup,
   group,
   proxy,
   defineSecrets,
-  match,
   outbound,
 } from "proxylang";
 const secrets = defineSecrets({ TEST_PASSWORD: { value: "test-only", validation: "test-only" } });
@@ -42,7 +41,8 @@ export default defineBuild({
       target: { engine: "sing-box", version: "1.14.4", platform: "linux" },
       proxies: [edge, chained],
       groups: [relay],
-      routes: defineRoutes({ when: [match.domainSuffix("example.com")], to: chained }),
+      routes: sharedRoutes(chained),
+      cases: sharedCases(chained),
       fallback: outbound.direct,
       singBox: { mode: "fragment" },
     }),

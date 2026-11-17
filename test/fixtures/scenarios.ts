@@ -59,7 +59,7 @@ for (const [engine, version, platforms, modes] of [
   for (const platform of platforms)
     for (const mode of modes) {
       const scenes = ["protocols", "groups", "chain", "conditions", "names"];
-      if (engine === "surge") scenes.push("group-options");
+      if (engine === "surge") scenes.push("group-options", "logical-single");
       if (engine !== "stash") scenes.push("rulesets");
       if (engine === "surge" || (engine === "sing-box" && mode === "standalone"))
         scenes.push("dns", "tunnel");
@@ -240,6 +240,17 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: mesh }));
     }
   }
+  if (s.scene === "logical-single")
+    routes.push(
+      ...defineRoutes({
+        when: [
+          match.all(match.ipCidr("192.0.2.0/24")),
+          match.any(match.domain("single.example")),
+          match.not(match.all(match.port(443))),
+        ],
+        to: outbound.direct,
+      }),
+    );
   if (s.scene === "conditions") {
     const conditions: ProfileCondition[] = [
       match.domain("one.example"),

@@ -242,3 +242,40 @@ flattened.dns.push({ pattern: "example.com", server: "192.0.2.53" });
 flattened.cases.push({ name: "invalid", request: {}, expect: edge });
 // @ts-expect-error concrete Profile target still narrows extension fields after a spread
 defineProfile({ ...flattened, singBox: { mode: "fragment" } });
+
+// @feature docs/feature/routing-cases/library.md#explainprofile
+import {
+  explainProfile,
+  type RouteRequest,
+  type Assumptions,
+  type Explanation,
+  type CaseResult,
+} from "proxylang";
+const request: RouteRequest = { domain: "example.com", resolvedIp: "192.0.2.7", network: "tcp" };
+const assumptions: Assumptions = { hit: [] };
+const explained = explainProfile(flattened, request, assumptions);
+if (explained.ok) {
+  const value: Explanation = explained.explanation;
+  const exit: string | undefined = value.exit;
+  void exit;
+} else
+  explained.diagnostics.forEach((d) => {
+    const code: string = d.code;
+    void code;
+  });
+// @ts-expect-error requests use the supported transport union
+explainProfile(flattened, { network: "icmp" });
+// @ts-expect-error assumptions reference SDK objects, not IDs
+explainProfile(flattened, {}, { hit: ["external"] });
+// @ts-expect-error cases expect SDK exits, not IDs
+const invalidCase: RouteCase = { name: "invalid", request: {}, expect: "edge" };
+void invalidCase;
+const caseResult: CaseResult = {
+  profile: "example",
+  name: "example",
+  ok: false,
+  outcome: "indeterminate",
+  expected: "edge",
+  needs: { kind: "dns" },
+};
+void caseResult;

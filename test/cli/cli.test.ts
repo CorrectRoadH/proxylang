@@ -129,3 +129,137 @@ test("relative output stays anchored to the CLI invocation directory when truste
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// @feature docs/feature/build/cli.md#explain
+for (const scope of ["module", "commonjs"])
+  test(`CLI ${scope} explain maps rule-set IDs, keeps logical exits, reports trace and accepts UTF-8 BOM`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "proxylang-explain-"));
+    try {
+      await writeFile(join(root, "package.json"), JSON.stringify({ type: scope }));
+      await writeFile(join(root, "proxylang.config.ts"), config);
+      const args = ["explain", "--profile", "one"];
+      const invoke = (request: unknown) => {
+        const r = run(root, [...args, "--request", JSON.stringify(request), "--json"]);
+        return { status: r.status, result: JSON.parse(r.stdout) };
+      };
+      const unknown = invoke({});
+      assert.equal(unknown.status, 0);
+      assert.equal(unknown.result.profile, "one");
+      assert.equal(unknown.result.explanation.outcome, "indeterminate");
+      assert.deepEqual(unknown.result.explanation.needs, { kind: "ruleSet", id: "external" });
+      const hit = invoke({ ruleSets: { external: true } });
+      assert.equal(hit.status, 0);
+      assert.equal(hit.result.explanation.exit, "edge");
+      assert.equal(hit.result.explanation.route.index, 0);
+      assert.ok(hit.result.explanation.route.origin.file.endsWith("proxylang.config.ts"));
+      const miss = invoke({ ruleSets: { external: false } });
+      assert.equal(miss.result.explanation.outcome, "fallback");
+      assert.equal(miss.result.explanation.exit, "choice");
+      const human = run(root, [...args, "--request", '{"ruleSets":{"external":true}}']);
+      assert.match(human.stdout, /one: matched → edge/);
+      assert.match(human.stdout, /routes\[0\]: hit.*proxylang.config.ts/);
+      assert.doesNotMatch(human.stdout, /TEST_DO_NOT_ECHO|TEST_CONFIG_LOG/);
+      assert.equal(
+        invoke({ ruleSets: { foreign: true } }).result.code,
+        "ASSUMPTION_UNKNOWN_RULESET",
+      );
+      assert.equal(invoke({ ruleSets: { external: "yes" } }).result.code, "INVALID_REQUEST");
+      assert.equal(invoke({ port: 0 }).result.code, "INVALID_REQUEST");
+      assert.equal(
+        invoke({ ip: "192.0.2.1", resolvedIp: "192.0.2.2" }).result.code,
+        "INVALID_REQUEST",
+      );
+      assert.equal(
+        json(root, ["explain", "--profile", "missing", "--request", "{}"]).result.code,
+        "UNKNOWN_PROFILE",
+      );
+      await writeFile(join(root, "request.json"), '\ufeff{"ruleSets":{"external":false}}');
+      assert.equal(run(root, [...args, "--request-file", "request.json", "--json"]).status, 0);
+      await writeFile(join(root, "request.json"), Buffer.from([0xff]));
+      assert.equal(
+        json(root, [...args, "--request-file", "request.json"]).result.code,
+        "REQUEST_FILE_READ_FAILED",
+      );
+      await writeFile(join(root, "request.json"), Buffer.alloc(1024 * 1024 + 1, 32));
+      assert.equal(
+        json(root, [...args, "--request-file", "request.json"]).result.code,
+        "REQUEST_FILE_TOO_LARGE",
+      );
+      await writeFile(join(root, "request.json"), "{}" + " ".repeat(1024 * 1024 - 2));
+      assert.equal(run(root, [...args, "--request-file", "request.json", "--json"]).status, 0);
+      for (const path of ["missing.json", "."])
+        assert.equal(
+          json(root, [...args, "--request-file", path]).result.code,
+          "REQUEST_FILE_READ_FAILED",
+        );
+      assert.equal(json(root, [...args, "--request", "{bad"]).result.code, "INVALID_REQUEST");
+      await writeFile(
+        join(root, "proxylang.config.ts"),
+        config.replace("proxies:[edge]", "proxies:[]"),
+      );
+      assert.equal(json(root, [...args, "--request", "{bad"]).result.code, "CHECK_FAILED");
+      await writeFile(join(root, "proxylang.config.ts"), "throw Error('TEST_DO_NOT_ECHO')");
+      assert.equal(
+        json(root, [...args, "--request-file", "missing.json"]).result.code,
+        "CONFIG_LOAD_FAILED",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+// @feature docs/feature/build/cli.md#输出
+test("CLI check/build expose failed cases while explain remains usable for a valid profile", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-cli-cases-"));
+  try {
+    await writeFile(join(root, "package.json"), '{"type":"module"}');
+    await writeFile(
+      join(root, "proxylang.config.ts"),
+      config.replace(
+        "fallback:choice",
+        "cases:[{name:'wrong',request:{},assume:{miss:[]},expect:choice}],fallback:choice",
+      ),
+    );
+    for (const command of ["check", "build"])
+      assert.equal(json(root, [command]).result.code, "CASE_FAILED");
+    const human = run(root, ["check"]);
+    assert.match(human.stdout, /cases: 0 passed, 1 failed/);
+    assert.match(human.stdout, /wrong.*indeterminate.*needs: ruleSet external/);
+    assert.equal(run(root, ["explain", "--profile", "one", "--request", "{}", "--json"]).status, 0);
+    assert.equal((await readdir(root)).includes("generated"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+// @feature docs/feature/build/cli.md#输出
+test("CLI de-duplicated rule-set conflicts use the same failure envelope and CLI field path", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-cli-assume-"));
+  try {
+    await writeFile(join(root, "package.json"), '{"type":"module"}');
+    await writeFile(
+      join(root, "proxylang.config.ts"),
+      `import {defineBuild,defineProfile,defineRoutes,ruleSet,outbound} from ${JSON.stringify(resolve("dist/index.js"))};
+const source={url:'https://rules.example.com/list.json',format:'source',intervalSeconds:86400};
+const first=ruleSet({id:'first',singBox:source}),second=ruleSet({id:'second',singBox:source});
+export default defineBuild({profiles:{gateway:defineProfile({target:{engine:'sing-box',platform:'linux',version:'1.14.4'},singBox:{mode:'fragment'},proxies:[],groups:[],routes:defineRoutes({when:[first,second],to:outbound.reject}),fallback:outbound.direct})}});`,
+    );
+    const args = [
+      "explain",
+      "--profile",
+      "gateway",
+      "--request",
+      '{"ruleSets":{"first":true,"second":false}}',
+    ];
+    const failed = json(root, args);
+    assert.equal(failed.status, 1);
+    assert.deepEqual(failed.result, {
+      ok: false,
+      code: "INVALID_ASSUMPTIONS",
+      paths: ["ruleSets"],
+    });
+    const human = run(root, args);
+    assert.match(human.stdout, /INVALID_ASSUMPTIONS.*ruleSets/);
+    assert.doesNotMatch(human.stdout, /assume\.miss|profile:/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

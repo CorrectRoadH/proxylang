@@ -33,17 +33,21 @@ try {
       true,
     );
     assert.ok(readFileSync(join(cwd, "generated/out/laptop.conf"), "utf8").length);
-    let explain;
-    try {
-      run(
-        process.execPath,
-        [cli, "explain", "--profile", "laptop", "--request", "{}", "--json"],
-        cwd,
+    for (const [request, outcome, exit] of [
+      [{}, "fallback", "DIRECT"],
+      [{ domain: "example.com" }, "matched", "edge"],
+    ]) {
+      const explain = JSON.parse(
+        run(
+          process.execPath,
+          [cli, "explain", "--profile", "laptop", "--request", JSON.stringify(request), "--json"],
+          cwd,
+        ),
       );
-    } catch (e) {
-      explain = JSON.parse(e.stdout);
+      assert.equal(explain.ok, true);
+      assert.equal(explain.explanation.outcome, outcome);
+      assert.equal(explain.explanation.exit, exit);
     }
-    assert.equal(explain.code, "EXPLAIN_PROFILE_UNSUPPORTED");
   }
   run(process.execPath, [
     "--input-type=module",
@@ -71,7 +75,7 @@ try {
     copyFileSync(join(temp, pack.filename), join(dest, pack.filename));
   }
   console.log(
-    `Verified ${pack.filename}: allowlist, isolated SDK/types, ESM/CJS CLI check/build and explain rejection`,
+    `Verified ${pack.filename}: allowlist, isolated SDK/types, ESM/CJS CLI check/build and matched/fallback explain`,
   );
 } finally {
   rmSync(temp, { recursive: true, force: true });

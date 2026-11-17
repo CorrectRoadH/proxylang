@@ -10,7 +10,7 @@
 
 ## 工具链
 
-项目使用 Node >=24.11.0 且 <25、Vite+ 1.3.0 与 npm 锁文件。工具配置统一在 vite.config.ts；不并发运行会重写 dist 的构建任务。
+项目使用 Node 24（>=24.11.0 且 <25）或 Node 26（>=26.0.0 且 <27）、Vite+ 1.3.0 与 npm 锁文件。工具配置统一在 vite.config.ts；不并发运行会重写 dist 的构建任务。
 
 | 命令 | 用途 |
 | --- | --- |
@@ -31,7 +31,7 @@
 
 ## CI
 
-CI 在 Ubuntu/macOS 与 Node 24.11.0/当前 Node 24 矩阵执行冻结安装、verify 和 CLI 示例检查/构建。示例只使用保留地址、TEST_* 名字与假值。秘密扫描检查 Git 历史，输出必须脱敏。
+CI 在 Ubuntu/macOS 与 Node 24.11.0、当前 Node 24、Node 26.0.0 和当前 Node 26 矩阵执行冻结安装、verify 和 CLI 示例检查/构建。隔离安装验收启用 npm engine-strict，确保实际发布包接受对应运行时，并执行 ESM/CJS 配置的 CLI check、build 和 explain。示例只使用保留地址、TEST_* 名字与假值。秘密扫描检查 Git 历史，输出必须脱敏。
 
 原生检查独立下载 sing-box 1.12.0、1.14.4 与 Mihomo 1.19.32，核对 SHA-256 后在隔离目录检查，不启动代理。endpoint 检查要求 with_tailscale 且不创建身份目录；fragment 用最小宿主配置。Surge 和 Stash 不具备自动化检查器，不能用其它引擎通过代替。
 

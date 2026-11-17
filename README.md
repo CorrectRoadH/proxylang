@@ -4,7 +4,7 @@
 
 ## 从一份 Profile 开始
 
-安装 `proxylang`，在项目根目录创建 `proxylang.config.ts`：
+使用 Node 24（>=24.11.0）或 Node 26。安装 `proxylang`，在项目根目录创建 `proxylang.config.ts`：
 
 ```ts
 import {

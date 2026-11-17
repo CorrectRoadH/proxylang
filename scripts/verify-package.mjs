@@ -16,7 +16,14 @@ try {
   for (const name of ["dist/index.js", "dist/index.d.ts", "dist/cli.js"])
     assert.ok(pack.files.some((f) => f.path === name));
   writeFileSync(join(temp, "package.json"), JSON.stringify({ private: true, type: "module" }));
-  run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", join(temp, pack.filename)]);
+  run("npm", [
+    "install",
+    "--engine-strict",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    join(temp, pack.filename),
+  ]);
   const cli = join(temp, "node_modules/proxylang/dist/cli.js");
   const config = `import {defineBuild,defineProfile,defineRoutes,match,outbound,proxy,defineSecrets} from 'proxylang';
  const secrets=defineSecrets({TEST_PASSWORD:{env:'TEST_PASSWORD',validation:'test-valid'}});

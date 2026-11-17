@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/build-targets.md
+// @concord-implements docs/feature/targets/use-case/check-device-target.md
 import { validateRuleSets } from "./rulesets.js";
 import type { Diagnostic, Entry } from "./types.js";
 import { dnsRulesSchema } from "./dns.js";

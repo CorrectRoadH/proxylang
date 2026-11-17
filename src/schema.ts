@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/README.md
+// @concord-implements docs/feature/profile/README.md
 import { dnsRulesSchema } from "./dns.js";
 import { z } from "zod";
 import { isIP } from "node:net";

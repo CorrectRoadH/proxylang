@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/provider-nodes.md
+// @concord-implements docs/feature/profile/use-case/define-proxies.md
 import { assertData, deepFreeze } from "./schema.js";
 import type { ProxyNode } from "./types.js";
 

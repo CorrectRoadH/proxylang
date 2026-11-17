@@ -57,7 +57,7 @@ function rejects(run: () => unknown, code: string) {
       error instanceof ProfileDefinitionError && error.code === code && error.message === code,
   );
 }
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("object definitions lower in declared order, compile, and detach snapshots", () => {
   const definition = fixture();
   const lowered = lowerSurgeProfile(definition);
@@ -174,7 +174,7 @@ test("Surge match preserves options, source literals and nested conditions", () 
   assert.equal(compileSurgeProfile(lowered).ok, true);
 });
 
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("ASN rules preserve decimal values and nested no-resolve while rejecting invalid input", () => {
   for (const target of [
     { engine: "surge", platform: "macos", version: "6.10.0" },
@@ -223,7 +223,7 @@ test("ASN rules preserve decimal values and nested no-resolve while rejecting in
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("route batches preserve empty, duplicate and ordered conditions without IDs", () => {
   const a = surge.match.domain("a.example");
   const b = surge.match.domain("b.example");

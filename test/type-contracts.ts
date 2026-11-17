@@ -1,4 +1,4 @@
-// @use-case docs/feature/rule-composition/use-case/compose-policy.md
+// @use-case docs/feature/profile/use-case/share-rules-across-devices.md
 import {
   defineProfile,
   proxy,
@@ -88,7 +88,7 @@ export function authoringTypeChecks(dynamicConfig: Config, dynamicRules: Entry[]
   });
 }
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 export function strategyTypeChecks() {
   strategy({ id: "auto", members: ["edge"], algorithm: group.auto() });
   strategy({ id: "manual", members: ["edge"], algorithm: group.select() });

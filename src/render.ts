@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/README.md
+// @concord-implements docs/feature/targets/README.md
 import { dnsCondition, dohUrl } from "./dns.js";
 import { needsResolve, singboxMemberTag } from "./singbox-semantics.js";
 import { stringify } from "yaml";

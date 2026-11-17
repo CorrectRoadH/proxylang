@@ -41,7 +41,7 @@ async function call(root: string, args: string[]) {
     return { status: result.code, ...result, json: JSON.parse(result.stdout) };
   }
 }
-// @feature docs/feature/artifact-publication/format/project-config.md
+// @feature docs/feature/build/format/project-config.md
 test("checkBuild shares batch validation without callbacks, secrets or output writes", async (t) => {
   const root = await workspace(t);
   let calls = 0;
@@ -94,7 +94,7 @@ test("checkBuild shares batch validation without callbacks, secrets or output wr
   assert.equal(checkBuild({ profiles: { mac: { ...profile, fallback: "missing" } } }).ok, false);
   assert.equal(checkBuild({ ...snapshot, outDir: " bad " }).code, "INVALID_BUILD_DEFINITION");
 });
-// @feature docs/feature/artifact-publication/format/project-config.md
+// @feature docs/feature/build/format/project-config.md
 test("CLI requires local convention, rejects retired syntax before import, and preserves error precedence", async (t) => {
   const root = await workspace(t);
   const child = join(root, "child");
@@ -147,7 +147,7 @@ test("CLI requires local convention, rejects retired syntax before import, and p
     "VALIDATION_PROFILE_REQUIRED",
   );
 });
-// @feature docs/feature/artifact-publication/format/project-config.md
+// @feature docs/feature/build/format/project-config.md
 test("CLI import and SDK callbacks cannot redirect the captured output root", async (t) => {
   const root = await workspace(t);
   const changed = join(root, "changed");
@@ -179,7 +179,7 @@ test("CLI import and SDK callbacks cannot redirect the captured output root", as
   assert.deepEqual(await readdir(changed), []);
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("CLI retains SDK configuration diagnostics without exposing arbitrary exceptions", async (t) => {
   const root = await workspace(t);
   await writeFile(
@@ -202,7 +202,7 @@ test("CLI retains SDK configuration diagnostics without exposing arbitrary excep
   assert.doesNotMatch(forged.stdout, /private-value/);
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("CLI diagnostics reject unknown codes and never invoke error field getters", async (t) => {
   const root = await workspace(t);
   for (const expression of [

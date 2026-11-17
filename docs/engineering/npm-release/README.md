@@ -1,48 +1,27 @@
 # npm 版本发布
 
-发布目标是 npm 包 proxylang。版本 tag `vX.Y.Z` 必须与 package.json 和 package-lock.json 的版本一致，且提交属于 main。普通分支与 PR 只运行检查，不发布。首版采用稳定版本，不接收预发布 tag。
+维护者发布 proxylang 前，须另有明确发布授权。版本 tag `vX.Y.Z` 与 package.json、package-lock.json 根版本及根包版本一致，提交属于 main。普通分支与 PR 只运行检查；tag 必须是稳定版本。
 
-## 发布门禁
+## 发布准备
 
-release.yml 调用同一份 CI，等待 SDK/CLI、sing-box、Mihomo 和秘密扫描全部通过。Concord 文档检查通过本地命令独立执行，不作为 CI 或 npm 发布前置条件，也不需要 CONCORD_READ_TOKEN。发布 job 再从 tag 构建安装包，在仓库外临时目录安装该包，验证 SDK 导入、CLI、TypeScript 配置加载与构建。
+运行 check、verify 与 concord check，审阅公开源码、文档、示例和 tarball，确认不含私人信息或秘密。按[测试架构](../testing/README.md)完成使用方当前 tarball 的迁移、check、验证构建和测试。原生检查与实际网络验收分开报告。
 
-验证后发布同一个 tgz，不重新打包。包文件清单只允许 package.json、README.md 和 dist 下的 JS、声明文件。临时消费者和包在验证后清理；失败不执行 publish。普通 CI 也运行安装包验证。
+资源原生名字采用 name 或 id；重命名可能使客户端持久分组选择重置，发版说明须写明。Surge 与 Stash 缺少自动化原生检查器，不能宣称已通过原生验收。
 
-npm 发布使用 GitHub 托管 runner 和 OIDC，权限仅在发布 job 开启 id-token:write。npm CLI 固定12.2.1，运行时 Node24；不存储长期 npm token。首次发布前需确认 npm 包名归属和发布身份。
+## CI 与同一安装包
 
-## npm 侧准备
+release.yml 在版本 tag 或 workflow_dispatch 时调用同一份 ci.yml，等待 SDK/CLI、sing-box、Mihomo、秘密扫描通过。发布 job 再核对版本与 main 祖先关系，冻结安装，执行 `vp run test:package -- --keep`。
 
-本包的 Trusted Publisher 配置为：用户 CorrectRoadH、仓库 proxylang、workflow 文件 release.yml。此 workflow 不使用 GitHub environment。发布身份需允许直接 npm publish。
+安装包只允许 package.json、README.md、dist 下的 JS 与声明文件；隔离目录安装验证 SDK 导入、公开类型及 TS/ESM/CJS 配置的 CLI 路径。验证成功后发布同一个 tgz，不重新打包；失败不 publish。
 
-若包尚不存在，先由 npm 所有者完成首次发布及包名认领，再配置 Trusted Publisher；不要把本地登录状态假定为 CI 已授权。首次手工发布也应先运行完整检查和安装包验证。配置方式以 [npm 官方说明](https://docs.npmjs.com/trusted-publishers/) 为准。
+Concord 文档检查由本地维护者独立完成，release workflow 不安装 Concord，不需要其读取凭据。
 
-## 操作
+## 发布身份与触发
 
-在 main 的版本提交中同步两个 manifest；检查通过后推送对应 tag。CI 成功仅证明流程检查通过，npm 上出现该版本才证明发布完成。相同版本不可覆盖；发布失败应先检查 npm 是否已接收，不能删除或覆盖已有版本。
+npm Trusted Publisher 必须绑定本仓库的 release.yml 与允许发布的身份；首次包名认领由包所有者完成，不把本地登录当作 CI 授权。发布使用 GitHub 托管 runner、OIDC 与 npm 12.2.1，只有发布 job 开启 id-token:write，不存长期 npm token。
 
-消费者使用 `npm install --save-exact proxylang@X.Y.Z`，随后提交 lockfile。替换 it-infra 的 vendor 与节点迁移属于消费仓库的独立改动。
+已获授权后，维护者推送 main 的同版本 tag 触发发布。手动 workflow 必须选择 main；默认 publish=false，只检查、打包与验证公开完整性；显式 publish=true 才执行发布。workflow 的存在和检查通过都不构成授权。
 
-首次由所有者发布时，先完成下列检查，再用 npm 登录身份发布已验证的包：
+发布命令对保留的 `.cache/release/proxylang-*.tgz` 使用 public、provenance 与 ignore-scripts。公开验证最多等待约 10 分钟，核对版本和精确 tarball SHA-512。npm 接受上传不等于可安装；超时报告失败，不重发已存在版本、不覆盖 tag。
 
-```sh
-vp run check
-vp run test:package -- --keep
-npm login
-npm publish .cache/release/proxylang-0.1.0.tgz --access public --ignore-scripts
-```
-
-首次发布后配置 Trusted Publisher。以后先更新 package.json 和 lockfile，提交 main，再创建同版本 tag；例如下一个版本为0.1.1时：
-
-```sh
-npm version 0.1.1 --no-git-tag-version
-# 提交并推送版本改动，确认 main 检查通过
-# 再推送同版本 tag，触发 npm workflow
-git tag v0.1.1
-git push origin v0.1.1
-```
-
-## 公开延迟与恢复
-
-发布后最多等待约10分钟，查询公开版本并核对 SHA512。npm 接受上传不代表公开可安装；等待超限时任务失败，不重发已有版本。
-
-手动运行 release.yml 必须选择 main；默认只执行检查、构建安装包及公开完整性验证，跳过发布。显式选择 publish=true 才发布，例如 `gh workflow run release.yml --ref main -f publish=true`。版本已存在时不能覆盖远端版本或修改 tag。
+消费者固定公开版本并提交锁文件。本地 tarball 用于验收，不能把机器本地路径提交为正式依赖。Trusted Publisher 的配置方式见 [npm 官方文档](https://docs.npmjs.com/trusted-publishers/)。

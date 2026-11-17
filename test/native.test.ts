@@ -40,7 +40,7 @@ import { trojan } from "./fixtures.js";
 
 const exec = promisify(execFile);
 const enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test.skipIf(!enabled)("原生节点片段 Surge 6.10.0：域名、原生名、TLS/TFO与外部组", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-nodes-native-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -227,7 +227,7 @@ for (const [engine, version] of [
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test.skipIf(!enabled)(
   "原生离线校验 Mihomo 1.19.32：YAML 协议、代理链、逻辑 no-resolve 与内部 DNS",
   async (t) => {
@@ -311,7 +311,7 @@ test.skipIf(!enabled)(
   },
 );
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 for (const [engine, version] of [
   ["surge", "6.10.0"],
   ["sing-box", "1.11.0"],
@@ -373,7 +373,7 @@ for (const [engine, version] of [
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test.skipIf(!enabled)("原生 sing-box 1.12.0 Tailscale check 不启动身份且隔离DNS", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-endpoint-native-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -424,7 +424,7 @@ test.skipIf(!enabled)("原生 sing-box 1.12.0 Tailscale check 不启动身份且
   await assert.rejects(access(stateDirectory));
 });
 
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 for (const [engine, version] of [
   ["surge", "6.10.0"],
   ["sing-box", "1.11.0"],
@@ -564,7 +564,7 @@ for (const [engine, version] of [
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test.skipIf(!enabled)("portable profile sing-box 1.12.0 standalone native check", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "portable-native-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));

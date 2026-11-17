@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
+// @concord-implements docs/feature/profile/library/surge.md
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 import { z } from "zod";

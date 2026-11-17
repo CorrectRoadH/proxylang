@@ -31,7 +31,7 @@ function profileText(when: ProfileCondition) {
   assert.ok(result.ok && result.engine === "surge", JSON.stringify(result));
   return renderSurgeProfile(result.compilation, () => "unused").content;
 }
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("extended matching uses each observed source without overriding destination", () => {
   const condition = match.domainSuffix("example.com", {
     includeSniffed: true,
@@ -70,7 +70,7 @@ test("extended matching uses each observed source without overriding destination
     /\(DOMAIN-SUFFIX,example.com,extended-matching\)/,
   );
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("CIDR preserves entry-specific defaults and explicit false on both address families", () => {
   for (const value of ["192.0.2.0/24", "2001:db8::/32"]) {
     for (const noResolve of [undefined, false, true]) {
@@ -101,7 +101,7 @@ test("CIDR preserves entry-specific defaults and explicit false on both address 
   );
   assert.equal(reads, 0);
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("engine functions bind routes directly and retain snapshots and resource identity", () => {
   const input = {
     url: "https://example.com/rules",
@@ -160,7 +160,7 @@ test("engine functions bind routes directly and retain snapshots and resource id
   assert.throws(() => surge.ruleSet({ url: condition.url, to: group } as never));
   assert.ok(Object.isFrozen(defineProfile({ ...base, routes: [route] }).routes));
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("Surge interval is top-level only and URL conflicts use effective interval", () => {
   const condition = surge.ruleSet({ url: "https://EXAMPLE.com/rules", intervalSeconds: 60 });
   assert.match(profileText(ruleSet({ id: "named", when: condition })), /DIRECT,update-interval=60/);

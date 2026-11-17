@@ -22,6 +22,16 @@
 
 以下字符串不是出口引用，保持为字符串：资源的 `id` 与 `name`，构建定义 `profiles` 的键（产物文件名），CLI 的 `--profile` 与请求 JSON 中的规则集 id，秘密的环境变量名，以及地址、URL、域名等数据字段。
 
+## 输入快照与预算
+
+定义只接受普通数据容器，字段必须是可枚举的自有数据属性；拒绝 symbol、访问器、函数、类实例和循环，不执行 getter。SDK 创建的资源与秘密句柄保留身份，普通容器复制后冻结。
+
+定义图最多 64 层、20000 个唯一对象、100000 条边。共享子图可按身份复用校验，但每条边计数；片段展开还按实际出现次数扣减 100000 次访问预算，包含数组节点及重复共享片段，检查发生在遍历和追加前。
+
+General 片段在每次 defineProfile 内按对象身份缓存校验，每次出现仍执行浅合并。首次校验累计展开数据成本，最多 100000 次访问，不能用多个外层对象共享大字段绕过预算。缓存不跨定义调用，避免作者修改输入后沿用旧校验。
+
+空片段数组合法；路由与条件的重复声明不去重。资源列表中同一 SDK 对象重复出现的处理按对象身份规则执行。预算失败属于定义错误，不返回部分 Profile。
+
 ## 资源与 Profile
 
 | 导出 | 签名 | 说明 |
@@ -45,12 +55,12 @@
 
 ```ts
 const secrets = defineSecrets({
-  EDGE_PASSWORD: { env: "EDGE_PASSWORD", validation: "validation-edge" },
-  MANAGED_TOKEN: { env: "MANAGED_TOKEN", validation: "validation-token" },
-  LAB_PASSWORD: { value: "not-really-secret", validation: "validation-lab" },
+  TEST_PASSWORD: { env: "TEST_PASSWORD", validation: "validation-edge" },
+  TEST_TOKEN: { env: "TEST_TOKEN", validation: "validation-token" },
+  TEST_LAB_PASSWORD: { value: "not-really-secret", validation: "validation-lab" },
 });
 
-proxy.trojan({ /* ... */ password: secrets.EDGE_PASSWORD });
+proxy.trojan({ /* ... */ password: secrets.TEST_PASSWORD });
 defineBuild({ /* ... */ secrets });
 ```
 
@@ -68,7 +78,7 @@ defineBuild({ /* ... */ secrets });
 const relay = defineProxyGroup({ id: "relay", name: "Relay", algorithm: group.select(), members: relayNodes });
 const residential = proxy.http({
   id: "residential-01", name: "Residential 01", server: "gateway.example.com", port: 10000,
-  username: secrets.RESIDENTIAL_USER, password: secrets.RESIDENTIAL_PASSWORD, via: relay,
+  username: secrets.TEST_USER, password: secrets.TEST_PASSWORD, via: relay,
 });
 ```
 
@@ -85,7 +95,7 @@ const residential = proxy.http({
 | `group.auto()` | 按质量与可用性自动选择，由目标决定实现 | Surge 编码为 Smart，sing-box 与 Mihomo 编码为 URLTest；Stash 报 `GROUP_ALGORITHM_UNSUPPORTED` |
 | `surge.smart()` | Surge Smart | 只用于 Surge 目标，成员只能是普通节点或 Surge 隧道，不能是分组或内置出口 |
 
-`group.auto()` 的具体选择写进 check 结果的 `selections`。默认测速参数与 Smart 成员约束见[目标与原生输出](../../targets/README.md)。
+`group.auto()` 的具体选择写进 check 结果的 `selections`。urltest 的 intervalSeconds 是 1–86400 整数，toleranceMs 是 0–60000 整数。默认测速参数与 Smart 成员约束见[目标与原生输出](../../targets/README.md)。
 
 ## 条件
 

@@ -71,7 +71,7 @@ function fails(input: unknown, code: string) {
   );
   assert.equal(reads, 0);
 }
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("complete profile renders ordered rules, names, hosts, parameters and encoded managed token", () => {
   const c = compileSurgeProfile(base());
   assert.equal(c.ok, true);
@@ -388,7 +388,7 @@ test("compiled plans are isolated from mutations and fabricated public results",
   assert.equal(accesses, 0);
 });
 
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("General preserves author key order rather than schema declaration order", () => {
   const c = compileSurgeProfile({
     ...base(),

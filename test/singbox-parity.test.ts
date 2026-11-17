@@ -27,7 +27,7 @@ function nodeConfig(node: ProxyNode, version = "1.14.4") {
   return { ...config, targets: config.targets.map((target) => ({ ...target, version })) };
 }
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("1.14.4 shares Trojan/AnyTLS TLS and UDP declarations without weakening older targets", () => {
   for (const type of ["trojan", "anytls"] as const) {
     const node = proxy[type]({
@@ -59,7 +59,7 @@ test("1.14.4 shares Trojan/AnyTLS TLS and UDP declarations without weakening old
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("Profile selectors preserve builtin defaults and cache, rejecting unsupported targets", () => {
   const selection = defineProxyGroup({
     id: "distraction",
@@ -104,7 +104,7 @@ test("Profile selectors preserve builtin defaults and cache, rejecting unsupport
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("explicit sniff adaptation chooses one source without overriding destination or changing default OR rejection", () => {
   const base = fixture(
     [
@@ -146,7 +146,7 @@ test("explicit sniff adaptation chooses one source without overriding destinatio
   assert.equal(compile(base).ok, false);
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("ordered resolve is guarded, reflected in source maps and never hoisted across a logical guard", () => {
   const base = fixture([
     rule("early", match.domain("early.test"), direct()),
@@ -202,7 +202,7 @@ test("ordered resolve is guarded, reflected in source maps and never hoisted acr
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("server aliases are single-hop dial addresses and preserve explicit or implicit TLS identities", () => {
   for (const serverName of [undefined, "certificate.test"]) {
     const node = proxy.trojan({
@@ -233,7 +233,7 @@ test("server aliases are single-hop dial addresses and preserve explicit or impl
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("mixed protocol candidates require explicit runtime UDP rejection without changing capabilities", () => {
   const node = proxy.http({
     id: "http-only",

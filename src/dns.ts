@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/README.md
+// @concord-implements docs/feature/targets/README.md
 import { isIP } from "node:net";
 import { z } from "zod";
 import type { DnsRule } from "./types.js";

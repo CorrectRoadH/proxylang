@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/surge-profile.md
+// @concord-implements docs/feature/profile/library/surge.md
 import type { GroupAlgorithm } from "./types.js";
 import type { SurgeCondition, SurgePolicy, SurgeProfileInput } from "./surge-profile.js";
 

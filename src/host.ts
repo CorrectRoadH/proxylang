@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/README.md
+// @concord-implements docs/feature/build/README.md
 import { mkdir, lstat, rename, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { pathsOverlap } from "./proxies.js";
@@ -56,7 +56,7 @@ async function directory(path: string): Promise<void> {
 
 /** All targets publish together by one active.json rename. Config files never go to stdout. */
 // @concord-code
-// @concord-implements docs/feature/artifact-publication/use-case/publish-generation.md
+// @concord-implements docs/feature/build/use-case/publish-device-configs.md
 export async function buildToDirectory(
   compilation: Compilation,
   output: string,

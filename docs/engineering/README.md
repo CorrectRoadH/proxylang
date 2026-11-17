@@ -1,10 +1,7 @@
-# Engineering
+# 工程工作流
 
-Repository testing and maintenance mechanisms, their usage and acceptance requirements.
+用 `concord list engineering` 发现工程文档。开发流程、工具链与 CI 由各自 owner 定义，执行证据留在任务交付中。
 
-Start with `concord new engineering --help`.
-Use `concord list engineering` to discover documents.
-
-- [npm 版本发布](npm-release/README.md)：发布身份、版本 tag 与安装包验收。
-- [节点片段与链式声明](proxy-node-fragments/README.md)：provider 迁移接口、原生名称与外部拨号引用边界。
-- [作者体验与持续验收](authoring-quality/README.md)：槽位类型、安全诊断、最低 Node 版本和原生 CI。
+- [测试架构](testing/README.md)：测试分层、生成结果比对与使用方验收。
+- [开发工作流](development/README.md)：Vite+、Concord 与 CI。
+- [npm 发布](npm-release/README.md)：发布授权、身份与同一安装包验收。

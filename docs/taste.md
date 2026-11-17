@@ -59,7 +59,7 @@ proxylang 服务下游作者：个人或小团队，用一份 TypeScript 代码�
 
 最常写的东西用最少的字：一组域名用一次调用和一个数组写完，常用选项可以批量给出。只对某个引擎有效的字段，在 TypeScript 类型里就和该引擎的目标绑定，能在编辑器里拒绝的输入不留给运行时。
 
-- 好：`match.domainSuffix(["openai.com", "chatgpt.com"], { includeSniffed: true })`。
+- 好：`match.domainSuffix(["ai.example", "chat.example"], { includeSniffed: true })`。
 - 坏：二十行 `match.domainSuffix(x, { includeSniffed: true })`；或者 Surge Profile 里写 `singBox` 字段，直到运行 check 才报错。
 
 ## T-9 一个概念一种写法 {#t-9}

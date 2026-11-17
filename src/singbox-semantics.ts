@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/library/match-options.md
+// @concord-implements docs/feature/profile/library/conditions.md
 import type { Match, Program, Request } from "./types.js";
 
 export const builtinMember = (id: string): boolean => id === "DIRECT" || id === "REJECT";

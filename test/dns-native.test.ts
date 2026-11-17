@@ -14,7 +14,7 @@ import { compileProfile, render, outbound } from "../src/index.js";
 const exec = promisify(execFile);
 const enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
 for (const version of ["1.11.0", "1.12.0", "1.14.4"]) {
-  // @use-case docs/feature/target-compilation/use-case/build-targets.md
+  // @use-case docs/feature/targets/use-case/check-device-target.md
   test.skipIf(!enabled)(
     `sing-box ${version} portable DNS routes real DIRECT requests`,
     async () => {

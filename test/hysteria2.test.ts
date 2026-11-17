@@ -23,7 +23,7 @@ const node = proxy.hysteria2({
   portHoppingInterval: 30,
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("Hysteria2 preserves authentication, TLS and port hopping across all engines and permits UDP", () => {
   for (const engine of ["surge", "sing-box", "mihomo", "stash"] as const) {
     const config = protocolConfig(engine);
@@ -77,7 +77,7 @@ test("Hysteria2 preserves authentication, TLS and port hopping across all engine
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("Hysteria2 rejects invalid port ranges, intervals and Surge hopping via; no secret reads on failure", () => {
   const target = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
   for (const options of [

@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/README.md
+// @concord-implements docs/feature/profile/README.md
 import ipaddr from "ipaddr.js";
 import { match } from "./dsl.js";
 import { requestSchema } from "./schema.js";
@@ -18,7 +18,7 @@ import type {
 } from "./types.js";
 
 // @concord-code
-// @concord-implements docs/feature/rule-composition/use-case/compose-policy.md
+// @concord-implements docs/feature/profile/use-case/share-rules-across-devices.md
 export function expandRules(
   entries: readonly Entry[],
   diagnostics: Diagnostic[],
@@ -209,7 +209,7 @@ export function evaluate(condition: Match, request: Request): ConditionTrace {
 }
 
 // @concord-code
-// @concord-implements docs/feature/policy-explanation/use-case/protect-routing.md
+// @concord-implements docs/feature/routing-cases/use-case/protect-routing-intent.md
 export function explainRules(
   rules: readonly ExpandedRule[],
   fallback: Action,

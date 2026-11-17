@@ -9,7 +9,7 @@
 ```ts
 const sharedCases = (exits: { ai: Exit; home: Exit }) => [
   { name: "家里的影视服务走 Home", request: { domain: "media.home.example" }, expect: exits.home },
-  { name: "AI 服务走 AI 出口", request: { domain: "chat.example", resolvedIp: "198.51.100.7" }, assume: { miss: [cnDirect] }, expect: exits.ai },
+  { name: "AI 服务走 AI 出口", request: { domain: "chat.example", resolvedIp: "192.0.2.7" }, assume: { miss: [cnDirect] }, expect: exits.ai },
 ];
 
 export const phone = defineProfile({

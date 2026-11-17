@@ -46,7 +46,7 @@ function error(value: unknown, code: string): void {
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("全批原生名字、参数、外部拨号与逐节点文件边界", () => {
   const http = proxy
     .builder(
@@ -107,7 +107,7 @@ test("全批原生名字、参数、外部拨号与逐节点文件边界", () =>
   assert.ok(!JSON.stringify(result).includes("test-pass"));
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("builder分叉独立、显式build且保持协议类型", () => {
   const base = proxy.builder(trojan);
   const first = base.via("a").label("A").tcpFastOpen(false).build();
@@ -130,7 +130,7 @@ test("builder分叉独立、显式build且保持协议类型", () => {
   });
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("名称与引用严格校验，保留名及内外环边界", () => {
   for (const name of [
     "",
@@ -168,7 +168,7 @@ test("名称与引用严格校验，保留名及内外环边界", () => {
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("成功计划不可变且拒绝伪造，秘密异常不反射", () => {
   const mutable = structuredClone({ ...input(), names: { entry: "原名" } });
   const compiled = compileProxyNodes(mutable);
@@ -208,7 +208,7 @@ test("成功计划不可变且拒绝伪造，秘密异常不反射", () => {
   assert.ok(!JSON.stringify(invalid).includes("PRIVATE_VALUE"));
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("目标、字段及域名入口边界不静默转换", () => {
   error({ ...input(), target: { ...target, version: "6.6.0" } }, "UNKNOWN_TARGET");
   error(
@@ -242,7 +242,7 @@ test("目标、字段及域名入口边界不静默转换", () => {
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("空批次与显式SS选项", () => {
   assert.deepEqual(
     renderProxyNodes(compileProxyNodes(input([])), () => assert.fail()),
@@ -281,7 +281,7 @@ test("空批次与显式SS选项", () => {
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("目标UDP能力经组和via传播，AnyTLS只放行Surge", () => {
   const any = proxy.anytls({ id: "any", server: "192.0.2.2", port: 443, password: secret("PASS") });
   const box = fixture([], { nodes: [any], fallback: route("any") });
@@ -315,7 +315,7 @@ test("目标UDP能力经组和via传播，AnyTLS只放行Surge", () => {
     );
 });
 
-// @use-case docs/feature/target-compilation/use-case/provider-nodes.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("外部元数据冻结且不会替代输入依赖或接受未知schema", () => {
   const source = {
     ...input([{ ...trojan, via: "external" }]),

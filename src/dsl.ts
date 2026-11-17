@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/README.md
+// @concord-implements docs/feature/profile/README.md
 import { domainIdentityFields } from "./match-identity.js";
 import { dnsRulesSchema } from "./dns.js";
 import type { DnsRule } from "./types.js";
@@ -40,7 +40,7 @@ import type {
 export function dnsRule(pattern: string, server: string): DnsRule;
 export function dnsRule(patterns: readonly string[], server: string): DnsRule[];
 // @concord-code
-// @concord-implements docs/feature/target-compilation/library/portable-authoring.md
+// @concord-implements docs/feature/profile/library/conditions.md
 export function dnsRule(pattern: string | readonly string[], server: string): DnsRule | DnsRule[] {
   inspectDefinition({ pattern, server });
   const batch = Array.isArray(pattern);
@@ -112,7 +112,7 @@ type SetInput<E extends NativeRuleSet["engine"]> = E extends "surge"
   ? SurgeSetInput
   : NativeInput<E>;
 // @concord-code
-// @concord-implements docs/feature/target-compilation/library/match-options.md
+// @concord-implements docs/feature/profile/library/conditions.md
 function nativeConstructor<E extends NativeRuleSet["engine"]>(engine: E) {
   function construct(input: SetInput<E> & { readonly to: ProfileDestination }): RouteDefinition;
   function construct(input: SetInput<E>): NativeFor<E>;

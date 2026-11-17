@@ -59,7 +59,7 @@ async function workspace(t: { onTestFinished(fn: () => Promise<void>): void }) {
   return root;
 }
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("batch compilation precedes all secret reads; rendering shares one snapshot and preserves old files on error", async (t) => {
   const root = await workspace(t);
   const batch = { first: input(), second: input() };
@@ -116,7 +116,7 @@ test("batch compilation precedes all secret reads; rendering shares one snapshot
   );
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("public result distinguishes committed cleanup failure and failed legacy recovery", async (t) => {
   const root = await workspace(t);
   const realPublish = publisher.publishProfiles;
@@ -173,7 +173,7 @@ test("public result distinguishes committed cleanup failure and failed legacy re
   );
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("build captures data before callbacks and resolves secrets only after the complete batch compiles", async (t) => {
   const root = await workspace(t);
   const profiles = { first: input(), second: input() };

@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/use-case/publish-generation.md
+// @concord-implements docs/feature/build/use-case/publish-device-configs.md
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 import {
@@ -33,7 +33,7 @@ async function contents(root: string, expected: string) {
   for (const file of batch("").keys())
     assert.equal(await readFile(join(root, "out", file), "utf8"), expected);
 }
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("complete generations publish through one pointer, preserve history and restrictive permissions", async (t) => {
   const root = await workspace(t);
   await publishProfiles(batch("old"), root);
@@ -47,7 +47,7 @@ test("complete generations publish through one pointer, preserve history and res
   assert.equal((await stat(join(root, await readlink(join(root, "out"))))).mode & 0o777, 0o700);
   assert.deepEqual((await readdir(root)).sort(), [".generations", "out"]);
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("pointer I/O failure retains the entire old batch and removes only new staging", async (t) => {
   const root = await workspace(t);
   await publishProfiles(batch("old"), root);
@@ -65,7 +65,7 @@ test("pointer I/O failure retains the entire old batch and removes only new stag
   assert.equal((await readdir(join(root, ".generations"))).length, 1);
   assert.deepEqual((await readdir(root)).sort(), [".generations", "out"]);
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("first migration restores the complete legacy directory when pointer rename fails", async (t) => {
   const root = await workspace(t);
   await mkdir(join(root, "out"));
@@ -87,7 +87,7 @@ test("first migration restores the complete legacy directory when pointer rename
   await contents(root, "new");
   assert.equal((await readdir(join(root, ".generations"))).length, 2);
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("failed legacy rollback preserves recovery evidence and lock", async (t) => {
   const root = await workspace(t);
   await mkdir(join(root, "out"));
@@ -118,7 +118,7 @@ test("failed legacy rollback preserves recovery evidence and lock", async (t) =>
   );
   assert.ok((await readdir(root)).includes(".build-lock"));
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("reject unmanaged pointers, path traversal and simultaneous build lock", async (t) => {
   const root = await workspace(t);
   await symlink(tmpdir(), join(root, "out"));
@@ -133,7 +133,7 @@ test("reject unmanaged pointers, path traversal and simultaneous build lock", as
   assert.ok((await readdir(root)).includes(".build-lock"));
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("failure moving legacy output leaves every existing file untouched", async (t) => {
   const root = await workspace(t);
   await mkdir(join(root, "out"));

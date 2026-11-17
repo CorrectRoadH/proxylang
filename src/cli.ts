@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/README.md
+// @concord-implements docs/feature/build/README.md
 import { definitionDiagnostic } from "./surge-definitions.js";
 import { runBuild, checkBuild, defineBuild } from "./profile-build.js";
 import { pathToFileURL } from "node:url";
@@ -82,7 +82,7 @@ function loadFailure(cause: unknown): number {
   return 1;
 }
 // @concord-code
-// @concord-implements docs/feature/artifact-publication/cli.md
+// @concord-implements docs/feature/build/cli.md
 async function main(args: string[]): Promise<number> {
   const root = process.cwd();
   const [command, ...rest] = args;

@@ -63,7 +63,7 @@ function hasError(input: unknown, code: string) {
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("精确引擎版本与平台目录，不把 Stash 当作 Mihomo", () => {
   for (const engine of engines) {
     const config = fixture(engine);
@@ -89,7 +89,7 @@ test("精确引擎版本与平台目录，不把 Stash 当作 Mihomo", () => {
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("共享 policy 保留首命中顺序、出口绑定和来源映射", () => {
   const shared = policy({
     id: "shared",
@@ -159,7 +159,7 @@ test("共享 policy 保留首命中顺序、出口绑定和来源映射", () => 
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("独立策略键选择算法，缺失实现与专属算法不会回退", () => {
   const adaptive = strategy({
     id: "adaptive",
@@ -211,7 +211,7 @@ test("独立策略键选择算法，缺失实现与专属算法不会回退", ()
     hasError(fixture("stash", { groups: [candidate] }), "GROUP_UNSUPPORTED");
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("Stash 来源与范围条件在顶层和所有逻辑组合中整批拒绝", () => {
   const unsupported = [
     m.sourceIp("192.0.2.0/24"),
@@ -241,7 +241,7 @@ test("Stash 来源与范围条件在顶层和所有逻辑组合中整批拒绝",
   assert.deepEqual(yaml.rules, ["DST-PORT,443,DIRECT", "MATCH,DIRECT"]);
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("Mihomo 原子与嵌套 AND OR NOT 保留 no-resolve 位置及闭区间", () => {
   const { yaml } = output(
     fixture("mihomo", {
@@ -270,7 +270,7 @@ test("Mihomo 原子与嵌套 AND OR NOT 保留 no-resolve 位置及闭区间", (
   ]);
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("节点协议、via 与特殊秘密通过真实 YAML 往返且不关闭 TLS 验证", () => {
   const password = "001: 'quoted', \"double\"\nnext: [not-a-node]\n# comment\\end";
   const username = "user: 'name',\nsecond line";
@@ -322,7 +322,7 @@ test("节点协议、via 与特殊秘密通过真实 YAML 往返且不关闭 TLS
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("UDP 不得走 HTTP AnyTLS 或含 TCP-only 的组和 via 路径；循环与缺失依赖拒绝", () => {
   for (const engine of engines) {
     for (const type of ["http", "anytls"] as const) {
@@ -361,7 +361,7 @@ test("UDP 不得走 HTTP AnyTLS 或含 TCP-only 的组和 via 路径；循环与
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("策略片段是 proxy-groups 映射，保持名称顺序并拒绝内建名与冲突", () => {
   for (const engine of engines) {
     const input = {
@@ -410,7 +410,7 @@ test("策略片段是 proxy-groups 映射，保持名称顺序并拒绝内建名
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("策略片段入口保留 Mihomo 显式测速参数，Stash 同一算法拒绝", () => {
   const input = {
     target: { engine: "mihomo", platform: "linux", version: "1.19.32" },
@@ -456,7 +456,7 @@ test("策略片段入口保留 Mihomo 显式测速参数，Stash 同一算法拒
   assert.deepEqual(failure.selections, []);
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("Mihomo standalone 固定内部直连 DNS，禁用 hosts 且不增加 DNS 或系统入口", () => {
   const config = fixture("mihomo", { listener: { port: 16080, resolver: "2001:db8::53" } });
   const { yaml } = output({ ...config, targets: [{ ...config.targets[0]!, mode: "standalone" }] });
@@ -485,7 +485,7 @@ test("Mihomo standalone 固定内部直连 DNS，禁用 hosts 且不增加 DNS �
     assert.equal(Object.hasOwn(yaml, key), false, key);
 });
 
-// @use-case docs/feature/target-compilation/use-case/clash-backends.md
+// @feature docs/feature/targets/format/mihomo.md
 test("真实 build 批次后续秘密失败或能力失败保留 active 与旧 YAML", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-clash-build-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));

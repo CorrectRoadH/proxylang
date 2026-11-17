@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @concord-implements docs/feature/profile/library/conditions.md
 import { domainIdentityFields } from "./match-identity.js";
 import type {
   Diagnostic,

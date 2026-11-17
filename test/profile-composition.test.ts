@@ -49,7 +49,7 @@ function error(input: unknown, code: string) {
   const result = compileProfile(input as ProfileDefinition);
   assert.deepEqual(result, { engine: "invalid", ok: false, code });
 }
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("fragments flatten in order, preserve aliases and merge General by whole keys", () => {
   const base = fixture();
   const dns = { "dns-server": ["1.1.1.1"], ipv6: false };
@@ -79,7 +79,7 @@ test("fragments flatten in order, preserve aliases and merge General by whole ke
   assert.match(text, /DOMAIN,example.com,Choice\nDOMAIN,example.com,Choice/);
   assert.match(text, /dns-server = 9.9.9.9/);
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("resource IDs resolve for both engines while object identity and explicit registration remain strict", () => {
   for (const engine of ["surge", "sing-box"] as const) {
     const base = fixture(engine);
@@ -114,7 +114,7 @@ test("resource IDs resolve for both engines while object identity and explicit r
     error({ ...base, proxies: [base.proxies, base.proxies] }, "DUPLICATE_RESOURCE_ID");
   }
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("unified proxies preserve protocol-specific fields and reject incompatible targets and cross-kind IDs", () => {
   const wg: SurgeTunnel = {
     type: "wireguard",
@@ -165,7 +165,7 @@ test("unified proxies preserve protocol-specific fields and reject incompatible 
   );
   error({ ...base, proxies: [base.proxies, endpoint] }, "PROFILE_ENDPOINT_UNSUPPORTED");
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("normalization rejects accessors, cycles, old fields and excessive shared expansion", () => {
   const base = fixture();
   let reads = 0;
@@ -190,7 +190,7 @@ test("normalization rejects accessors, cycles, old fields and excessive shared e
   error({ ...base, endpoints: [] }, "DEFINITION_UNKNOWN_FIELD");
   error({ ...base, surge: { general: [{ ipv6: 1 }, { ipv6: true }] } }, "INVALID_SURGE_GENERAL");
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("General validation caches shared leaves only within one call and budgets shared nested data", (t) => {
   const validate = vi.spyOn(surgeSchema, "validateSurgeGeneral");
   t.onTestFinished(() => validate.mockRestore());
@@ -210,7 +210,7 @@ test("General validation caches shared leaves only within one call and budgets s
     "DEFINITION_OUTPUT_BUDGET_EXCEEDED",
   );
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("a later unresolved static route reads no secrets and preserves the previous generation", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "profile-fragments-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));

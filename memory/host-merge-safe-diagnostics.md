@@ -1,9 +1,12 @@
-# Host 合并与安全诊断验证
+---
+relations:
+  - role: supports
+    target: docs/feature/build/cli.md
+---
+# 跨模块加载的安全错误投影
 
-2026-10-26：实现 dns 与 surge.hosts 合并，重复模式保留字段索引；配置加载显示受控定义错误，秘密失败附带 token 名与底层原因，外层错误码保持兼容。
+TypeScript 加载器可能创建多个 SDK 模块实例，跨实例 instanceof 不能可靠分类错误。CLI 可检查 own data descriptor，仅投影白名单代码和受限路径字段；不能读取 getter、回显异常 message 或把此分类视为错误来源认证。
 
-修改前的定向测试出现两项预期失败：合并配置被拒绝、secretName 不存在。修改后的 vp run check 通过，152 项通过、17 项原生测试跳过；vp run test:package 验证隔离安装的 SDK、类型、CLI check/build 通过。没有执行原生 Surge 运行验收或发布 npm 包。
+可信内部的秘密失败原因应保存在私有身份表，外部异常上的同名属性不能冒充内部来源。错误分类和脱敏需独立测试，不能仅凭构造器错误类型证明 CLI 输出安全。
 
-tsx 加载可能创建另一 SDK 实例，因此 CLI 不依赖 instanceof，而仅投影 own data descriptor 中白名单错误码及受限字段索引。这是脱敏分类，不是错误来源认证。秘密嵌套原因由内部 WeakMap 保留，任意回调抛出的属性不能伪造缺失原因。
-
-原生 Host 不同 glob 的重叠保留 Surge 顺序语义；仅跨入口重复 pattern 拒绝。消费仓库尚未升级。
+DNS 条目与原生 Host 合并时，跨入口重复 pattern 与原生 glob 的交叠是不同问题。前者可按忽略大小写的精确身份拒绝，后者保留客户端顺序；把两者混为同一种去重会改变原生行为。

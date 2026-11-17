@@ -59,7 +59,7 @@ function hasError(config: unknown, code: string): void {
   );
 }
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("协议构造器保留严格字段，现有三种节点仍能编译", () => {
   for (const node of [
     proxy.http({ id: "http", server: "192.0.2.1", port: 8080, password: secret("PASSWORD") }),
@@ -82,7 +82,7 @@ test("协议构造器保留严格字段，现有三种节点仍能编译", () =>
   proxy.vless({ id: "bad", server: "192.0.2.1", port: 443, uuid: secret("UUID"), tls: {} });
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("每个目标精确编码三种SS方法、AEAD、TLS、WS、SNI与UDP", () => {
   for (const engine of ["surge", "sing-box", "mihomo", "stash"] as const) {
     let config = protocolConfig(engine);
@@ -137,7 +137,7 @@ test("每个目标精确编码三种SS方法、AEAD、TLS、WS、SNI与UDP", () 
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("严格拒绝混合凭据、未支持协议选项与会被重解释的WS路径", () => {
   for (const node of [
     { ...vmess, password: secret("PASSWORD") },
@@ -161,7 +161,7 @@ test("严格拒绝混合凭据、未支持协议选项与会被重解释的WS路
     hasError(fixture([], { nodes: [node as ProxyNode] }), "INVALID_SCHEMA");
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("未知版本、Surge ALPN/off、Surge与Stash VLESS都失败而非降级", () => {
   for (const engine of ["surge", "stash"] as const) {
     const config = protocolConfig(engine);
@@ -197,7 +197,7 @@ test("未知版本、Surge ALPN/off、Surge与Stash VLESS都失败而非降级",
   hasError(protocolConfig("sing-box", "1.12.1"), "UNKNOWN_TARGET");
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("VMess/VLESS的TCP限制贯穿规则、组、via与fallback，SS允许UDP", () => {
   for (const node of [vmess, proxy.vless({ ...vmess })]) {
     const nodes = [node, { ...ss, via: node.id }];
@@ -218,7 +218,7 @@ test("VMess/VLESS的TCP限制贯穿规则、组、via与fallback，SS允许UDP",
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("UUID按每个用途验证，共享token仍只解析一次且错误不泄漏", () => {
   const config = fixture([], { nodes: [ss, { ...vmess, uuid: secret("PASSWORD") }] });
   const compiled = compile({
@@ -247,7 +247,7 @@ test("UUID按每个用途验证，共享token仍只解析一次且错误不泄�
   assert.equal(count, 1);
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("Tailscale独立端点保留路由语义，并将控制面DNS与普通DNS隔离", () => {
   const compiled = compile(
     endpointConfig({
@@ -294,7 +294,7 @@ test("Tailscale独立端点保留路由语义，并将控制面DNS与普通DNS�
   assert.ok(compiled.plans[0]!.preconditions.some((p) => p.includes("with_tailscale")));
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("端点严格检查状态路径、唯一引用空间、版本、模式、组与via", () => {
   for (const stateDirectory of [
     "relative",
@@ -352,7 +352,7 @@ test("端点严格检查状态路径、唯一引用空间、版本、模式、�
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("真实构建拒绝状态/产物重叠，失败UUID保留active，身份目录始终不创建", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-protocols-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -387,7 +387,7 @@ test("真实构建拒绝状态/产物重叠，失败UUID保留active，身份目
   await assert.rejects(access(stateDirectory));
 });
 
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("ALPN显式保留，WS只接受HTTP/1.1，多个端点各用自己的引导解析器", () => {
   const node = { ...vmess, tls: { serverName: "tls.example.com", alpn: ["h2", "http/1.1"] } };
   for (const engine of ["sing-box", "mihomo", "stash"] as const) {

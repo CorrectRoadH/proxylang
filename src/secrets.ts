@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/README.md
+// @concord-implements docs/feature/build/README.md
 import { RenderError } from "./proxies.js";
 import type { Secret } from "./types.js";
 

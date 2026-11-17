@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/README.md
+// @concord-implements docs/feature/targets/README.md
 import { deepFreeze } from "./schema.js";
 export const targetCatalog = deepFreeze([
   {

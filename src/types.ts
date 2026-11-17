@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/README.md
+// @concord-implements docs/feature/profile/README.md
 export type Network = "tcp" | "udp";
 export type NamedRuleSet = { readonly type: "ruleSet"; readonly id: string; readonly when: Match };
 export type NativeRuleSet = {

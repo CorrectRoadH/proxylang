@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/provider-nodes.md
+// @concord-implements docs/feature/profile/use-case/define-proxies.md
 import { z } from "zod";
 import { assertData, deepFreeze, idSchema, nodeSchema } from "./schema.js";
 import { nativeNameSchema, isReservedNativeName } from "./native-names.js";

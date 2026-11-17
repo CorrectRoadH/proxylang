@@ -29,7 +29,7 @@ const node = () =>
     serverName: "example.com",
   });
 
-// @use-case docs/feature/target-compilation/use-case/surge-profile.md
+// @feature docs/feature/profile/library/surge.md
 test("ASN conditions compose with portable matches only for Surge targets", () => {
   const routes = [
     defineRoute({
@@ -63,7 +63,7 @@ function fixture(engine: "surge" | "sing-box" = "surge") {
     fallback: choice,
   };
 }
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("portable profiles isolate mutation while keeping destination identity across snapshots", () => {
   const input = fixture();
   const profile = defineProfile(input);
@@ -90,7 +90,7 @@ test("portable profiles isolate mutation while keeping destination identity acro
   assert.throws(() => defineProfile(accessor));
   assert.equal(reads, 0);
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("Surge adaptation recursively lowers portable conditions without dropping options", () => {
   const base = fixture();
   const compile = (when: unknown) =>
@@ -115,7 +115,7 @@ test("Surge adaptation recursively lowers portable conditions without dropping o
   ])
     assert.equal(compile(when).ok, false);
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("sing-box refuses Surge extensions and top-level group probes; urltest lives in algorithm", () => {
   const base = fixture("sing-box");
   assert.equal(compileProfile({ ...base, surge: surge.config({ general: {} }) }).ok, false);
@@ -156,7 +156,7 @@ test("sing-box refuses Surge extensions and top-level group probes; urltest live
   );
   assert.equal(compileProfile({ ...base, singBox: { mode: "standalone" } }).ok, false);
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("mixed builds compile everything before one shared secret read and publish both formats", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "portable-profile-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -199,7 +199,7 @@ test("mixed builds compile everything before one shared secret read and publish 
   assert.equal(reads, 0);
   assert.equal(await readFile(join(root, "out/mac.conf"), "utf8"), old);
 });
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("endpoint state overlap is rejected before secrets or filesystem publication", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "portable-state-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -236,7 +236,7 @@ test("endpoint state overlap is rejected before secrets or filesystem publicatio
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("shared condition DAGs cannot evade lowering budgets or logical depth", () => {
   let condition: unknown = match.domain("example.com");
   for (let i = 0; i < 17; i++) condition = { type: "all", conditions: [condition, condition] };

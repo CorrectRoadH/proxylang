@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/use-case/publish-generation.md
+// @concord-implements docs/feature/build/use-case/publish-device-configs.md
 import { mkdir, lstat, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";

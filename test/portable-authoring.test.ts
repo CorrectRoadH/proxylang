@@ -29,7 +29,7 @@ const fixture = (dns: readonly DnsRule[] = []) => ({
   dns,
   singBox: { mode: "standalone" as const, listener: { port: 16154, resolver: "1.1.1.1" } },
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("portable DNS lowers both exact versions and preserves bootstrap isolation", () => {
   for (const version of ["1.11.0", "1.12.0"]) {
     const input = fixture([
@@ -70,7 +70,7 @@ test("portable DNS lowers both exact versions and preserves bootstrap isolation"
     } else assert.equal(output.dns.servers[1].address_resolver, "pl-dns");
   }
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("portable DNS validates fragments and all public entries before secrets", () => {
   const row = { pattern: "*.example.com", server: "1.1.1.1" };
   const profile = defineProfile({ ...fixture(), dns: [[row]] });
@@ -128,7 +128,7 @@ test("portable DNS validates fragments and all public entries before secrets", (
     domain: ["example.com"],
   });
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("portable process names and bare source IP preserve exact matching", () => {
   for (const bad of ["", "/usr/bin/app", "app*", "app?", "a,b", "a\n", "a\\b", "a".repeat(256)])
     assert.throws(() => match.processName(bad));
@@ -206,7 +206,7 @@ test("portable process names and bare source IP preserve exact matching", () => 
   });
   assert.equal(result.ok, false);
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("proxyId retains the published consumer algorithm and case", () => {
   for (const provider of ["WestData", "westdata", "v2tun"])
     assert.equal(
@@ -220,7 +220,7 @@ test("proxyId retains the published consumer algorithm and case", () => {
   assert.throws(() => proxyId("", "a"), /INVALID_PROXY_ID_INPUT/);
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("DNS functions preserve batch order and compile identically to data", () => {
   const patterns = ["*.EXAMPLE.com", "example.com"];
   const server = "https://1.1.1.1/dns-query";
@@ -259,7 +259,7 @@ test("DNS functions preserve batch order and compile identically to data", () =>
   assert.equal(reads, 0);
 });
 
-// @feature docs/feature/target-compilation/library/portable-authoring.md
+// @feature docs/feature/profile/library/conditions.md
 test("Surge merges portable DNS and native Host fragments without overwriting", () => {
   const input = {
     ...fixture([{ pattern: "lan.example", server: "192.0.2.53" }]),
@@ -285,7 +285,7 @@ test("Surge merges portable DNS and native Host fragments without overwriting", 
   );
 });
 
-// @feature docs/feature/target-compilation/library/portable-authoring.md
+// @feature docs/feature/profile/library/conditions.md
 test("combined Host limits and conflict paths survive plain profile checks", () => {
   const input = {
     ...fixture([{ pattern: "edge.example", server: "1.1.1.1" }]),

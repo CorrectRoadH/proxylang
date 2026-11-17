@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/strategy-implementations.md
+// @concord-implements docs/feature/profile/library/README.md
 import { stringify } from "yaml";
 import { nativeNameSchema as nameSchema, isReservedNativeName } from "./native-names.js";
 import { clashGroup } from "./clash.js";

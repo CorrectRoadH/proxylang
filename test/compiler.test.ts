@@ -15,7 +15,7 @@ import {
 } from "../src/index.js";
 import { dual, fixture, trojan } from "./fixtures.js";
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("schema 诊断定位嵌套字段并解释约束，不回显非法值或额外键", () => {
   const config = fixture([rule("port", m.port(70000), direct())]);
   const result = compile(config);
@@ -47,7 +47,7 @@ test("schema 诊断定位嵌套字段并解释约束，不回显非法值或额�
   assert.ok(!JSON.stringify(extra).includes(hidden));
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("精确版本、平台和引擎检查；任何失败不暴露部分计划", () => {
   for (const override of [{ version: "1.12.1" }, { engine: "surge" }, { platform: "windows" }]) {
     const config = dual(fixture());
@@ -69,7 +69,7 @@ test("精确版本、平台和引擎检查；任何失败不暴露部分计划",
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("协议和组能力不做隐式替换", () => {
   const anytls = fixture([rule("tcp", m.network("tcp"), route("edge"))], {
     nodes: [{ ...trojan, type: "anytls" }],
@@ -89,7 +89,7 @@ test("协议和组能力不做隐式替换", () => {
   assert.equal(compile(dual(auto)).ok, false);
 });
 
-// @use-case docs/feature/rule-composition/use-case/select-resources.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("组成员与 via 联合依赖循环、缺失引用、重复节点报错", () => {
   const cyclic = fixture([], {
     nodes: [{ ...trojan, via: "relay" }],
@@ -123,7 +123,7 @@ test("组成员与 via 联合依赖循环、缺失引用、重复节点报错", 
   );
 });
 
-// @use-case docs/feature/rule-composition/use-case/select-resources.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("所有可选与 via 路径都参与 TCP-only 推断，not 不能绕过", () => {
   const program = {
     nodes: [
@@ -141,7 +141,7 @@ test("所有可选与 via 路径都参与 TCP-only 推断，not 不能绕过", (
   assert.equal(compile(fixture([], { ...program, fallback: route("group") })).ok, false);
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("展示 warning 可提升 error，未知能力永远 error", () => {
   const config = fixture([], { nodes: [{ ...trojan, label: "Demo display" }] });
   const result = compile(config);
@@ -152,7 +152,7 @@ test("展示 warning 可提升 error，未知能力永远 error", () => {
   assert.equal(strict.diagnostics[0]!.severity, "error");
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("逻辑深度检查的是守卫展开后的原生树", () => {
   let condition: Match = m.network("tcp");
   for (let i = 0; i < 11; i++) condition = m.not(condition);
@@ -160,7 +160,7 @@ test("逻辑深度检查的是守卫展开后的原生树", () => {
   assert.ok(result.diagnostics.some((d) => d.code === "LOGICAL_DEPTH"));
 });
 
-// @use-case docs/feature/policy-explanation/use-case/protect-routing.md
+// @use-case docs/feature/routing-cases/use-case/protect-routing-intent.md
 test("cases 是首命中与出口回归，不匹配会阻止整批编译", () => {
   const config: Config = {
     ...fixture([rule("first", m.domain("example.com"), reject())]),
@@ -179,7 +179,7 @@ test("cases 是首命中与出口回归，不匹配会阻止整批编译", () =>
   assert.deepEqual(result.plans, []);
 });
 
-// @use-case docs/feature/rule-composition/use-case/select-resources.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("空选择组不能编译", () => {
   assert.equal(
     compile(fixture([], { groups: [{ id: "empty", type: "select", members: [] }] })).ok,
@@ -187,7 +187,7 @@ test("空选择组不能编译", () => {
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("版本专属 DNS 与 urltest 参数显式输出，规则顺序及动作不改变", () => {
   const input = fixture(
     [rule("one", m.any(m.domain("example.com"), m.ipCidr("192.0.2.0/24")), reject())],
@@ -214,7 +214,7 @@ test("版本专属 DNS 与 urltest 参数显式输出，规则顺序及动作不
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("JSON 结构化编码秘密，Surge 拒绝注入，整个批次只解析一次 token", () => {
   const compilation = compile(dual(fixture()));
   let calls = 0;

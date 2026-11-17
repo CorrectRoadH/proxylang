@@ -14,7 +14,7 @@ import {
   type SecretsInput,
 } from "../src/index.js";
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("secret declarations snapshot data and read only allowed own environment values", () => {
   const input = { values: { FIXED: "fixed" }, env: ["TOKEN"], validation: { TOKEN: "validation" } };
   let reads = 0;
@@ -53,7 +53,7 @@ test("secret declarations snapshot data and read only allowed own environment va
   assert.equal(gets, 0);
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("secret declarations reject invalid data with bounded, redacted errors", () => {
   const invalid: unknown[] = [
     { values: { BAD: "" } },
@@ -97,7 +97,7 @@ test("secret declarations reject invalid data with bounded, redacted errors", ()
   assert.equal(read(secret("ABSENT"), { validation: true }), "validation");
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("real builds cache per batch, refresh between builds, keep check pure and preserve output on missing secrets", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "secret-inputs-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));

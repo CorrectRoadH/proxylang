@@ -10,7 +10,7 @@ import { buildToDirectory, compile } from "../src/index.js";
 import { dual, fixture } from "./fixtures.js";
 
 const exec = promisify(execFile);
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("整批原子发布，权限、秘密隔离、失败保留旧指针与旧文件", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-host-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -39,7 +39,7 @@ test("整批原子发布，权限、秘密隔离、失败保留旧指针与旧�
   assert.equal((await readdir(root)).includes(".proxylang-lock"), false);
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("已有锁不抢占且不解析秘密，已有 active 不改变", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-lock-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -56,7 +56,7 @@ test("已有锁不抢占且不解析秘密，已有 active 不改变", async (t)
   assert.ok((await stat(join(root, ".proxylang-lock"))).isDirectory());
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("并发 build 有且仅有一个获得锁", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-race-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -69,7 +69,7 @@ test("并发 build 有且仅有一个获得锁", async (t) => {
   assert.equal(results.filter((r) => r.code === "OUTPUT_LOCKED").length, 1);
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("输出目录失败不会替换指针，清理自己的锁", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-output-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -81,7 +81,7 @@ test("输出目录失败不会替换指针，清理自己的锁", async (t) => {
   assert.equal((await readdir(root)).includes(".proxylang-lock"), false);
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("指针提交失败时删除本次未发布 generation", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-commit-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -97,7 +97,7 @@ test("指针提交失败时删除本次未发布 generation", async (t) => {
   );
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("拒绝输出根符号链接", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-link-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -110,7 +110,7 @@ test("拒绝输出根符号链接", async (t) => {
   assert.deepEqual(await readdir(join(root, "actual")), []);
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("实际 CLI 加载 TS/import，check 与 explain 不需要秘密，build 发布，case 失败非零", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-cli-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -161,7 +161,7 @@ test("实际 CLI 加载 TS/import，check 与 explain 不需要秘密，build �
   );
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("CLI 加载异常不会打印源码、秘密或原异常消息", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-load-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -180,7 +180,7 @@ test("CLI 加载异常不会打印源码、秘密或原异常消息", async (t) 
   );
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("CLI 加载失败提供受控原因，不回显异常及 getter 中的秘密", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-load-reasons-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -229,7 +229,7 @@ test("CLI 加载失败提供受控原因，不回显异常及 getter 中的秘�
   }
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("子命令帮助与非法参数不执行配置", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-help-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -272,7 +272,7 @@ test("子命令帮助与非法参数不执行配置", async (t) => {
   assert.ok(!(await readdir(root)).includes("executed"));
 });
 
-// @feature docs/feature/artifact-publication/cli.md
+// @feature docs/feature/build/cli.md
 test("请求文件与中文空格路径跨工作目录运行，连续 build 保留上一批", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-paths-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -343,7 +343,7 @@ test("请求文件与中文空格路径跨工作目录运行，连续 build 保�
   }
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("构建错误附带可执行提示，空路径不读取秘密，目录错误不泄露路径", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-diagnostics-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
@@ -374,7 +374,7 @@ test("构建错误附带可执行提示，空路径不读取秘密，目录错�
   assert.ok(!(await readdir(join(root, "out"))).includes(".proxylang-lock"));
 });
 
-// @use-case docs/feature/artifact-publication/use-case/publish-generation.md
+// @use-case docs/feature/build/use-case/publish-device-configs.md
 test("project build CLI validates before import and preserves batch results through TS/ESM/CJS", async (t) => {
   const command = "build";
   const root = await mkdtemp(join(tmpdir(), "profile-build-cli-"));

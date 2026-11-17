@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/define-proxies.md
+// @concord-implements docs/feature/profile/use-case/define-proxies.md
 import type { Diagnostic, Engine, ProxyNode, Secret, Target } from "./types.js";
 
 export class RenderError extends Error {

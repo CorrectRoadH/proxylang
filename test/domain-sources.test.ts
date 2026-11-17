@@ -35,7 +35,7 @@ function program(conditions: Match[], engine: Engine = "surge") {
     targets: [{ ...targets[engine], id: "test", program: "home" } as Target],
   });
 }
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("includeSniffed adds observed names without replacing destination or widening backend support", () => {
   for (const includeSniffed of [undefined, false, true]) {
     const opts = includeSniffed === undefined ? {} : { includeSniffed };
@@ -105,7 +105,7 @@ test("includeSniffed adds observed names without replacing destination or wideni
     );
   }
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("resource identity equates false with omitted and checks Profile before discarding IDs", () => {
   const url = "https://example.com/rules";
   const implicit = surge.ruleSet({ id: "shared", url });
@@ -153,7 +153,7 @@ test("resource identity equates false with omitted and checks Profile before dis
     }).ok,
   );
 });
-// @use-case docs/feature/target-compilation/use-case/build-targets.md
+// @use-case docs/feature/targets/use-case/check-device-target.md
 test("constructors retain snapshots and reject invalid fields across raw compilation entrances", () => {
   const opts = { includeSniffed: true };
   const atom = match.domain("example.com", opts);

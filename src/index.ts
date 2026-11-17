@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/rule-composition/README.md
+// @concord-implements docs/feature/profile/README.md
 export * from "./types.js";
 export * from "./dsl.js";
 export { compile, explain, targetCatalog } from "./compiler.js";

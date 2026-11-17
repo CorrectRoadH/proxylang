@@ -35,7 +35,7 @@ function compileEverywhere(node: ProxyNode) {
     ),
   ];
 }
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("every compiler rejects business fields, including non-enumerable raw properties", () => {
   assert.ok(compileEverywhere(trojan).every((result) => result.ok));
   for (const field of ["region", "provider", "tags"]) {
@@ -52,7 +52,7 @@ test("every compiler rejects business fields, including non-enumerable raw prope
     }
   }
 });
-// @use-case docs/feature/target-compilation/use-case/define-proxies.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("compiler data boundaries reject accessors and symbols without reading payloads", () => {
   let reads = 0;
   const raw = Object.defineProperty({ ...trojan }, "region", {
@@ -69,7 +69,7 @@ test("compiler data boundaries reject accessors and symbols without reading payl
   });
   assert.ok(compileEverywhere(symbol).every((result) => !result.ok));
 });
-// @use-case docs/feature/rule-composition/use-case/select-resources.md
+// @use-case docs/feature/profile/use-case/define-proxies.md
 test("application filters preserve proxy identity, member order and device subsets", () => {
   const entries = [
     { region: "local-zone-A", proxy: { ...trojan, id: "second", label: "Second" } },

@@ -29,7 +29,7 @@ const input: StrategyGroupInput = {
   names: { auto: "AI Smart" },
 };
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("同一策略按目标选择 Smart / urltest，并隔离计划和输入快照", () => {
   const config = dual(
     fixture([rule("ai", match.domain("example.com"), route("auto"))], { groups: [auto] }),
@@ -55,7 +55,7 @@ test("同一策略按目标选择 Smart / urltest，并隔离计划和输入快�
   assert.ok(Object.isFrozen(result.plans[0]!.program.groups));
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("所有分支做结构校验，所选分支不能缺失、跨引擎或静默降级", () => {
   const cases = [
     [
@@ -97,7 +97,7 @@ test("所有分支做结构校验，所选分支不能缺失、跨引擎或静�
   assert.ok(unsupported.diagnostics.some((d) => d.code === "GROUP_UNSUPPORTED"));
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("Smart 不允许嵌套组；策略不能绕过完整编译的 TCP-only 检查", () => {
   const nested = strategy({ ...auto, members: ["relay"] });
   const result = compile(
@@ -118,7 +118,7 @@ test("Smart 不允许嵌套组；策略不能绕过完整编译的 TCP-only 检�
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("专用入口只产生标记过的组片段，保留节点名称与次序", () => {
   const result = compileStrategyGroups(input);
   assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
@@ -133,7 +133,7 @@ test("专用入口只产生标记过的组片段，保留节点名称与次序",
   assert.ok(Object.isFrozen(box.selections));
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("名字注入、最终名字冲突、保留字与未知映射均拒绝", () => {
   for (const nativeName of [
     "",
@@ -176,7 +176,7 @@ test("名字注入、最终名字冲突、保留字与未知映射均拒绝", ()
   );
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("专用入口严格验证版本、资源引用、重复、循环和空组", () => {
   const failures = [
     { ...input, target: { ...input.target, version: "6.9.0" } },
@@ -199,7 +199,7 @@ test("专用入口严格验证版本、资源引用、重复、循环和空组",
   }
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("通用 auto 按精确目标生成实现，保留意图与不可变选择证据", () => {
   const portable = strategy({ id: "auto", members: ["edge"], algorithm: group.auto() });
   for (const [engine, version, expected] of [
@@ -239,7 +239,7 @@ test("通用 auto 按精确目标生成实现，保留意图与不可变选择�
     assert.equal(compileStrategyGroups({ ...input, target, strategies: [portable] }).ok, false);
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("通用算法覆写约束包含未选分支，固定 URLTest 不被弱化", () => {
   const compileAlgorithm = (algorithm: unknown, implementations?: unknown) =>
     compileStrategyGroups({
@@ -292,7 +292,7 @@ test("通用算法覆写约束包含未选分支，固定 URLTest 不被弱化",
   assert.equal(Object.hasOwn(legacy, "implementationSource"), false);
 });
 
-// @use-case docs/feature/target-compilation/use-case/strategy-implementations.md
+// @feature docs/feature/profile/library/README.md
 test("公共语法严格拒绝未知调优字段、空声明和 Smart 冒充，保留成员限制", () => {
   for (const value of [
     { type: "strategy", id: "auto", members: ["edge"] },

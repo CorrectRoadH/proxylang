@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/artifact-publication/use-case/publish-generation.md
+// @concord-implements docs/feature/build/use-case/publish-device-configs.md
 import { ProfileDefinitionError, snapshotDefinition } from "./surge-definitions.js";
 import { join, resolve } from "node:path";
 import {
@@ -76,7 +76,7 @@ export type ProfileCheckResult = {
   }[];
 };
 // @concord-code
-// @concord-implements docs/feature/artifact-publication/format/project-config.md
+// @concord-implements docs/feature/build/format/project-config.md
 export function checkBuild(input: BuildDefinition): ProfileCheckResult {
   const root = process.cwd();
   let definition: BuildDefinition;

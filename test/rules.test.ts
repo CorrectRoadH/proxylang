@@ -19,7 +19,7 @@ import {
 } from "../src/index.js";
 import { fixture } from "./fixtures.js";
 
-// @use-case docs/feature/rule-composition/use-case/compose-policy.md
+// @use-case docs/feature/profile/use-case/share-rules-across-devices.md
 test("嵌套守卫、具名实例、外层出口转绑定保持顺序与来源", () => {
   const leaf = policy({
     id: "leaf",
@@ -97,7 +97,7 @@ const matchingCases: [string, Match, Request, boolean][] = [
     false,
   ],
 ];
-// @use-case docs/feature/policy-explanation/use-case/explain-request.md
+// @feature docs/feature/routing-cases/README.md
 for (const [name, condition, request, expected] of matchingCases)
   test(`条件语义：${name}`, () => {
     const compiled = compile(fixture([rule("match", condition, reject())]));
@@ -105,7 +105,7 @@ for (const [name, condition, request, expected] of matchingCases)
     assert.equal(explain(compiled, "box", request).rule === "home/match", expected);
   });
 
-// @use-case docs/feature/policy-explanation/use-case/explain-request.md
+// @feature docs/feature/routing-cases/README.md
 test("同一对象编译后再修改不会改变快照或解释结果", () => {
   const original = { type: "domain" as const, value: "first.example" };
   const compiled = compile(fixture([rule("first", original, reject())]));
@@ -117,7 +117,7 @@ test("同一对象编译后再修改不会改变快照或解释结果", () => {
   assert.ok(Object.isFrozen(compiled.plans[0]!.rules[0]!.when));
 });
 
-// @use-case docs/feature/rule-composition/use-case/compose-policy.md
+// @use-case docs/feature/profile/use-case/share-rules-across-devices.md
 test("缺失、多余、未声明、顶层 slot 与模板资源捕获都拒绝", () => {
   const template = policy({
     id: "template",
@@ -142,7 +142,7 @@ test("缺失、多余、未声明、顶层 slot 与模板资源捕获都拒绝",
   for (const entry of variants) assert.equal(compile(fixture([entry])).ok, false);
 });
 
-// @use-case docs/feature/rule-composition/use-case/compose-policy.md
+// @use-case docs/feature/profile/use-case/share-rules-across-devices.md
 test("同一路径重复 ID 拒绝，但不同实例内同名规则合法", () => {
   const entry = rule("same", m.network("tcp"), direct());
   assert.ok(
@@ -151,7 +151,7 @@ test("同一路径重复 ID 拒绝，但不同实例内同名规则合法", () =
   assert.equal(compile(fixture([block("one", [entry]), block("two", [entry])])).ok, true);
 });
 
-// @use-case docs/feature/rule-composition/use-case/compose-policy.md
+// @use-case docs/feature/profile/use-case/share-rules-across-devices.md
 test("输入循环和 accessor 在 schema 递归之前拒绝", () => {
   const cyclic: { self?: unknown } = {};
   cyclic.self = cyclic;
@@ -167,7 +167,7 @@ test("输入循环和 accessor 在 schema 递归之前拒绝", () => {
   assert.equal(invoked, false);
 });
 
-// @use-case docs/feature/policy-explanation/use-case/explain-request.md
+// @feature docs/feature/routing-cases/README.md
 test("schema 对未知字段、无效条件与错误请求 fail closed", () => {
   for (const condition of [
     m.any(),

@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/README.md
+// @concord-implements docs/feature/targets/README.md
 import { collectNativeRuleSets, lowerRuleSets, validateRuleSets } from "./rulesets.js";
 import { StaticRuleSetUnknownError } from "./rules.js";
 import {
@@ -60,7 +60,7 @@ export type CaseResult =
     }
   | { readonly id: string; readonly passed: false; readonly code: "CASE_INDETERMINATE" };
 // @concord-code
-// @concord-implements docs/feature/target-compilation/use-case/build-targets.md
+// @concord-implements docs/feature/targets/use-case/check-device-target.md
 export function compile(input: unknown): Compilation {
   const diagnostics: Diagnostic[] = [];
   const plans: TargetPlan[] = [];
@@ -109,7 +109,7 @@ export function compile(input: unknown): Compilation {
     const rules = lowerRuleSets(expandRules(program.routing, diagnostics, name), diagnostics, path);
     expanded.set(name, rules);
     // @concord-begin
-    // @concord-implements docs/feature/rule-composition/use-case/select-resources.md
+    // @concord-implements docs/feature/profile/use-case/define-proxies.md
     const endpoints = program.endpoints ?? [];
     const resources = [...program.nodes, ...program.groups, ...endpoints];
     const byId = new Map(resources.map((resource) => [resource.id, resource]));
@@ -479,7 +479,7 @@ function sameAction(a: Action, b: Action): boolean {
   return a.type === b.type && (a.type !== "route" || (b.type === "route" && a.to === b.to));
 }
 // @concord-code
-// @concord-implements docs/feature/policy-explanation/use-case/explain-request.md
+// @concord-implements docs/feature/routing-cases/README.md
 export function explain(compilation: Compilation, target: string, request: Request): Explanation {
   if (!compilation.ok) throw new Error("COMPILATION_FAILED");
   const plan = compilation.plans.find((plan) => plan.target.id === target);

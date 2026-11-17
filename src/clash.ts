@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/target-compilation/use-case/clash-backends.md
+// @concord-implements docs/feature/targets/format/mihomo.md
 import { clashProxy } from "./proxies.js";
 import type { TargetPlan } from "./compiler.js";
 import type {

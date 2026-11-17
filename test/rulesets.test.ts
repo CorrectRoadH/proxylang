@@ -63,7 +63,7 @@ function content(c: Config) {
   assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
   return render(result, () => undefined)[0]!.content;
 }
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("命名条件集合组合原生资源，保留逻辑结构和来源，按使用处绑定出口", () => {
   const set = ruleSet({ id: "media", when: m.any(box(), m.domainSuffix("example.org")) });
   const inner = ruleSet({ id: "nested", when: m.all(m.network("tcp"), m.not(set)) });
@@ -95,7 +95,7 @@ test("命名条件集合组合原生资源，保留逻辑结构和来源，按�
   assert.equal(native.route.rule_set[0].download_detour, "pl-direct");
   assert.equal(native.route.rules[0].rules[1].invert, true);
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("Surge顶层两种格式保留更新选项；嵌套默认更新，显式间隔拒绝", () => {
   for (const format of ["rule-set", "domain-set"] as const) {
     const r = surge.ruleSet({ id: "remote", url, format, intervalSeconds: 600 });
@@ -117,7 +117,7 @@ test("Surge顶层两种格式保留更新选项；嵌套默认更新，显式间
     );
   }
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("Mihomo原生provider声明去重，YAML与text格式保持，规则组合不扁平化", () => {
   for (const format of ["yaml", "text"] as const) {
     const r = mihomo.ruleProvider({
@@ -141,7 +141,7 @@ test("Mihomo原生provider声明去重，YAML与text格式保持，规则组合�
     );
   }
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("完整源树检查跨引擎、同ID异定义和Surge同URL格式冲突", () => {
   const bad = m.all(
     m.network("udp"),
@@ -199,7 +199,7 @@ test("完整源树检查跨引擎、同ID异定义和Surge同URL格式冲突", (
   );
   assert.equal(compile(config(box(), "stash")).ok, false);
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("远程条件三值逻辑、first-match和案例不确定，不将unknown当false", () => {
   const req = { network: "tcp" as const, domain: "example.org" };
   assert.equal(evaluate(box(), req).matched, null);
@@ -234,7 +234,7 @@ test("远程条件三值逻辑、first-match和案例不确定，不将unknown�
   });
   assert.equal(explain(prior, "test", req).rule, "home/early");
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("严格URL/原生字段校验与warningsAsErrors；不会依赖远程内容证明UDP安全", () => {
   for (const value of [
     "https://user:password@example.com/a",
@@ -268,7 +268,7 @@ test("严格URL/原生字段校验与warningsAsErrors；不会依赖远程内容
   };
   assert.ok(compile(risky).diagnostics.some((d) => d.code === "NETWORK_UNSUPPORTED"));
 });
-// @use-case docs/feature/rule-composition/use-case/compose-native-rule-sets.md
+// @feature docs/feature/profile/library/conditions.md
 test("真实构建不下载外部规则；非法组合失败保留active", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "pl-remote-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));

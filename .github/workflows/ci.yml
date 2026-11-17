@@ -39,10 +39,6 @@ jobs:
           (cd examples/clients && vp exec node ../../dist/cli.js build)
           (cd examples/proxies && vp exec node ../../dist/cli.js build)
           (cd examples/rule-sets && vp exec node ../../dist/cli.js build)
-        env:
-          DEMO_USER: example-user
-          DEMO_PASSWORD: example-only
-          DEMO_UUID: 11111111-2222-4333-8444-555555555555
   sing-box:
     name: sing-box ${{ matrix.version }} native check
     runs-on: ubuntu-latest
@@ -51,8 +47,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: "1.11.0"
-            sha256: "eff0237951bfbd2381be36f114e419f10d3ed57dbf929f680e4cc9f57e319d64"
           - version: "1.12.0"
             sha256: "f59b1253ae0143997cb46915af30d14a33431dcbd7e39edacfcde8d73050faaf"
           - version: "1.14.4"
@@ -77,7 +71,7 @@ jobs:
           tar -xzf .cache/native/sing-box.tar.gz -C .cache/native "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box"
           mv ".cache/native/sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" ".cache/native/sing-box-${SING_BOX_VERSION}"
       - name: Check generated configurations without starting the proxy
-        run: vp test run test/native.test.ts test/dns-native.test.ts -t "sing-box $SING_BOX_VERSION"
+        run: vp test run test/native/check.test.ts
         env:
           SING_BOX_VERSION: ${{ matrix.version }}
           PROXYLANG_NATIVE_CHECK: "1"
@@ -100,7 +94,7 @@ jobs:
           echo "306f81e723e60ce6b828899a6fe83e1d00e9ecefb2dc8d4d849312a5bc00efdc  .cache/native/mihomo.gz" | sha256sum --check
           gzip -dc .cache/native/mihomo.gz > .cache/native/mihomo-1.19.32
           chmod +x .cache/native/mihomo-1.19.32
-      - run: vp test run test/native.test.ts -t Mihomo
+      - run: vp test run test/native/check.test.ts -t "native mihomo"
         env:
           PROXYLANG_NATIVE_CHECK: "1"
   secrets:

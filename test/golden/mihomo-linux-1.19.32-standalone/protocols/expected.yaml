@@ -1,0 +1,126 @@
+proxies:
+  - name: edge
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+  - name: http
+    type: http
+    server: 192.0.2.11
+    port: 8080
+    password: test-only
+    username: test-only
+  - name: anytls
+    type: anytls
+    server: 192.0.2.12
+    port: 443
+    password: test-only
+  - name: hy2
+    type: hysteria2
+    server: 192.0.2.13
+    port: 443
+    password: test-only
+    ports: 443,40000-40010
+    hop-interval: 30
+  - name: ss-0
+    type: ss
+    server: 192.0.2.14
+    port: 8388
+    password: test-only
+    cipher: aes-128-gcm
+    udp: true
+  - name: ss-1
+    type: ss
+    server: 192.0.2.14
+    port: 8388
+    password: test-only
+    cipher: aes-256-gcm
+    udp: true
+  - name: ss-2
+    type: ss
+    server: 192.0.2.14
+    port: 8388
+    password: test-only
+    cipher: chacha20-ietf-poly1305
+    udp: true
+  - name: vmess-tcp
+    type: vmess
+    server: 192.0.2.15
+    port: 443
+    uuid: 11111111-2222-4333-8444-555555555555
+    udp: false
+    cipher: aes-128-gcm
+    alterId: 0
+    tls: true
+    servername: tls.example.com
+  - name: vmess-ws
+    type: vmess
+    server: 192.0.2.15
+    port: 443
+    uuid: 11111111-2222-4333-8444-555555555555
+    udp: false
+    cipher: aes-128-gcm
+    alterId: 0
+    tls: true
+    servername: tls.example.com
+    network: ws
+    ws-opts:
+      path: /proxy
+      headers:
+        Host: ws.example.com
+  - name: vless-tcp
+    type: vless
+    server: 192.0.2.15
+    port: 443
+    uuid: 11111111-2222-4333-8444-555555555555
+    udp: false
+    tls: true
+    servername: tls.example.com
+  - name: vless-ws
+    type: vless
+    server: 192.0.2.15
+    port: 443
+    uuid: 11111111-2222-4333-8444-555555555555
+    udp: false
+    tls: true
+    servername: tls.example.com
+    network: ws
+    ws-opts:
+      path: /proxy
+      headers:
+        Host: ws.example.com
+proxy-groups: []
+rules:
+  - DOMAIN-SUFFIX,example.com,edge
+  - AND,((NETWORK,tcp),(DST-PORT,1000)),http
+  - AND,((NETWORK,tcp),(DST-PORT,1001)),anytls
+  - AND,((NETWORK,tcp),(DST-PORT,1002)),hy2
+  - AND,((NETWORK,tcp),(DST-PORT,1003)),ss-0
+  - AND,((NETWORK,tcp),(DST-PORT,1004)),ss-1
+  - AND,((NETWORK,tcp),(DST-PORT,1005)),ss-2
+  - AND,((NETWORK,tcp),(DST-PORT,1006)),vmess-tcp
+  - AND,((NETWORK,tcp),(DST-PORT,1007)),vmess-ws
+  - AND,((NETWORK,tcp),(DST-PORT,1008)),vless-tcp
+  - AND,((NETWORK,tcp),(DST-PORT,1009)),vless-ws
+  - MATCH,edge
+mixed-port: 16900
+allow-lan: false
+bind-address: 127.0.0.1
+mode: rule
+ipv6: false
+geo-auto-update: false
+sniffer:
+  enable: false
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: redir-host
+  nameserver:
+    - 192.0.2.53
+  default-nameserver:
+    - 192.0.2.53
+  respect-rules: false
+  use-hosts: false
+  use-system-hosts: false

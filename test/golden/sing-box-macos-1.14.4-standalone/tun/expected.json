@@ -1,0 +1,81 @@
+{
+  "log": {
+    "level": "warn"
+  },
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "pl-direct"
+    },
+    {
+      "type": "trojan",
+      "tag": "edge",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "password": "test-only",
+      "tls": {
+        "enabled": true,
+        "server_name": "proxy.example.com"
+      }
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "inbound": [
+          "pl-tun"
+        ],
+        "port": 53,
+        "action": "hijack-dns"
+      },
+      {
+        "domain_suffix": [
+          "example.com"
+        ],
+        "action": "route",
+        "outbound": "edge"
+      }
+    ],
+    "auto_detect_interface": true,
+    "final": "edge",
+    "default_domain_resolver": {
+      "server": "pl-dns",
+      "strategy": "prefer_ipv4"
+    }
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "pl-listener",
+      "listen": "127.0.0.1",
+      "listen_port": 16900
+    },
+    {
+      "type": "tun",
+      "tag": "pl-tun",
+      "address": [
+        "192.0.2.1/24",
+        "2001:db8::1/64"
+      ],
+      "stack": "mixed",
+      "auto_route": true,
+      "strict_route": true,
+      "dns_mode": "hijack",
+      "route_exclude_address": [
+        "192.0.2.128/25"
+      ]
+    }
+  ],
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "pl-dns",
+        "server": "2001:db8:1::53",
+        "server_port": 53
+      }
+    ],
+    "final": "pl-dns",
+    "strategy": "prefer_ipv4"
+  }
+}

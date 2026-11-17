@@ -1,0 +1,41 @@
+{
+  "log": {
+    "level": "warn"
+  },
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "pl-direct"
+    },
+    {
+      "type": "trojan",
+      "tag": "edge",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "password": "test-only",
+      "tls": {
+        "enabled": true,
+        "server_name": "proxy.example.com"
+      }
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff",
+        "sniffer": [
+          "http",
+          "tls"
+        ]
+      },
+      {
+        "domain_suffix": [
+          "example.com"
+        ],
+        "action": "route",
+        "outbound": "edge"
+      }
+    ],
+    "final": "edge"
+  }
+}

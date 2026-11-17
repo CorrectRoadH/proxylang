@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // @concord-file
 // @concord-implements docs/feature/build/README.md
-import { definitionDiagnostic } from "./surge-definitions.js";
-import { runBuild, checkBuild, defineBuild } from "./profile-build.js";
+import {
+  runBuild,
+  checkBuild,
+  defineBuild,
+  definitionDiagnostic,
+  targetCatalog,
+} from "./build/index.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { open, lstat, stat } from "node:fs/promises";
-import { constants } from "node:fs";
+import { lstat, stat } from "node:fs/promises";
 import { tsImport } from "tsx/esm/api";
-import { StaticRuleSetUnknownError } from "./rules.js";
-import { compile, explain, targetCatalog } from "./compiler.js";
-import { buildToDirectory } from "./host.js";
-import { requestSchema } from "./schema.js";
 
 const print = (value: unknown) => process.stdout.write(JSON.stringify(value, null, 2) + "\n");
 const failure = (code: string): number => {
@@ -27,26 +27,6 @@ const usages = {
   ],
   build: ["proxylang build [--validation]"],
 };
-async function readRequestFile(path: string): Promise<string> {
-  const limit = 1024 * 1024;
-  const file = await open(resolve(path), constants.O_RDONLY | constants.O_NONBLOCK);
-  try {
-    const stat = await file.stat();
-    if (!stat.isFile()) throw new Error("REQUEST_FILE_READ_FAILED");
-    if (stat.size > limit) throw new Error("REQUEST_FILE_TOO_LARGE");
-    const buffer = Buffer.alloc(limit + 1);
-    let size = 0;
-    while (size < buffer.length) {
-      const read = await file.read(buffer, size, buffer.length - size, null);
-      if (!read.bytesRead) break;
-      size += read.bytesRead;
-    }
-    if (size > limit) throw new Error("REQUEST_FILE_TOO_LARGE");
-    return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, size));
-  } finally {
-    await file.close();
-  }
-}
 function loadFailure(cause: unknown): number {
   const diagnostic = definitionDiagnostic(cause);
   if (diagnostic) {
@@ -185,68 +165,11 @@ async function main(args: string[]): Promise<number> {
     print(built);
     return built.exitCode;
   }
-  if (validation) return failure("VALIDATION_PROFILE_REQUIRED");
-  const result = compile(config);
-  if (!result.ok) {
-    print({ ok: false, diagnostics: result.diagnostics, cases: result.cases });
-    return 1;
-  }
-  if (command === "check") {
-    print({
-      ok: true,
-      diagnostics: result.diagnostics,
-      cases: result.cases,
-      targets: result.plans.map((plan) => ({
-        target: plan.target,
-        rules: plan.rules.length,
-        sourceMap: plan.sourceMap,
-        strategySelections: plan.strategySelections,
-        preconditions: plan.preconditions,
-        nativeValidation: plan.nativeValidation,
-      })),
-    });
-    return 0;
-  }
-  if (command === "explain") {
-    let source = options.get("--request");
-    if (options.has("--request-file")) {
-      try {
-        source = await readRequestFile(resolve(root, options.get("--request-file")!));
-      } catch (cause) {
-        return failure(
-          cause instanceof Error && cause.message === "REQUEST_FILE_TOO_LARGE"
-            ? "REQUEST_FILE_TOO_LARGE"
-            : "REQUEST_FILE_READ_FAILED",
-        );
-      }
-    }
-    let request: unknown;
-    try {
-      request = JSON.parse(source!);
-    } catch {
-      return failure("INVALID_REQUEST");
-    }
-    const parsed = requestSchema.safeParse(request);
-    if (!parsed.success) return failure("INVALID_REQUEST");
-    if (!result.plans.some((plan) => plan.target.id === options.get("--target")))
-      return failure("UNKNOWN_TARGET");
-    print({
-      ...explain(result, options.get("--target")!, parsed.data),
-      diagnostics: result.diagnostics,
-    });
-    return 0;
-  }
-  const outDir = Object.getOwnPropertyDescriptor(config, "outDir")?.value as string | undefined;
-  if (outDir === undefined) return failure("OUTPUT_DIRECTORY_REQUIRED");
-  const built = await buildToDirectory(result, resolve(root, outDir));
-  print({ ...built, diagnostics: result.diagnostics });
-  return built.exitCode;
+  return failure("INVALID_BUILD_DEFINITION");
 }
 
 try {
   process.exitCode = await main(process.argv.slice(2));
-} catch (cause) {
-  process.exitCode = failure(
-    cause instanceof StaticRuleSetUnknownError ? cause.message : "UNEXPECTED_FAILURE",
-  );
+} catch {
+  process.exitCode = failure("UNEXPECTED_FAILURE");
 }

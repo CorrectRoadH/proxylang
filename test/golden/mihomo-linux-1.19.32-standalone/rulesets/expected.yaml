@@ -1,0 +1,41 @@
+proxies:
+  - name: edge
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+proxy-groups: []
+rules:
+  - RULE-SET,external,DIRECT
+  - DOMAIN-SUFFIX,example.com,edge
+  - MATCH,edge
+rule-providers:
+  external:
+    type: http
+    url: https://rules.example.com/list.yaml
+    path: rule-providers/pl-external.yaml
+    interval: 86400
+    behavior: domain
+    format: yaml
+    proxy: DIRECT
+mixed-port: 16900
+allow-lan: false
+bind-address: 127.0.0.1
+mode: rule
+ipv6: false
+geo-auto-update: false
+sniffer:
+  enable: false
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: redir-host
+  nameserver:
+    - 192.0.2.53
+  default-nameserver:
+    - 192.0.2.53
+  respect-rules: false
+  use-hosts: false
+  use-system-hosts: false

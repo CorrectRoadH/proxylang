@@ -1,0 +1,22 @@
+proxies:
+  - name: edge
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    block-quic: off
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+proxy-groups: []
+rules:
+  - DOMAIN-SUFFIX,example.com,edge
+  - DOMAIN,one.example,DIRECT
+  - DOMAIN-SUFFIX,two.example,DIRECT
+  - IP-CIDR,192.0.2.0/24,DIRECT,no-resolve
+  - IP-CIDR6,2001:db8::/32,DIRECT,no-resolve
+  - DST-PORT,80,DIRECT
+  - NETWORK,udp,DIRECT
+  - AND,((DOMAIN,three.example),(NOT,((DST-PORT,443)))),DIRECT
+  - OR,((DST-PORT,123),(DST-PORT,456)),DIRECT
+  - PROCESS-NAME,example-app,DIRECT
+  - MATCH,edge

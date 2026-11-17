@@ -1,0 +1,52 @@
+proxies:
+  - name: edge
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+proxy-groups:
+  - name: choice
+    type: select
+    proxies:
+      - edge
+  - name: automatic
+    type: url-test
+    proxies:
+      - edge
+    url: https://www.gstatic.com/generate_204
+    interval: 180
+    tolerance: 50
+  - name: speed
+    type: url-test
+    proxies:
+      - edge
+    url: https://example.com/check
+    interval: 180
+    tolerance: 50
+rules:
+  - DOMAIN-SUFFIX,example.com,edge
+  - DST-PORT,2000,choice
+  - DST-PORT,2001,automatic
+  - DST-PORT,2002,speed
+  - MATCH,edge
+mixed-port: 16900
+allow-lan: false
+bind-address: 127.0.0.1
+mode: rule
+ipv6: false
+geo-auto-update: false
+sniffer:
+  enable: false
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: redir-host
+  nameserver:
+    - 192.0.2.53
+  default-nameserver:
+    - 192.0.2.53
+  respect-rules: false
+  use-hosts: false
+  use-system-hosts: false

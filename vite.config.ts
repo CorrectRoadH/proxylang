@@ -11,14 +11,22 @@ export default defineConfig({
       dev: { command: "vp pack --watch", cache: false },
     },
   },
-  fmt: { ignorePatterns: ["docs/**", "memory/**", "AGENTS.md", "concord.config.ts"] },
+  fmt: {
+    ignorePatterns: [
+      "docs/**",
+      "memory/**",
+      "AGENTS.md",
+      "concord.config.ts",
+      "test/golden/**/expected.*",
+    ],
+  },
   lint: {
     ignorePatterns: ["docs/**", "memory/**", "concord.config.ts"],
     options: { typeAware: true, typeCheck: true },
     // Rule.then is declarative data, never a callable Promise handler.
     rules: { "unicorn/no-thenable": "off" },
   },
-  test: { include: ["test/*.test.ts"], testTimeout: 15000 },
+  test: { include: ["test/**/*.test.ts"], testTimeout: 15000 },
   pack: {
     entry: ["src/index.ts", "src/cli.ts"],
     format: "esm",

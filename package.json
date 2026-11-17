@@ -21,7 +21,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     }
   },
   "publishConfig": {
@@ -32,13 +33,14 @@
     "build": "vp pack",
     "typecheck": "vp exec tsc --noEmit -p tsconfig.check.json",
     "test": "vp test run",
-    "test:native": "PROXYLANG_NATIVE_CHECK=1 vp test run test/native.test.ts",
+    "test:native": "PROXYLANG_NATIVE_CHECK=1 vp test run test/native/",
     "check": "vp pack && vp check && vp run typecheck && vp test run",
     "docs:check": "concord check --fresh",
     "docs:gaps": "concord trace gaps --fresh",
     "example:check": "cd examples/home && vp exec node ../../dist/cli.js check",
     "example:build": "cd examples/home && vp exec node ../../dist/cli.js build",
-    "test:package": "vp pack && vp exec node scripts/verify-package.mjs"
+    "test:package": "vp pack && vp exec node scripts/verify-package.mjs",
+    "test:golden:update": "vp pack && vp exec tsx scripts/update-golden.mts"
   },
   "dependencies": {
     "ipaddr.js": "2.5.0",

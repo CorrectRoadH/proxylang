@@ -1,0 +1,18 @@
+proxies:
+  - name: edge
+    type: trojan
+    server: 192.0.2.10
+    port: 443
+    block-quic: off
+    password: test-only
+    sni: proxy.example.com
+    udp: true
+proxy-groups:
+  - name: choice
+    type: select
+    proxies:
+      - edge
+rules:
+  - DOMAIN-SUFFIX,example.com,edge
+  - DST-PORT,2000,choice
+  - MATCH,edge

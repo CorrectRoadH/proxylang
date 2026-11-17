@@ -1,69 +1,11 @@
 // @concord-file
-// @concord-implements docs/feature/profile/README.md
-export * from "./types.js";
-export * from "./dsl.js";
-export { compile, explain, targetCatalog } from "./compiler.js";
-export type { Compilation, TargetPlan } from "./compiler.js";
-export { render, RenderError } from "./render.js";
-export type { Artifact } from "./render.js";
-export { buildToDirectory } from "./host.js";
-export type { BuildResult } from "./host.js";
-
-export { compileStrategyGroups } from "./strategies.js";
-export type { StrategyGroupInput, StrategyGroupCompilation } from "./strategies.js";
-
-export { StaticRuleSetUnknownError } from "./rules.js";
-export type { CaseResult } from "./compiler.js";
-export type { ProxyBuilder } from "./proxy-builder.js";
-export { compileProxyNodes, renderProxyNodes } from "./proxy-fragments.js";
-export type { ProxyNodeInput, ProxyNodeCompilation, ProxyNodeArtifact } from "./proxy-fragments.js";
-export { compileSurgeProfile, renderSurgeProfile, renderSurgeProfiles } from "./surge-profile.js";
+// @concord-implements docs/feature/profile/library/README.md
+export * from "./authoring/index.js";
+export { runBuild, checkBuild } from "./build/index.js";
 export type {
-  SurgeProfileInput,
-  SurgeProfileCompilation,
-  SurgeProfileArtifact,
-  SurgeCondition,
-  SurgePolicy,
-  SurgeRule,
-  SurgeGeneral,
-  SurgeHost,
-  SurgeGroup,
-  SurgeTunnel,
-} from "./surge-profile.js";
-
-export {
-  defineProxyGroup,
-  defineRoute,
-  defineRoutes,
-  outbound,
-  ProfileDefinitionError,
-} from "./surge-definitions.js";
-export type { ProxyGroupDefinition, RouteDefinition } from "./surge-definitions.js";
-
-export {
-  defineProfile,
-  compileProfile,
-  type Profile,
-  type ProfileDefinition,
-  type ProfileProxy,
-  type Fragments,
-  type ProfileCondition,
-  type ProfileDestination,
-  type ProfileCompilation,
-  type SurgeConfig,
-  type DeepReadonly,
-} from "./profile.js";
-
-export {
-  defineBuild,
-  runBuild,
-  checkBuild,
-  type ProfileCheckResult,
-  type BuildDefinition,
-  type BuildContext,
-  type ProfileBuildResult,
-} from "./profile-build.js";
-
-export { proxyId } from "./proxy-id.js";
-
-export { secrets, type SecretsInput } from "./secret-inputs.js";
+  BuildDefinition,
+  BuildContext,
+  ProfileCheckResult,
+  ProfileBuildResult,
+  BuildResult,
+} from "./build/index.js";

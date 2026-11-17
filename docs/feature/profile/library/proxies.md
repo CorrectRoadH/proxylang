@@ -37,7 +37,7 @@ UUID 在使用时验证为 8-4-4-4-12 十六进制格式，非法时报 `INVALID
 
 sing-box 1.14.4 接受 Trojan/AnyTLS/SS 的 `surge.udpRelay: true`，因为与该目标的既有 UDP 能力相同；其余 Surge 专属参数拒绝。AnyTLS 在 Surge 与 sing-box 1.14.4 支持 UDP，其它目标保持能力目录的限制。
 
-TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 fallback 指向这种路径时报 `TCP_ONLY_EXIT`，1.14.4 的显式拒绝策略见[sing-box](sing-box.md)。编码支持不证明远端节点或 QUIC 可连通。
+TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 fallback 指向这种路径时报 `TCP_ONLY_EXIT`，显式拒绝策略的例外见 [Surge](surge.md#不支持-udp-的出口) 与 [sing-box 1.14.4](sing-box.md)。编码支持不证明远端节点或 QUIC 可连通。
 
 ## builder
 

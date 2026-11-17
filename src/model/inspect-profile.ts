@@ -196,6 +196,29 @@ export function inspectProfile(
     tcpCache.set(exit, tcp);
     return tcp;
   };
+  const rejectUnsupportedSurgeUdp =
+    profile.target.engine === "surge" &&
+    profile.surge?.general?.["udp-policy-not-supported-behaviour"] === "REJECT";
+  const relayCache = new Map<object, boolean>();
+  const relayVisiting = new Set<object>();
+  // @concord-code
+  // @concord-implements docs/feature/profile/library/surge.md#不支持-udp-的出口
+  const unsafeSurgeRelay = (exit: Exit): boolean => {
+    const cached = relayCache.get(exit);
+    if (cached !== undefined) return cached;
+    if (relayVisiting.has(exit)) return false;
+    relayVisiting.add(exit);
+    // Only terminal capability is exempt. Every possible preceding hop stays strict.
+    const unsafe =
+      kindOf(exit) === "group"
+        ? (edges.get(exit) ?? []).some((member) => unsafeSurgeRelay(member as Exit))
+        : "via" in exit && exit.via !== undefined && tcpOnly(exit.via);
+    relayVisiting.delete(exit);
+    relayCache.set(exit, unsafe);
+    return unsafe;
+  };
+  const requiresTcp = (exit: Exit) =>
+    rejectUnsupportedSurgeUdp ? unsafeSurgeRelay(exit) : tcpOnly(exit);
   if (
     !(
       profile.target.engine === "sing-box" &&
@@ -204,10 +227,10 @@ export function inspectProfile(
     )
   ) {
     profile.routes.forEach((route, i) => {
-      if (tcpOnly(route.to) && truthPossibilities(route.when as Match, "udp").includes(true))
+      if (requiresTcp(route.to) && truthPossibilities(route.when as Match, "udp").includes(true))
         error("TCP_ONLY_EXIT", `routes[${i}].to`, route);
     });
-    if (tcpOnly(profile.fallback)) error("TCP_ONLY_EXIT", "fallback", profile);
+    if (requiresTcp(profile.fallback)) error("TCP_ONLY_EXIT", "fallback", profile);
   }
   const secretRefs = new Set<SecretRef>();
   const scanned = new WeakSet<object>();

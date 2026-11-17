@@ -8,6 +8,7 @@
 
 | General 字段 | 接受值 |
 | --- | --- |
+| `udp-policy-not-supported-behaviour` | `REJECT`、`DIRECT` |
 | `loglevel` | `verbose`、`info`、`notify`、`warning` |
 | `dns-server` | `system`、IP 或 IP:port 的非空列表 |
 | `encrypted-dns-server` | https/h3/quic/tls/tcp DNS URL 的非空列表 |
@@ -50,3 +51,11 @@ select 和 Smart 都可包含 Surge 隧道；Smart 不能包含分组或内置�
 ## 分组测试参数
 
 `defineProxyGroup` 的 `surge` 分支为 select 分组设置可用性测试：`url` 是 HTTP(S) 测试地址，`intervalSeconds` 与 `timeoutSeconds` 是正整数秒，分别编码为该分组的 `url`、`interval`、`timeout` 参数，取值范围沿用现行实现。省略 `surge` 分支时不输出这些参数。
+
+## 不支持 UDP 的出口
+
+仅当合并后的 `general["udp-policy-not-supported-behaviour"]` 显式为 `REJECT` 时，非 TCP 限定路由和 fallback 可以选择 TCP-only 终端节点或含此类节点的分组。原生客户端按实际选中的终端节点拒绝不支持的 UDP；SDK 不添加辅助拒绝路由，不改变分组成员、顺序或路由。省略或设为 `DIRECT` 时仍执行严格 `TCP_ONLY_EXIT` 检查，不依赖客户端默认值。
+
+这项豁免只适用于终端节点自身，不沿 `via` 传播。对非 TCP 限定路由和 fallback，展开出口的分组成员后，任何节点的 `via` 中存在 TCP-only 可选路径时仍报 `TCP_ONLY_EXIT`：HTTP 终端经支持 UDP 的前置可用，UDP 节点或 HTTP 节点经 TCP-only 前置仍不可用。其它引擎的检查保持不变。
+
+General 的各片段仍独立校验，后片段整键覆盖决定最终策略，非法枚举不能由后值掩盖。`explain` 与 cases 只解释逻辑出口，不模拟运行时分组选择或 UDP 连通性。

@@ -88,6 +88,7 @@ const control = z.strictObject({
   listen: safe.refine((v) => addressPort(v, false, true)),
 });
 const generalSchema = z.strictObject({
+  "udp-policy-not-supported-behaviour": z.enum(["DIRECT", "REJECT"]).optional(),
   loglevel: z.enum(["verbose", "info", "notify", "warning"]).optional(),
   "dns-server": list(dns).optional(),
   "encrypted-dns-server": list(encryptedDns).optional(),

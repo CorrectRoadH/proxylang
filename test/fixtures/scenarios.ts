@@ -59,7 +59,8 @@ for (const [engine, version, platforms, modes] of [
   for (const platform of platforms)
     for (const mode of modes) {
       const scenes = ["protocols", "groups", "chain", "conditions", "names"];
-      if (engine === "surge") scenes.push("group-options", "logical-single");
+      if (engine === "surge")
+        scenes.push("group-options", "logical-single", "udp-reject", "udp-direct");
       if (engine !== "stash") scenes.push("rulesets");
       if (engine === "surge" || (engine === "sing-box" && mode === "standalone"))
         scenes.push("dns", "tunnel");
@@ -251,6 +252,29 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
         to: outbound.direct,
       }),
     );
+  if (s.scene === "udp-reject" || s.scene === "udp-direct") {
+    const http = proxy.http({ id: "http", server: "192.0.2.30", port: 8080, password: pass });
+    resources.push(http);
+    const mixed = defineProxyGroup({
+      id: "mixed",
+      algorithm: group.select(),
+      members: [nodes[0]!, http],
+    });
+    groups.push(mixed);
+    const reject = s.scene === "udp-reject";
+    routes.push(
+      ...defineRoutes({
+        when: reject ? match.domain("udp.example") : match.network("tcp"),
+        to: http,
+      }),
+    );
+    routes.push(
+      ...defineRoutes({
+        when: reject ? match.domain("mixed.example") : match.network("tcp"),
+        to: mixed,
+      }),
+    );
+  }
   if (s.scene === "conditions") {
     const conditions: ProfileCondition[] = [
       match.domain("one.example"),
@@ -292,7 +316,20 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
     routes.unshift(...defineRoutes({ when: when as never, to: outbound.direct }));
   }
   if (s.engine === "surge") {
-    extensions = { surge: { general: { loglevel: "notify", "dns-server": ["192.0.2.53"] } } };
+    extensions = {
+      surge: {
+        general: {
+          loglevel: "notify",
+          "dns-server": ["192.0.2.53"],
+          ...(s.scene === "udp-reject" || s.scene === "udp-direct"
+            ? {
+                "udp-policy-not-supported-behaviour":
+                  s.scene === "udp-reject" ? "REJECT" : "DIRECT",
+              }
+            : {}),
+        },
+      },
+    };
     if (s.scene === "tunnel") {
       resources.push(
         surge.tailscale({
@@ -372,7 +409,7 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
     proxies: resources,
     groups,
     routes,
-    fallback: nodes[0],
+    fallback: s.scene === "udp-reject" ? groups.find((g) => g.id === "mixed") : nodes[0],
     ...(s.scene === "dns"
       ? {
           dns: [

@@ -29,3 +29,7 @@ select 编码 `select`，Smart 编码 `smart`，成员按声明顺序，不插�
 通用 DNS 条目在 Host 段中位于原生 hosts 前，DoH 路径和端口保持。隧道生成 Proxy 行及对应 Tailscale/WireGuard section，字段与格式限制见[Surge 编写 API](../../profile/library/surge.md)。
 
 密码、密钥等值只进入构建产物；参数中不能安全表达的逗号、控制字符或分隔符必须拒绝，不能截断、改写或插入原生行。
+
+## 不支持 UDP 的策略
+
+显式声明的 `udp-policy-not-supported-behaviour` 在 General 中原样编码为 `REJECT` 或 `DIRECT`，省略时不生成此字段。不添加整组 UDP 拒绝规则；终端节点与前置链路的检查边界见[Surge 契约](../../profile/library/surge.md#不支持-udp-的出口)。

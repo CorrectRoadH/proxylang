@@ -70,7 +70,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `GROUP_CYCLE` | error | 分组成员与 `via` 构成环，诊断列出环上的全部 id |
 | `EXIT_UNSUPPORTED` | error | 内置出口不被目标支持，例如非 Surge 目标使用 `outbound.rejectDrop`；诊断指向路由出口、成员或 fallback 的实际路径 |
 | `MEMBER_TYPE_UNSUPPORTED` | error | 分组成员或 `via` 的类型不被目标允许，例如 sing-box endpoint |
-| `TCP_ONLY_EXIT` | error | 出口的可选路径上有 TCP-only 节点，但路由没有限定 TCP，或者用作 `fallback` |
+| `TCP_ONLY_EXIT` | error | 出口的可选路径上有 TCP-only 节点，但路由没有限定 TCP，或者用作 `fallback`；Surge 显式 UDP 拒绝的终端节点例外见[Surge 契约](../profile/library/surge.md#不支持-udp-的出口)，`via` 不豁免 |
 | `PROTOCOL_UNSUPPORTED` | error | 节点协议不被目标支持 |
 | `PROXY_OPTION_UNSUPPORTED` | error | 节点选项不被目标支持，例如某个版本不支持的 vless 扩展 |
 | `GROUP_ALGORITHM_UNSUPPORTED` | error | 分组算法不被目标支持 |

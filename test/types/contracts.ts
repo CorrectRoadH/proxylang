@@ -279,3 +279,24 @@ const caseResult: CaseResult = {
   needs: { kind: "dns" },
 };
 void caseResult;
+
+// @feature docs/feature/profile/library/surge.md#不支持-udp-的出口
+const surgeUdpGeneral: import("proxylang").SurgeGeneral = {
+  "udp-policy-not-supported-behaviour": "REJECT",
+};
+const surgeDirectGeneral: import("proxylang").SurgeGeneral = {
+  "udp-policy-not-supported-behaviour": "DIRECT",
+};
+defineProfile({
+  target: { engine: "surge", platform: "ios", version: "5.21.0" },
+  proxies: [],
+  groups: [],
+  routes: [],
+  fallback: outbound.direct,
+  surge: { general: [[surgeUdpGeneral], surgeDirectGeneral] },
+});
+const invalidUdpGeneral: import("proxylang").SurgeGeneral = {
+  // @ts-expect-error the Surge option uses an uppercase literal union
+  "udp-policy-not-supported-behaviour": "reject",
+};
+void invalidUdpGeneral;

@@ -59,6 +59,7 @@ jobs:
           node-version: "24"
           run-install: false
       - run: vp install --frozen-lockfile
+      - run: vp run build
       - name: Prepare pinned sing-box checker
         shell: bash
         env:
@@ -86,6 +87,7 @@ jobs:
           node-version: "24"
           run-install: false
       - run: vp install --frozen-lockfile
+      - run: vp run build
       - name: Prepare pinned Mihomo checker
         shell: bash
         run: |

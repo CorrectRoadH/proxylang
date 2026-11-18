@@ -10,7 +10,8 @@ import { targetCatalog } from "../../targets/catalog.js";
 import type { EnginePlan, Match, Action, Secret } from "../../model/types.js";
 import { isIP } from "node:net";
 const DIRECT = "pl-direct",
-  DNS = "pl-dns";
+  DNS = "pl-dns",
+  RULESET_DIRECT = "pl-ruleset-direct";
 const actionTag = (a: Action, name: (id: string) => string) =>
   a.type === "route" ? name(a.to) : a.type === "direct" ? DIRECT : "pl-reject";
 function singCondition(condition: Match): Record<string, Json> {
@@ -112,15 +113,22 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
     if (model.tun.autoRoute) routing.auto_detect_interface = true;
   }
   if (routedDns) rules.unshift({ inbound: ["pl-dns-listener"], action: "hijack-dns" });
-  if (plan.nativeRuleSets.length)
+  if (plan.nativeRuleSets.length) {
+    if (routedDns)
+      outbounds.push({
+        type: "direct",
+        tag: RULESET_DIRECT,
+        domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
+      });
     routing.rule_set = plan.nativeRuleSets.map((r) => ({
       type: "remote",
       tag: r.id,
       url: r.url,
       format: r.format,
       update_interval: `${r.intervalSeconds}s`,
-      download_detour: DIRECT,
+      download_detour: routedDns ? RULESET_DIRECT : DIRECT,
     }));
+  }
   if (model.fallback.type === "reject") rules.push(singAction(model.fallback, name));
   else routing.final = actionTag(model.fallback, name);
   const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };

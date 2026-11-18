@@ -47,13 +47,15 @@ select 编码 selector，outbounds 保持顺序，default 为首成员，`interr
 
 逻辑条件用 logical/and/or 与 invert，CIDR、端口范围、来源 IP 与进程编码对应原生字段；端口范围用 `from:to`。拒绝动作为 `action: reject, method: default, no_drop: true`，其它动作用 route/outbound。
 
-规则集定义在 route.rule_set，字段为 remote/tag/url/format/update_interval，download_detour 固定 pl-direct。tag 使用去重代表规则集 id，业务条件的 rule_set 引用同步映射；不使用出口显示名替代规则集 id。缓存文件是否开启由作者声明，不为规则集自动开启。
+规则集定义在 route.rule_set，字段为 remote/tag/url/format/update_interval。download_detour 默认使用 pl-direct，1.14.4 分域 DNS 的下载引导见下文。tag 使用去重代表规则集 id，业务条件的 rule_set 引用同步映射；不使用出口显示名替代规则集 id。缓存文件是否开启由作者声明，不为规则集自动开启。
 
 精确 DNS pattern 用 domain，通配 pattern 用锚定且转义的 domain_regex，不匹配根域；转为小写。每项对应 pl-domain-dns-N typed UDP 或 HTTPS server，HTTPS 保留端口、路径、tls.enabled，域名上游用 pl-dns 引导。
 
 1.12.0 有 DNS 规则时省略 route.default_domain_resolver，让 DIRECT 通过 DNSRouter 按规则选服务器；代理服务器拨号显式用 pl-dns，隔离引导。无 DNS 规则时使用 pl-dns 默认解析器。
 
 1.14.4 有 DNS 规则时，在 listener.port 的 UDP 侧生成仅监听 127.0.0.1 的 pl-dns-listener。pl-routed-dns 指向它，route.default_domain_resolver 与代理拨号使用它，进入本机 DNS 规则；DoH 引导始终直接使用 pl-dns，防止递归。无规则时默认解析器仍为 pl-dns。
+
+1.14.4 standalone 同时声明分域 DNS 与远程规则集时，规则集的 `download_detour` 指向独立的直连出站 `pl-ruleset-direct`，该出站使用基础解析器 `pl-dns`。内核在 DNS 入站开始监听之前下载未缓存的规则集，因此下载域名必须通过基础解析器引导。普通直连流量和代理拨号仍使用分域 DNS。
 
 ## TUN 与 endpoint {#endpoint}
 

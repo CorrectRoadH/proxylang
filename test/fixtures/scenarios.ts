@@ -404,13 +404,19 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
         ...(s.mode === "standalone" ? { listener: { port: 16900, resolver: "192.0.2.53" } } : {}),
       },
     };
+  const rulesetBootstrap =
+    s.scene === "rulesets" &&
+    s.engine === "sing-box" &&
+    s.version === "1.14.4" &&
+    s.mode === "standalone";
+  if (rulesetBootstrap) Object.assign(extensions.singBox as object, { cacheFile: true });
   return {
     target: { engine: s.engine, platform: s.platform, version: s.version },
     proxies: resources,
     groups,
     routes,
     fallback: s.scene === "udp-reject" ? groups.find((g) => g.id === "mixed") : nodes[0],
-    ...(s.scene === "dns"
+    ...(s.scene === "dns" || rulesetBootstrap
       ? {
           dns: [
             { pattern: "api.example.com", server: "192.0.2.54" },

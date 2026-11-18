@@ -16,11 +16,29 @@
       "tls": {
         "enabled": true,
         "server_name": "proxy.example.com"
+      },
+      "domain_resolver": {
+        "server": "pl-routed-dns",
+        "strategy": "prefer_ipv4"
+      }
+    },
+    {
+      "type": "direct",
+      "tag": "pl-ruleset-direct",
+      "domain_resolver": {
+        "server": "pl-dns",
+        "strategy": "prefer_ipv4"
       }
     }
   ],
   "route": {
     "rules": [
+      {
+        "inbound": [
+          "pl-dns-listener"
+        ],
+        "action": "hijack-dns"
+      },
       {
         "rule_set": [
           "external"
@@ -43,13 +61,18 @@
         "url": "https://rules.example.com/list.json",
         "format": "source",
         "update_interval": "86400s",
-        "download_detour": "pl-direct"
+        "download_detour": "pl-ruleset-direct"
       }
     ],
     "final": "edge",
     "default_domain_resolver": {
-      "server": "pl-dns",
+      "server": "pl-routed-dns",
       "strategy": "prefer_ipv4"
+    }
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true
     }
   },
   "inbounds": [
@@ -58,6 +81,13 @@
       "tag": "pl-listener",
       "listen": "127.0.0.1",
       "listen_port": 16900
+    },
+    {
+      "type": "direct",
+      "tag": "pl-dns-listener",
+      "listen": "127.0.0.1",
+      "listen_port": 16900,
+      "network": "udp"
     }
   ],
   "dns": {
@@ -67,9 +97,49 @@
         "tag": "pl-dns",
         "server": "192.0.2.53",
         "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "pl-routed-dns",
+        "server": "127.0.0.1",
+        "server_port": 16900
+      },
+      {
+        "type": "udp",
+        "tag": "pl-domain-dns-0",
+        "server": "192.0.2.54",
+        "server_port": 53
+      },
+      {
+        "type": "https",
+        "tag": "pl-domain-dns-1",
+        "server": "dns.example.com",
+        "server_port": 443,
+        "path": "/dns-query",
+        "tls": {
+          "enabled": true
+        },
+        "domain_resolver": {
+          "server": "pl-dns",
+          "strategy": "prefer_ipv4"
+        }
       }
     ],
     "final": "pl-dns",
-    "strategy": "prefer_ipv4"
+    "strategy": "prefer_ipv4",
+    "rules": [
+      {
+        "domain": [
+          "api.example.com"
+        ],
+        "server": "pl-domain-dns-0"
+      },
+      {
+        "domain_regex": [
+          "^.+\\.corp\\.example$"
+        ],
+        "server": "pl-domain-dns-1"
+      }
+    ]
   }
 }

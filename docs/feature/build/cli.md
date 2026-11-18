@@ -14,7 +14,7 @@ CLI 只读取当前目录下的 `proxylang.config.ts`，加载规则见[项目�
 
 ## 输出
 
-默认输出给人读的文本，写到 stdout；诊断按 Profile 分组，每条一行，包含严重程度、错误码、路径和源码位置。
+默认输出给人读的文本，写到 stdout；诊断按 Profile 分组，每条一行，包含严重程度、错误码、路径和源码位置。目标版本不匹配时也会显示支持的稳定版本。
 
 加 `--json` 时 stdout 只有一个 JSON 对象：
 
@@ -32,9 +32,9 @@ CLI 只读取当前目录下的 `proxylang.config.ts`，加载规则见[项目�
 人读输出示例（预期输出）：
 
 ```text
-✗ phone  surge ios 5.21.0
+✗ phone  surge ios 5.23.0
   error UNLISTED_EXIT  routes[12].to  group "claude" is not listed in groups  proxy/routes.ts:47:5
-✓ laptop  surge macos 6.10.0  auto: ai→surge-smart, smart→surge-smart
+✓ laptop  surge macos 6.11.0  auto: ai→surge-smart, smart→surge-smart
 ✓ gateway  sing-box linux 1.14.4  auto: ai→urltest; ruleSets: cn-direct→singBox
 cases: 11 passed, 1 failed
   ✗ gateway "AI 服务走 AI 出口": expected ai, got DIRECT at routes[3] proxy/rule/remote.ts:5:3

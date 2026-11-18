@@ -1,26 +1,26 @@
 # sing-box Profile 选项
 
-`target` 为 sing-box 1.12.0 或 1.14.4，平台为 macOS 或 Linux。引擎设置写入 `singBox`，字段严格校验。`mode` 省略为 standalone；fragment 只提供可合并的出站、分组、路由和规则集，宿主拥有入口、DNS、工作目录与元数据前提。
+`target` 为 sing-box 1.14.4，平台为 macOS 或 Linux。引擎设置写入 `singBox`，字段严格校验。`mode` 省略为 standalone；fragment 只提供可合并的出站、分组、路由和规则集，宿主拥有入口、DNS、工作目录与元数据前提。
 
 ## 版本与模式矩阵
 
 “拒绝”包括显式 false 或空对象；“需要”表示必须提供。“空”表示空 DNS 列表等同省略。
 
-| 选项或能力 | 1.12.0 standalone | 1.12.0 fragment | 1.14.4 standalone | 1.14.4 fragment |
-| --- | --- | --- | --- | --- |
-| `listener` | 需要 | 拒绝 | 需要 | 拒绝 |
-| 非空 Profile `dns` | 支持 | 拒绝 | 支持 | 拒绝 |
-| `tun` | 拒绝 | 拒绝 | 支持 | 拒绝 |
-| `domainMatching: "prefer-sniffed"` | 拒绝 | 拒绝 | 支持 | 支持 |
-| `serverAliases` | 拒绝 | 拒绝 | 支持 | 支持 |
-| `cacheFile` | 拒绝 | 拒绝 | 支持 | 拒绝 |
-| `unsupportedUdp: "reject"` | 拒绝 | 拒绝 | 支持 | 支持 |
-| Tailscale endpoint | 支持 | 拒绝 | 支持 | 拒绝 |
-| 显式 IP `noResolve` | 拒绝 | 拒绝 | 支持 | 支持 |
-| 规则集分支显式 `resolve` | 拒绝 | 拒绝 | 支持 | 支持 |
-| `includeSniffed: true` | 拒绝 | 拒绝 | 需要 prefer-sniffed | 需要 prefer-sniffed |
-| VLESS 扩展 | 拒绝 | 拒绝 | 支持 | 支持 |
-| select 内置直连/拒绝成员 | 拒绝 | 拒绝 | 支持 | 支持 |
+| 选项或能力 | standalone | fragment |
+| --- | --- | --- |
+| `listener` | 需要 | 拒绝 |
+| 非空 Profile `dns` | 支持 | 拒绝 |
+| `tun` | 支持 | 拒绝 |
+| `domainMatching: "prefer-sniffed"` | 支持 | 支持 |
+| `serverAliases` | 支持 | 支持 |
+| `cacheFile` | 支持 | 拒绝 |
+| `unsupportedUdp: "reject"` | 支持 | 支持 |
+| Tailscale endpoint | 支持 | 拒绝 |
+| 显式 IP `noResolve` | 支持 | 支持 |
+| 规则集分支显式 `resolve` | 支持 | 支持 |
+| `includeSniffed: true` | 需要 prefer-sniffed | 需要 prefer-sniffed |
+| VLESS 扩展 | 支持 | 支持 |
+| select 内置直连/拒绝成员 | 支持 | 支持 |
 
 `listener` 为 `{ port, resolver }`，端口为 1–65535 整数，`resolver` 是 IP DNS 上游，只监听回环。fragment 不得静默忽略 listener。DNS 规则和辅助规则的原生编码见[输出页](../../targets/format/sing-box.md)。
 

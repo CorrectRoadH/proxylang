@@ -17,10 +17,10 @@ export function validateProxyOptions(
     return;
   }
   const tls = "tls" in node ? node.tls : undefined;
-  const modern = target.engine === "sing-box" && target.version === "1.14.4";
+  const singBox = target.engine === "sing-box";
   if (
     node.type === "vless" &&
-    !modern &&
+    !singBox &&
     (node.flow !== undefined ||
       node.packetEncoding !== undefined ||
       node.reality !== undefined ||
@@ -31,22 +31,22 @@ export function validateProxyOptions(
       code: "PROXY_OPTION_UNSUPPORTED",
       target: target.id,
       path: `proxies.${node.id}`,
-      message: "VLESS 扩展选项仅支持 sing-box 1.14.4",
+      message: "VLESS 扩展选项仅支持 sing-box",
     });
   if (target.engine !== "surge") {
     const surgeOptions = "surge" in node ? node.surge : undefined;
     const supportedUdpDeclaration =
-      modern &&
+      singBox &&
       surgeOptions !== undefined &&
       ["trojan", "anytls", "shadowsocks"].includes(node.type) &&
       Object.keys(surgeOptions).length === 1 &&
       "udpRelay" in surgeOptions &&
       surgeOptions.udpRelay === true;
     if (
-      (!modern && node.tcpFastOpen !== undefined) ||
-      (modern && node.type === "anytls" && node.tcpFastOpen === true) ||
-      (!modern && "skipCertVerify" in node && node.skipCertVerify !== undefined) ||
-      (!modern && tls?.skipCertVerify !== undefined) ||
+      (!singBox && node.tcpFastOpen !== undefined) ||
+      (singBox && node.type === "anytls" && node.tcpFastOpen === true) ||
+      (!singBox && "skipCertVerify" in node && node.skipCertVerify !== undefined) ||
+      (!singBox && tls?.skipCertVerify !== undefined) ||
       (surgeOptions !== undefined && !supportedUdpDeclaration)
     )
       diagnostics.push({

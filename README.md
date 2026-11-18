@@ -13,6 +13,8 @@ proxylang 让你用 TypeScript 把这些配置写在一个地方：节点、分�
 | Mihomo   | 常用功能 |
 | Stash    | 基础     |
 
+目前各客户端只支持最新稳定版，使用旧版的设备请先升级客户端。
+
 具体支持哪些平台、版本和功能，见[目标与原生输出](docs/feature/targets/README.md)。
 
 ## 五分钟上手
@@ -60,7 +62,7 @@ const sharedCases = (exits: { ai: Exit }) => [
 ];
 
 const laptop = defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [edge],
   groups: [ai],
   routes: sharedRoutes({ ai }),

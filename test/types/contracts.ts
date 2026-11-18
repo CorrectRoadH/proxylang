@@ -54,7 +54,7 @@ const routes: Route[] = defineRoutes({
   to: edge,
 });
 const profile: Profile = defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [edge, chained],
   groups: [relay],
   routes,
@@ -114,11 +114,11 @@ proxy.http({
 const badTarget: Target = { engine: "surge", platform: "macos", version: "0.0.0" };
 void badTarget;
 // @ts-expect-error Stash only supports macOS
-const badPlatform: Target = { engine: "stash", platform: "linux", version: "4.2.1" };
+const badPlatform: Target = { engine: "stash", platform: "linux", version: "5.0.0" };
 void badPlatform;
 // @ts-expect-error nested target selects the engine-specific extension
 defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [],
   groups: [],
   routes: [],
@@ -127,7 +127,7 @@ defineProfile({
 });
 // @ts-expect-error Stash has no engine-specific extension
 defineProfile({
-  target: { engine: "stash", platform: "macos", version: "4.2.1" },
+  target: { engine: "stash", platform: "macos", version: "5.0.0" },
   proxies: [],
   groups: [],
   routes: [],
@@ -176,7 +176,7 @@ import {
 void [compile, render, secret, oldSecrets, mihomo, defineRoute, defineConfig, singbox];
 
 defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [],
   groups: [],
   routes: [],
@@ -201,7 +201,7 @@ defineProxyGroup({
 
 // @feature docs/feature/profile/library/README.md#资源与-profile
 const flattened = defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [[edge]],
   groups: [[relay]],
   routes: [[routes]],
@@ -288,7 +288,7 @@ const surgeDirectGeneral: import("proxylang").SurgeGeneral = {
   "udp-policy-not-supported-behaviour": "DIRECT",
 };
 defineProfile({
-  target: { engine: "surge", platform: "ios", version: "5.21.0" },
+  target: { engine: "surge", platform: "ios", version: "5.23.0" },
   proxies: [],
   groups: [],
   routes: [],

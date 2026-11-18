@@ -13,13 +13,8 @@ import { defineBuild, runBuild } from "proxylang";
 import { fixtureSecrets, scenarioProfile, scenarios } from "../fixtures/scenarios.js";
 const exec = promisify(execFile),
   enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
-const selected = process.env.SING_BOX_VERSION;
 // @feature docs/engineering/testing/README.md
-for (const s of scenarios.filter(
-  (s) =>
-    (s.engine === "sing-box" && (!selected || s.version === selected)) ||
-    (s.engine === "mihomo" && !selected),
-))
+for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === "mihomo"))
   test.skipIf(!enabled)(
     `native ${s.id}`,
     async () => {
@@ -58,11 +53,11 @@ for (const s of scenarios.filter(
               { type: "mixed", tag: "fixture-listener", listen: "127.0.0.1", listen_port: 16900 },
             ];
             config.dns = {
-              servers: [{ type: "udp", tag: "pl-dns", server: "192.0.2.53", server_port: 53 }],
-              final: "pl-dns",
+              servers: [{ type: "udp", tag: "host-dns", server: "192.0.2.53", server_port: 53 }],
+              final: "host-dns",
               strategy: "prefer_ipv4",
             };
-            config.route.default_domain_resolver = { server: "pl-dns", strategy: "prefer_ipv4" };
+            config.route.default_domain_resolver = { server: "host-dns", strategy: "prefer_ipv4" };
           }
           for (const set of config.route.rule_set ?? [])
             set.url = `http://127.0.0.1:${address.port}/rules`;
@@ -71,7 +66,11 @@ for (const s of scenarios.filter(
             endpoint.state_directory = join(root, "identity");
           }
           await writeFile(file, JSON.stringify(config), { mode: 0o600 });
-          await exec(binary, ["check", "-c", file], { cwd: root, timeout: 15000 });
+          const { stdout, stderr } = await exec(binary, ["check", "-c", file], {
+            cwd: root,
+            timeout: 15000,
+          });
+          assert.doesNotMatch(stdout + stderr, /deprecat/i);
           await assert.rejects(access(join(root, "identity")));
         } else {
           const config = parse(source);
@@ -100,7 +99,11 @@ for (const s of scenarios.filter(
           for (const provider of Object.values(config["rule-providers"] ?? {}) as { url: string }[])
             provider.url = `http://127.0.0.1:${address.port}/rules`;
           await writeFile(file, stringify(config), { mode: 0o600 });
-          await exec(binary, ["-t", "-d", root, "-f", file], { cwd: root, timeout: 15000 });
+          const { stdout, stderr } = await exec(binary, ["-t", "-d", root, "-f", file], {
+            cwd: root,
+            timeout: 15000,
+          });
+          assert.doesNotMatch(stdout + stderr, /deprecat/i);
         }
       } finally {
         await new Promise<void>((done) => {
@@ -113,9 +116,32 @@ for (const s of scenarios.filter(
     20000,
   );
 
+// @feature docs/feature/targets/format/surge.md
+for (const s of scenarios.filter((s) => s.engine === "surge" && s.platform === "macos"))
+  test.skipIf(!enabled || process.platform !== "darwin")(
+    `native ${s.id}`,
+    async () => {
+      const binary = resolve(
+        `.cache/native/surge-${s.version}/Surge.app/Contents/Applications/surge-cli`,
+      );
+      const file = resolve(`test/golden/${s.id}/expected.conf`);
+      const { stdout, stderr } = await exec(binary, ["--check", file], { timeout: 15000 });
+      assert.match(stdout.trim(), /^OK$/);
+      assert.doesNotMatch(stdout + stderr, /deprecat/i);
+    },
+    20000,
+  );
+
+const bootstrapScenario = scenarios.find(
+  (s) =>
+    s.engine === "sing-box" &&
+    s.platform === "macos" &&
+    s.mode === "standalone" &&
+    s.scene === "rulesets",
+)!;
 // @feature docs/feature/targets/format/sing-box.md
-test.skipIf(!enabled || (!!selected && selected !== "1.14.4"))(
-  "sing-box 1.14.4 starts with an empty cache and a remote rule set hostname",
+test.skipIf(!enabled)(
+  `native sing-box ${bootstrapScenario.version} starts with an empty cache and a remote rule set hostname`,
   async () => {
     const root = await mkdtemp(join(tmpdir(), "proxylang-bootstrap-"));
     const downloadedHosts: (string | undefined)[] = [];
@@ -145,11 +171,10 @@ test.skipIf(!enabled || (!!selected && selected !== "1.14.4"))(
       dns.bind(0, "127.0.0.1");
       await once(dns, "listening");
 
-      const scenario = scenarios.find((s) => s.id === "sing-box-macos-1.14.4-standalone/rulesets")!;
       const result = await runBuild(
         defineBuild({
           outDir: root,
-          profiles: { fixture: scenarioProfile(scenario) },
+          profiles: { fixture: scenarioProfile(bootstrapScenario) },
           secrets: fixtureSecrets,
         }),
       );
@@ -175,12 +200,16 @@ test.skipIf(!enabled || (!!selected && selected !== "1.14.4"))(
       await writeFile(file, JSON.stringify(config));
       await new Promise<void>((done) => portReservation.close(() => done()));
 
-      const child = spawn(resolve(".cache/native/sing-box-1.14.4"), ["run", "-c", file], {
-        cwd: root,
-        timeout: 10000,
-        killSignal: "SIGKILL",
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      const child = spawn(
+        resolve(`.cache/native/sing-box-${bootstrapScenario.version}`),
+        ["run", "-c", file],
+        {
+          cwd: root,
+          timeout: 10000,
+          killSignal: "SIGKILL",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
       let started = false;
       let output = "";
       for (const stream of [child.stdout, child.stderr]) {
@@ -195,6 +224,7 @@ test.skipIf(!enabled || (!!selected && selected !== "1.14.4"))(
       }
       const [exitCode] = await once(child, "close");
       assert.match(output, /sing-box started/, output);
+      assert.doesNotMatch(output, /deprecat/i);
       assert.equal(exitCode, 0, output);
       assert.deepEqual(downloadedHosts, [`rules.example.com:${httpAddress.port}`]);
     } finally {

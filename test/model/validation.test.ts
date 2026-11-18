@@ -16,11 +16,7 @@ import {
   fixtureSecrets,
 } from "../fixtures/scenarios.js";
 const scenario = scenarios.find(
-  (s) =>
-    s.engine === "sing-box" &&
-    s.version === "1.14.4" &&
-    s.mode === "standalone" &&
-    s.scene === "protocols",
+  (s) => s.engine === "sing-box" && s.mode === "standalone" && s.scene === "protocols",
 )!;
 const check = (p: unknown) =>
   checkBuild(
@@ -41,41 +37,37 @@ for (const patch of [
     assert.throws(() => proxy.trojan({ ...p.proxies[0], ...patch } as never));
   });
 // @feature docs/feature/profile/library/sing-box.md#版本与模式矩阵
-for (const version of ["1.12.0", "1.14.4"])
-  for (const mode of ["standalone", "fragment"] as const)
-    for (const field of ["cacheFile", "domainMatching", "tun"] as const)
-      test(`${version} ${mode} ${field} capability`, () => {
-        const p = scenarioDefinition({
-          ...scenario,
-          version,
-          mode,
-          scene: field === "tun" ? "tun" : "modern",
-        });
-        const extension = p.singBox!;
-        const value =
-          field === "cacheFile"
-            ? true
-            : field === "domainMatching"
-              ? "prefer-sniffed"
-              : {
-                  address: ["192.0.2.1/24"],
-                  stack: "mixed",
-                  autoRoute: true,
-                  strictRoute: true,
-                  dnsMode: "hijack",
-                };
-        const clean = {
-          mode,
-          ...(mode === "standalone"
-            ? { listener: { port: 16900, resolver: "2001:db8:1::53" } }
-            : {}),
-          [field]: value,
-        };
-        assert.equal(
-          check({ ...p, singBox: clean as typeof extension }).ok,
-          version === "1.14.4" && (field === "domainMatching" || mode === "standalone"),
-        );
+for (const mode of ["standalone", "fragment"] as const)
+  for (const field of ["cacheFile", "domainMatching", "tun"] as const)
+    test(`${mode} ${field} capability`, () => {
+      const p = scenarioDefinition({
+        ...scenario,
+        mode,
+        scene: field === "tun" ? "tun" : "modern",
       });
+      const extension = p.singBox!;
+      const value =
+        field === "cacheFile"
+          ? true
+          : field === "domainMatching"
+            ? "prefer-sniffed"
+            : {
+                address: ["192.0.2.1/24"],
+                stack: "mixed",
+                autoRoute: true,
+                strictRoute: true,
+                dnsMode: "hijack",
+              };
+      const clean = {
+        mode,
+        ...(mode === "standalone" ? { listener: { port: 16900, resolver: "2001:db8:1::53" } } : {}),
+        [field]: value,
+      };
+      assert.equal(
+        check({ ...p, singBox: clean as typeof extension }).ok,
+        field === "domainMatching" || mode === "standalone",
+      );
+    });
 
 // @feature docs/feature/targets/README.md#资源图
 test("TCP-only propagation retains nested Boolean proofs of network constraints", () => {
@@ -126,7 +118,7 @@ test("defensive dependency checking reports every id on a mixed group/via cycle"
   register(g, "group");
   const result = inspectProfile(
     {
-      target: { engine: "surge", platform: "macos", version: "6.10.0" },
+      target: { engine: "surge", platform: "macos", version: "6.11.0" },
       proxies: [a],
       groups: [g],
       routes: [],

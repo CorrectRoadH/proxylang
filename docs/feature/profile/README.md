@@ -31,7 +31,7 @@ const proxyGroup = defineProxyGroup({ id: "proxy", name: "PROXY", algorithm: gro
 const ai = defineProxyGroup({ id: "ai", name: "AI", algorithm: group.auto(), members: [edge] });
 
 export const laptop = defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [edge],
   groups: [proxyGroup, ai],
   routes: sharedRoutes({ ai, proxy: proxyGroup }),
@@ -40,7 +40,7 @@ export const laptop = defineProfile({
 });
 ```
 
-把 `laptop` 放进[构建定义](../build/README.md)后，运行 `proxylang check`，可以看到这份 Profile 通过检查、案例通过，并列出 `ai` 分组在 Surge 6.10.0 上选择的算法 `surge-smart`。如果 `sharedRoutes` 调用时漏传 `ai`，TypeScript 会直接在编辑器里报错。
+把 `laptop` 放进[构建定义](../build/README.md)后，运行 `proxylang check`，可以看到这份 Profile 通过检查、案例通过，并列出 `ai` 分组在 Surge 6.11.0 上选择的算法 `surge-smart`。如果 `sharedRoutes` 调用时漏传 `ai`，TypeScript 会直接在编辑器里报错。
 
 ## 规则
 

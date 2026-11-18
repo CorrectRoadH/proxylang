@@ -38,7 +38,7 @@ export default defineBuild({
   outDir: "generated",
   profiles: {
     example: defineProfile({
-      target: { engine: "mihomo", version: "1.19.32", platform: "linux" },
+      target: { engine: "mihomo", version: "1.19.34", platform: "linux" },
       proxies: [edge, chained],
       groups: [relay],
       routes: sharedRoutes(chained),

@@ -6,13 +6,15 @@
 
 | 引擎 | 平台 | 版本 | 模式 | 产物 |
 | --- | --- | --- | --- | --- |
-| `surge` | `ios` | `5.21.0` | 完整配置 | `.conf` |
-| `surge` | `macos` | `6.10.0` | 完整配置 | `.conf` |
-| `sing-box` | `macos`、`linux` | `1.12.0`、`1.14.4` | `standalone` 或 `fragment` | `.json` |
-| `mihomo` | `macos`、`linux` | `1.19.32` | `standalone` 或 `fragment` | `.yaml` |
-| `stash` | `macos` | `4.2.1` | 只有 `fragment` | `.yaml` |
+| `surge` | `ios` | `5.23.0` | 完整配置 | `.conf` |
+| `surge` | `macos` | `6.11.0` | 完整配置 | `.conf` |
+| `sing-box` | `macos`、`linux` | `1.14.4` | `standalone` 或 `fragment` | `.json` |
+| `mihomo` | `macos`、`linux` | `1.19.34` | `standalone` 或 `fragment` | `.yaml` |
+| `stash` | `macos` | `5.0.0` | 只有 `fragment` | `.yaml` |
 
-不在表中的组合报 `TARGET_UNSUPPORTED`。增加一个目标，就是在能力目录中新增一行，并为它补上生成结果比对；能做到时再补原生检查，见[测试架构](../../engineering/testing/README.md)。
+每个引擎与平台的组合只支持上游最新稳定版。proxylang 跟进稳定版时，在能力目录中登记新版本，同步替换旧版本、生成结果比对及可运行的原生检查。详见[测试架构](../../engineering/testing/README.md)。
+
+不在表中的组合报 `TARGET_UNSUPPORTED`。引擎与平台已支持但版本不匹配时，诊断在 `target.version` 说明唯一支持的版本。更新客户端后，把 Profile 的 `target.version` 改成诊断给出的版本。
 
 `fragment` 只生成出站、分组、路由和规则集定义，供作者合并进自己已有的配置；入站、系统接管和 DNS 由宿主配置负责。fragment 不能包含需要宿主之外资源的声明，例如 listener、TUN、endpoint、`cacheFile`。
 
@@ -22,20 +24,20 @@
 
 | 能力 | Surge | sing-box | Mihomo | Stash |
 | --- | --- | --- | --- | --- |
-| 协议 | http、trojan、anytls、hysteria2、shadowsocks、vmess | 再加 vless；部分 vless 扩展只在 1.14.4 | 再加 vless | 同 Surge |
+| 协议 | http、trojan、anytls、hysteria2、shadowsocks、vmess | 再加 vless 与扩展选项 | 再加 vless | 再加 TCP-only vless |
 | 分组算法 | select、Smart | select、urltest | select、urltest | select |
 | `group.auto()` | Smart | urltest | urltest | 不支持 |
 | 分组成员中的隧道 | select 与 Smart 可以包含 Surge 隧道 | endpoint 不能作为成员或 `via`，只能作为路由出口 | 无隧道 | 无隧道 |
 | `match.processName` | 只在 macOS | 支持 | 支持 | 支持 |
-| `includeSniffed: true` | extended-matching | 只在 1.14.4 且 `singBox.domainMatching: "prefer-sniffed"` | 不支持 | 不支持 |
+| `includeSniffed: true` | extended-matching | 需要 `singBox.domainMatching: "prefer-sniffed"` | 不支持 | 不支持 |
 | 规则集 | `surge` 分支 | `singBox` 分支 | `mihomo` 分支 | 不支持 |
 | 隧道 | `surge.tailscale`、`surge.wireguard` | `singbox.tailscale` | 不支持 | 不支持 |
 | DNS 规则 | `[Host]` | `dns.rules`，只在 `standalone` | 不支持 | 不支持 |
-| TUN | 不适用 | 只在 1.14.4 `standalone` | 不支持 | 不支持 |
+| TUN | 不适用 | 只在 `standalone` | 不支持 | 不支持 |
 
 `group.auto()` 与 `group.urltest()` 省略参数时的默认测速 URL、间隔与容差，以及 sing-box 额外输出的 `idle_timeout` 等固定字段，沿用现行实现，写在 [sing-box 输出](format/sing-box.md)与 [Mihomo 输出](format/mihomo.md)中。
 
-编码细节见 [Surge 输出](format/surge.md)、[sing-box 输出](format/sing-box.md)、[Mihomo 输出](format/mihomo.md)与 [Stash 输出](format/stash.md)。Surge 与 Stash 没有可以自动运行的原生检查，它们的产物由生成结果比对和使用方验收覆盖。
+编码细节见 [Surge 输出](format/surge.md)、[sing-box 输出](format/sing-box.md)、[Mihomo 输出](format/mihomo.md)与 [Stash 输出](format/stash.md)。Surge macOS 可离线检查生成的配置。Surge iOS 与 Stash 的产物由生成结果比对和使用方验收覆盖。
 
 ## 资源图
 
@@ -63,7 +65,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 
 | code | severity | 触发 |
 | --- | --- | --- |
-| `TARGET_UNSUPPORTED` | error | 目标或模式不在能力目录中 |
+| `TARGET_UNSUPPORTED` | error | 目标或模式不在能力目录中。版本不匹配时给出该引擎与平台支持的版本 |
 | `DUPLICATE_ID` | error | 同一 Profile 中两个不同的资源或规则集对象使用同一个 id |
 | `UNLISTED_EXIT` | error | 路由、分组成员、`via`、`fallback` 或案例引用的对象没有列在这份 Profile 的 `proxies` 或 `groups` 中 |
 | `SECRET_UNDECLARED` | error | 引用的秘密不属于构建定义的秘密集合 |

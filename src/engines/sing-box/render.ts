@@ -6,12 +6,10 @@ import { singboxGroup } from "./groups.js";
 import { aliasProxyServer } from "../../model/proxy-values.js";
 import { singboxProxy } from "./proxies.js";
 import type { Json } from "../../model/errors.js";
-import { targetCatalog } from "../../targets/catalog.js";
 import type { EnginePlan, Match, Action, Secret } from "../../model/types.js";
 import { isIP } from "node:net";
 const DIRECT = "pl-direct",
-  DNS = "pl-dns",
-  RULESET_DIRECT = "pl-ruleset-direct";
+  DNS = "pl-dns";
 const actionTag = (a: Action, name: (id: string) => string) =>
   a.type === "route" ? name(a.to) : a.type === "direct" ? DIRECT : "pl-reject";
 function singCondition(condition: Match): Record<string, Json> {
@@ -68,20 +66,10 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
   const model = plan.model,
     target = model.target;
   const name = (id: string) => plan.names?.get(id) ?? id;
-  const modern =
-    targetCatalog.find(
-      (entry) => entry.engine === target.engine && entry.version === target.version,
-    )?.dns === "typed";
   const standalone = target.mode === "standalone";
-  const routedDns = target.version === "1.14.4" && standalone && !!model.dns?.length;
+  const routedDns = standalone && !!model.dns?.length;
   const domainResolver = routedDns ? "pl-routed-dns" : DNS;
-  const outbounds: Json[] = [
-    {
-      type: "direct",
-      tag: DIRECT,
-      ...(!modern && standalone ? { domain_strategy: "prefer_ipv4" } : {}),
-    },
-  ];
+  const outbounds: Json[] = [{ type: "direct", tag: DIRECT }];
   if (model.groups.some((group) => group.members.includes("REJECT")))
     outbounds.push({ type: "block", tag: "pl-reject" });
   for (const node of model.nodes)
@@ -92,7 +80,7 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
       >),
       tag: name(node.id),
       ...(node.via ? { detour: name(node.via) } : {}),
-      ...(modern && model.dns?.length
+      ...(routedDns
         ? { domain_resolver: { server: domainResolver, strategy: "prefer_ipv4" } }
         : {}),
     });
@@ -100,7 +88,7 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
     outbounds.push(singboxGroup(group, (id) => singboxMemberTag(name(id))));
   }
   const rules: Json[] = model.rules.flatMap((rule) => [
-    ...(target.version === "1.14.4" && needsResolve(rule.when)
+    ...(needsResolve(rule.when)
       ? [{ ip_cidr: ["0.0.0.0/0", "::/0"], invert: true, action: "resolve" }]
       : []),
     { ...singCondition(rule.when), ...singAction(rule.then, name) },
@@ -113,22 +101,19 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
     if (model.tun.autoRoute) routing.auto_detect_interface = true;
   }
   if (routedDns) rules.unshift({ inbound: ["pl-dns-listener"], action: "hijack-dns" });
-  if (plan.nativeRuleSets.length) {
-    if (routedDns)
-      outbounds.push({
-        type: "direct",
-        tag: RULESET_DIRECT,
-        domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
-      });
+  if (plan.nativeRuleSets.length)
     routing.rule_set = plan.nativeRuleSets.map((r) => ({
       type: "remote",
       tag: r.id,
       url: r.url,
       format: r.format,
       update_interval: `${r.intervalSeconds}s`,
-      download_detour: routedDns ? RULESET_DIRECT : DIRECT,
+      http_client: {
+        version: 2,
+        // Rule sets are fetched before the loopback DNS inbound can serve requests.
+        ...(standalone ? { domain_resolver: { server: DNS, strategy: "prefer_ipv4" } } : {}),
+      },
     }));
-  }
   if (model.fallback.type === "reject") rules.push(singAction(model.fallback, name));
   else routing.final = actionTag(model.fallback, name);
   const config: Record<string, Json> = { log: { level: "warn" }, outbounds, route: routing };
@@ -166,21 +151,12 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
         : []),
     ];
     config.dns = {
-      servers: [
-        modern
-          ? { type: "udp", tag: DNS, server: listener.resolver, server_port: 53 }
-          : {
-              tag: DNS,
-              address: `udp://${isIP(listener.resolver) === 6 ? `[${listener.resolver}]` : listener.resolver}`,
-              detour: DIRECT,
-            },
-      ],
+      servers: [{ type: "udp", tag: DNS, server: listener.resolver, server_port: 53 }],
       final: DNS,
       strategy: "prefer_ipv4",
       ...(model.domainMatching ? { reverse_mapping: true } : {}),
     };
-    if (modern && (!model.dns?.length || target.version === "1.14.4"))
-      routing.default_domain_resolver = { server: domainResolver, strategy: "prefer_ipv4" };
+    routing.default_domain_resolver = { server: domainResolver, strategy: "prefer_ipv4" };
   }
   if (model.dns?.length) {
     const dns = config.dns as { servers: Json[]; rules?: Json[] };
@@ -194,30 +170,18 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
     dns.rules = model.dns.map((rule, index) => {
       const tag = `pl-domain-dns-${index}`;
       if (isIP(rule.server)) {
-        dns.servers.push(
-          modern
-            ? { type: "udp", tag, server: rule.server, server_port: 53 }
-            : {
-                tag,
-                address: `udp://${isIP(rule.server) === 6 ? `[${rule.server}]` : rule.server}`,
-                detour: DIRECT,
-              },
-        );
+        dns.servers.push({ type: "udp", tag, server: rule.server, server_port: 53 });
       } else {
         const url = dohUrl(rule.server);
-        dns.servers.push(
-          modern
-            ? {
-                type: "https",
-                tag,
-                server: url.hostname.replace(/^\[|\]$/g, ""),
-                server_port: Number(url.port || 443),
-                path: url.pathname,
-                tls: { enabled: true },
-                domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
-              }
-            : { tag, address: url.href, address_resolver: DNS, detour: DIRECT },
-        );
+        dns.servers.push({
+          type: "https",
+          tag,
+          server: url.hostname.replace(/^\[|\]$/g, ""),
+          server_port: Number(url.port || 443),
+          path: url.pathname,
+          tls: { enabled: true },
+          domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
+        });
       }
       return { ...dnsCondition(rule), server: tag };
     });

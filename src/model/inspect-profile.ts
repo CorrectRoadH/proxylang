@@ -186,11 +186,7 @@ export function inspectProfile(
     tcpVisiting.add(exit);
     let tcp =
       kindOf(exit) === "node" &&
-      nodeIsTcpOnly(
-        exit as unknown as import("./types.js").ProxyNode,
-        profile.target.engine,
-        profile.target.version,
-      );
+      nodeIsTcpOnly(exit as unknown as import("./types.js").ProxyNode, profile.target.engine);
     for (const edge of edges.get(exit) ?? []) tcp = tcpOnly(edge as Exit) || tcp;
     tcpVisiting.delete(exit);
     tcpCache.set(exit, tcp);
@@ -219,13 +215,7 @@ export function inspectProfile(
   };
   const requiresTcp = (exit: Exit) =>
     rejectUnsupportedSurgeUdp ? unsafeSurgeRelay(exit) : tcpOnly(exit);
-  if (
-    !(
-      profile.target.engine === "sing-box" &&
-      profile.target.version === "1.14.4" &&
-      profile.singBox?.unsupportedUdp === "reject"
-    )
-  ) {
+  if (!(profile.target.engine === "sing-box" && profile.singBox?.unsupportedUdp === "reject")) {
     profile.routes.forEach((route, i) => {
       if (requiresTcp(route.to) && truthPossibilities(route.when as Match, "udp").includes(true))
         error("TCP_ONLY_EXIT", `routes[${i}].to`, route);

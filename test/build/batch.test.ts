@@ -15,7 +15,7 @@ import {
   outbound,
   ProfileDefinitionError,
 } from "proxylang";
-const target = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+const target = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
 const make = (password: Parameters<typeof proxy.trojan>[0]["password"]) => {
   const node = proxy.trojan({ id: "edge", server: "192.0.2.10", port: 443, password });
   return defineProfile({ target, proxies: [node], groups: [], routes: [], fallback: node });

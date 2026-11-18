@@ -8,7 +8,7 @@
 
 节点只承载协议、连接参数、id、name 与目标原生选项。业务分类由应用的普通记录和数组维护，不接受 `region`、`provider`、`tags` 或任意 metadata；按业务筛选时保留原节点对象，不能复制成形状相同的新对象。
 
-完整配置通常要求 server 为 IP；sing-box 1.14.4 接受域名，并由声明的 DNS 引导。Surge 原生配置接受域名节点，由客户端解析；fragment 的宿主负责直接 DNS 路径。目标不能提供所需解析语义时拒绝，不在构建期替换成固定 IP。
+完整配置通常要求 server 为 IP；sing-box 接受域名，并由声明的 DNS 引导。Surge 原生配置接受域名节点，由客户端解析；fragment 的宿主负责直接 DNS 路径。目标不能提供所需解析语义时拒绝，不在构建期替换成固定 IP。
 
 ## 协议字段
 
@@ -19,7 +19,7 @@
 | `proxy.hysteria2` | `password` 必填 | 可选 `serverName`、`skipCertVerify`、`portHopping`、`portHoppingInterval`；支持 TCP/UDP，不接受 `tcpFastOpen` |
 | `proxy.shadowsocks` | `password` 必填 | `method` 只接受 `aes-128-gcm`、`aes-256-gcm`、`chacha20-ietf-poly1305`；不接受 TLS、WS、插件或 SS2022 |
 | `proxy.vmess` | `uuid` 必填 | AEAD，固定 `alterId: 0` 与 `aes-128-gcm`；可选 `tls`、`transport`；TCP-only |
-| `proxy.vless` | `uuid` 必填 | 可选 `tls`、`transport`；1.14.4 扩展见[sing-box](sing-box.md#vless-扩展)；未显式开启 UDP 编码时为 TCP-only |
+| `proxy.vless` | `uuid` 必填 | 可选 `tls`、`transport`；扩展见[sing-box](sing-box.md#vless-扩展)；未显式开启 UDP 编码时为 TCP-only |
 
 UUID 在使用时验证为 8-4-4-4-12 十六进制格式，非法时报 `INVALID_UUID_SECRET`，不回显值。批次缓存不能跳过各使用位置的格式校验。
 
@@ -31,13 +31,13 @@ UUID 在使用时验证为 8-4-4-4-12 十六进制格式，非法时报 `INVALID
 
 ## 目标选项与 UDP
 
-普通协议节点可声明 `tcpFastOpen?: boolean`。Surge 支持；sing-box 1.14.4 编码 `tcp_fast_open`，但 AnyTLS 不接受 true。其它目标遇到显式值（包括 false）拒绝。Trojan/AnyTLS 的 `skipCertVerify` 与 VMess/VLESS 的同名 TLS 字段按目标能力编码，不可丢弃。
+普通协议节点可声明 `tcpFastOpen?: boolean`。Surge 支持；sing-box 编码 `tcp_fast_open`，但 AnyTLS 不接受 true。其它目标遇到显式值（包括 false）拒绝。Trojan/AnyTLS 的 `skipCertVerify` 与 VMess/VLESS 的同名 TLS 字段按目标能力编码，不可丢弃。
 
 `surge?: { udpRelay?: boolean; blockQuic?: "auto" | "on" | "off" }` 是明确的目标选项。HTTP 拒绝；SS 可用 udpRelay true/false，Trojan/AnyTLS 仅接受 true；VMess 只接受 blockQuic。SS 默认开启 UDP、`block-quic=off`；显式 udpRelay false 使该路径 TCP-only。blockQuic auto/on 不等于禁用全部 UDP。
 
-sing-box 1.14.4 接受 Trojan/AnyTLS/SS 的 `surge.udpRelay: true`，因为与该目标的既有 UDP 能力相同；其余 Surge 专属参数拒绝。AnyTLS 在 Surge 与 sing-box 1.14.4 支持 UDP，其它目标保持能力目录的限制。
+sing-box 接受 Trojan/AnyTLS/SS 的 `surge.udpRelay: true`，因为与该目标的既有 UDP 能力相同；其余 Surge 专属参数拒绝。AnyTLS 在 Surge 与 sing-box 支持 UDP，其它目标保持能力目录的限制。
 
-TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 fallback 指向这种路径时报 `TCP_ONLY_EXIT`，显式拒绝策略的例外见 [Surge](surge.md#不支持-udp-的出口) 与 [sing-box 1.14.4](sing-box.md)。编码支持不证明远端节点或 QUIC 可连通。
+TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 fallback 指向这种路径时报 `TCP_ONLY_EXIT`，显式拒绝策略的例外见 [Surge](surge.md#不支持-udp-的出口) 与 [sing-box](sing-box.md)。编码支持不证明远端节点或 QUIC 可连通。
 
 ## builder
 
@@ -55,6 +55,6 @@ TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 f
 
 stateDirectory 必须为规范绝对 POSIX 路径，不接受根目录、空段、`.`、`..`、环境变量、反斜杠或控制字符。状态目录不可互相包含，跨 Profile 也不可共用，不可与构建输出重叠。检查是词法防误用，运行方还须保证真实路径和身份独占。
 
-只在带 `with_tailscale` 的 sing-box 1.12.0、1.14.4 standalone 支持。列入 Profile.proxies，可作为路由、fallback 与案例出口；不能作为分组成员或 `via`。不广告子网或出口，不自动配置 MagicDNS。
+只在带 `with_tailscale` 的 sing-box standalone 支持。列入 Profile.proxies，可作为路由、fallback 与案例出口；不能作为分组成员或 `via`。不广告子网或出口，不自动配置 MagicDNS。
 
 客户端拥有登录、身份、路由批准和状态目录；没有 authKey 时由运行方提供已有身份或登录。SDK 与原生配置检查不创建、读取、复制或清理身份目录。引导 DNS 与业务 DNS 分开，详见[输出](../../targets/format/sing-box.md#endpoint)。

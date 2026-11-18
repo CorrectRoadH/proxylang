@@ -1,6 +1,6 @@
 # Mihomo Profile 选项
 
-Mihomo 目标固定 1.19.32，支持 macOS 与 Linux。专属字段为 `mihomo: { mode?, listener? }`；mode 省略为 fragment。
+Mihomo 目标固定 1.19.34，支持 macOS 与 Linux。专属字段为 `mihomo: { mode?, listener? }`；mode 省略为 fragment。
 
 | mode | listener | 生成结果 |
 | --- | --- | --- |

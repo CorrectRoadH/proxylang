@@ -23,15 +23,15 @@ export type DeepReadonly<T> = T extends object
   : T;
 export type Fragments<T> = T | readonly Fragments<T>[];
 export type Target =
-  | { readonly engine: "surge"; readonly platform: "ios"; readonly version: "5.21.0" }
-  | { readonly engine: "surge"; readonly platform: "macos"; readonly version: "6.10.0" }
+  | { readonly engine: "surge"; readonly platform: "ios"; readonly version: "5.23.0" }
+  | { readonly engine: "surge"; readonly platform: "macos"; readonly version: "6.11.0" }
   | {
       readonly engine: "sing-box";
       readonly platform: "macos" | "linux";
-      readonly version: "1.12.0" | "1.14.4";
+      readonly version: "1.14.4";
     }
-  | { readonly engine: "mihomo"; readonly platform: "macos" | "linux"; readonly version: "1.19.32" }
-  | { readonly engine: "stash"; readonly platform: "macos"; readonly version: "4.2.1" };
+  | { readonly engine: "mihomo"; readonly platform: "macos" | "linux"; readonly version: "1.19.34" }
+  | { readonly engine: "stash"; readonly platform: "macos"; readonly version: "5.0.0" };
 export type SecretRef = Secret & SDK<"secret">;
 export type Secrets<T extends string = string> = Readonly<Record<T, SecretRef>> & SDK<"secrets">;
 type PublicSecrets<T> = T extends Secret

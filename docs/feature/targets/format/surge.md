@@ -1,6 +1,6 @@
 # Surge 原生输出
 
-Surge macOS 6.10.0 与 iOS 5.21.0 生成 UTF-8 `.conf`。托管行在文件开头，随后按声明编码 General、Proxy、Proxy Group、Rule、Host 和隧道 section。没有原生检查器的自动化保证；生成结果比对不证明设备上的网络行为。
+Surge macOS 6.11.0 与 iOS 5.23.0 生成 UTF-8 `.conf`。托管行在文件开头，随后按声明编码 General、Proxy、Proxy Group、Rule、Host 和隧道 section。macOS 可用同版本的 `surge-cli --check` 检查配置，iOS 使用生成结果比对与设备验收。
 
 ## 名字与引用
 
@@ -12,7 +12,7 @@ Surge macOS 6.10.0 与 iOS 5.21.0 生成 UTF-8 `.conf`。托管行在文件开�
 
 HTTP 编码用户名和密码；Trojan、AnyTLS 编码密码、SNI 与显式 TLS/TFO/UDP 参数。SS 编码 `ss`、`encrypt-method`、`udp-relay=true`、`block-quic=off`，显式选项按[节点契约](../../profile/library/proxies.md#目标选项与-udp)覆盖。
 
-VMess UUID 编为 `username`，固定 `vmess-aead=true`、`encrypt-method=aes-128-gcm`，TLS 用 `tls`/`sni`，WS 用 `ws`/`ws-path`/`ws-headers`。Hysteria2 使用 `hysteria2`、`port-hopping`、`port-hopping-interval`，保留未声明字段的原生默认。链式代理使用 `underlying-proxy`。
+VMess UUID 编为 `username`，固定 `vmess-aead=true`、`encrypt-method=aes-128-gcm`，TLS 用 `tls`/`sni`，WS 用 `ws`/`ws-path`/`ws-headers`。Hysteria2 使用 `hysteria2`、`port-hopping`、`port-hopping-interval`，保留未声明字段的原生默认。链式代理使用 `underlying-proxy`。macOS 6.11.0 的 `block-quic=auto` 由客户端按自适应模式执行。
 
 select 编码 `select`，Smart 编码 `smart`，成员按声明顺序，不插入默认测试参数。select 首成员是新配置的初始选择，运行时持久选择由客户端拥有。`group.auto()` 选择 Smart；固定 `group.urltest()` 不支持，不生成 URLTest 默认 URL、间隔或容差。
 

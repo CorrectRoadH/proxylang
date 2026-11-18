@@ -10,7 +10,7 @@
 
 ## 目标 {#target}
 
-Profile 要生成的客户端，由引擎、平台和精确版本组成，例如 `{ engine: "surge", platform: "ios", version: "5.21.0" }`。
+Profile 要生成的客户端，由引擎、平台和精确版本组成，例如 `{ engine: "surge", platform: "ios", version: "5.23.0" }`。
 
 能力判断以目标为单位。同一引擎的两个版本是两个目标，不在版本之间推断支持情况。
 

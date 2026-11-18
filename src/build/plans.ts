@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/targets/README.md#编码规则
+// @concord-implements docs/feature/targets/use-case/check-device-target.md
 import { diagnosticView } from "../model/diagnostic-view.js";
 import { normalizeRouting, type RoutingModel } from "../model/routing-model.js";
 import { stringify } from "yaml";
@@ -66,13 +67,10 @@ export function prepareProfile(
       profile: key,
       origin: d.origin ?? diagnosticOrigin(p, d.path),
     });
-    const descriptor = targetCatalog.find(
-      (d) =>
-        d.engine === engine &&
-        d.version === p.target.version &&
-        (d.platforms as readonly string[]).includes(p.target.platform),
+    const supportedTarget = targetCatalog.find(
+      (d) => d.engine === engine && (d.platforms as readonly string[]).includes(p.target.platform),
     );
-    if (!descriptor)
+    if (supportedTarget?.version !== p.target.version)
       return {
         engine,
         selections,
@@ -85,8 +83,10 @@ export function prepareProfile(
             code: "TARGET_UNSUPPORTED",
             profile: key,
             origin: originOf(p),
-            path: "target",
-            message: "Unsupported exact target",
+            path: supportedTarget ? "target.version" : "target",
+            message: supportedTarget
+              ? `${engine} ${p.target.platform} 只支持最新稳定版 ${supportedTarget.version}`
+              : "Unsupported exact target",
           },
         ],
       };

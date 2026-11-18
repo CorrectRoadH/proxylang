@@ -32,7 +32,7 @@ export type RoutingModel = {
 export const exitId = (exit: Exit): string => ("builtin" in exit ? exit.builtin : exit.id);
 export function normalizeRouting(profile: Profile, inspected: InspectedProfile): RoutingModel {
   const sets = new Map<RuleSet, string>();
-  const modern = profile.target.engine === "sing-box" && profile.target.version === "1.14.4";
+  const singBox = profile.target.engine === "sing-box";
   const lower = (condition: Condition): RoutingCondition => {
     if (condition.type === "all" || condition.type === "any")
       return { type: condition.type, conditions: condition.conditions.map(lower) };
@@ -47,14 +47,14 @@ export function normalizeRouting(profile: Profile, inspected: InspectedProfile):
         id: condition.id,
         canonical,
         resource: condition,
-        resolves: !!(modern && native?.engine === "sing-box" && native.resolve),
+        resolves: !!(singBox && native?.engine === "sing-box" && native.resolve),
       };
     }
     const ip = ["ipCidr", "ipCidr6", "ipAsn"].includes(condition.type);
     const noResolve = "noResolve" in condition ? condition.noResolve : undefined;
     const resolves =
       ip &&
-      (profile.target.engine === "surge" || modern
+      (profile.target.engine === "surge" || singBox
         ? noResolve !== true
         : profile.target.engine === "mihomo" || profile.target.engine === "stash"
           ? noResolve === false

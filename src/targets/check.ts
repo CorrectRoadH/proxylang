@@ -72,7 +72,7 @@ export function checkTarget(
     if (state.get(id) === 2) return tcp.get(id) ?? false;
     state.set(id, 1);
     const item = registry.get(id);
-    let limited = !!item && "server" in item && nodeIsTcpOnly(item, t.engine, t.version);
+    let limited = !!item && "server" in item && nodeIsTcpOnly(item, t.engine);
     for (const ref of edges.get(id) ?? []) limited = visit(ref) || limited;
     state.set(id, 2);
     tcp.set(id, limited);

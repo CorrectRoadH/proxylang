@@ -15,7 +15,7 @@ import {
   type Assumptions,
 } from "proxylang";
 import { combine, type Truth } from "../../src/routing/evaluate.js";
-const surgeTarget = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+const surgeTarget = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
 const make = (when: Condition, target: Target = surgeTarget) => {
   const common = {
     proxies: [],
@@ -147,9 +147,8 @@ test("sniffed domains follow Surge options and sing-box effective-domain prefere
     assert.equal(r.explanation.outcome, expected);
   }
   for (const target of [
-    { engine: "sing-box", version: "1.12.0", platform: "linux" },
-    { engine: "mihomo", version: "1.19.32", platform: "linux" },
-    { engine: "stash", version: "4.2.1", platform: "macos" },
+    { engine: "mihomo", version: "1.19.34", platform: "linux" },
+    { engine: "stash", version: "5.0.0", platform: "macos" },
   ] as const) {
     const p = make(match.domain("example.com"), target);
     const r = explainProfile(p, request);
@@ -161,22 +160,16 @@ test("sniffed domains follow Surge options and sing-box effective-domain prefere
 test("target resolution defaults, explicit suppression and explicit triggers", () => {
   const targets: Target[] = [
     surgeTarget,
-    { engine: "sing-box", version: "1.12.0", platform: "linux" },
     { engine: "sing-box", version: "1.14.4", platform: "linux" },
-    { engine: "mihomo", version: "1.19.32", platform: "linux" },
-    { engine: "stash", version: "4.2.1", platform: "macos" },
+    { engine: "mihomo", version: "1.19.34", platform: "linux" },
+    { engine: "stash", version: "5.0.0", platform: "macos" },
   ];
   for (const target of targets)
     for (const noResolve of [undefined, true, false]) {
       const condition = match.ipCidr("192.0.2.0/25", noResolve === undefined ? {} : { noResolve });
       const profile = make(condition, target);
-      if (target.engine === "sing-box" && target.version === "1.12.0" && noResolve !== undefined) {
-        const r = explainProfile(profile, {});
-        assert.ok(!r.ok);
-        continue;
-      }
       const triggers =
-        target.engine === "surge" || (target.engine === "sing-box" && target.version === "1.14.4")
+        target.engine === "surge" || target.engine === "sing-box"
           ? noResolve !== true
           : (target.engine === "mihomo" || target.engine === "stash") && noResolve === false;
       for (const [request, outcome] of [

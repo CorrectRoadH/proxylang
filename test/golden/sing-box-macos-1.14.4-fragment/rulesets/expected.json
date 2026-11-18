@@ -43,7 +43,9 @@
         "url": "https://rules.example.com/list.json",
         "format": "source",
         "update_interval": "86400s",
-        "download_detour": "pl-direct"
+        "http_client": {
+          "version": 2
+        }
       }
     ],
     "final": "edge"

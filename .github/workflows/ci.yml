@@ -40,17 +40,9 @@ jobs:
           (cd examples/proxies && vp exec node ../../dist/cli.js build)
           (cd examples/rule-sets && vp exec node ../../dist/cli.js build)
   sing-box:
-    name: sing-box ${{ matrix.version }} native check
+    name: sing-box 1.14.4 native check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: "1.12.0"
-            sha256: "f59b1253ae0143997cb46915af30d14a33431dcbd7e39edacfcde8d73050faaf"
-          - version: "1.14.4"
-            sha256: "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
@@ -63,21 +55,20 @@ jobs:
       - name: Prepare pinned sing-box checker
         shell: bash
         env:
-          SING_BOX_VERSION: ${{ matrix.version }}
-          SING_BOX_SHA256: ${{ matrix.sha256 }}
+          SING_BOX_VERSION: "1.14.4"
+          SING_BOX_SHA256: "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968"
         run: |
           mkdir -p .cache/native
           curl --fail --location --retry 3 --output .cache/native/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
           echo "${SING_BOX_SHA256}  .cache/native/sing-box.tar.gz" | sha256sum --check
           tar -xzf .cache/native/sing-box.tar.gz -C .cache/native "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box"
           mv ".cache/native/sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" ".cache/native/sing-box-${SING_BOX_VERSION}"
-      - name: Check generated configurations without starting the proxy
-        run: vp test run test/native/check.test.ts
+      - name: Check generated configurations and empty-cache startup
+        run: vp test run test/native/check.test.ts -t "native sing-box"
         env:
-          SING_BOX_VERSION: ${{ matrix.version }}
           PROXYLANG_NATIVE_CHECK: "1"
   mihomo:
-    name: Mihomo 1.19.32 native check
+    name: Mihomo 1.19.34 native check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -92,11 +83,36 @@ jobs:
         shell: bash
         run: |
           mkdir -p .cache/native
-          curl --fail --location --retry 3 --output .cache/native/mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-linux-amd64-v1-v1.19.32.gz
-          echo "306f81e723e60ce6b828899a6fe83e1d00e9ecefb2dc8d4d849312a5bc00efdc  .cache/native/mihomo.gz" | sha256sum --check
-          gzip -dc .cache/native/mihomo.gz > .cache/native/mihomo-1.19.32
-          chmod +x .cache/native/mihomo-1.19.32
+          curl --fail --location --retry 3 --output .cache/native/mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.19.34/mihomo-linux-amd64-v1-v1.19.34.gz
+          echo "0c07340a01408d033dda4088ea2a4c1e4d82aeed7b2f84f7c046e93b6ff3290c  .cache/native/mihomo.gz" | sha256sum --check
+          gzip -dc .cache/native/mihomo.gz > .cache/native/mihomo-1.19.34
+          chmod +x .cache/native/mihomo-1.19.34
       - run: vp test run test/native/check.test.ts -t "native mihomo"
+        env:
+          PROXYLANG_NATIVE_CHECK: "1"
+  surge:
+    name: Surge macOS 6.11.0 native check
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: voidzero-dev/setup-vp@6eb3ef76e48ad5aca2d217e4ee277786b3865699
+        with:
+          version: "1.3.0"
+          node-version: "24"
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - run: vp run build
+      - name: Prepare pinned Surge checker
+        shell: bash
+        run: |
+          mkdir -p .cache/native/surge-6.11.0
+          curl --fail --location --retry 3 --output .cache/native/surge.zip https://dl.nssurge.com/mac/v6/Surge-6.11.0-12800-409443249acdd5276ff2795a76e06044.zip
+          echo "e6e1c4f28068b1eeea9a227377e926be962c3dfb5d11ba8f2e89a9d5b30629c9  .cache/native/surge.zip" | shasum -a 256 --check
+          ditto -x -k .cache/native/surge.zip .cache/native/surge-6.11.0
+          codesign --verify --strict .cache/native/surge-6.11.0/Surge.app
+          test "$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" .cache/native/surge-6.11.0/Surge.app/Contents/Info.plist)" = "6.11.0"
+      - run: vp test run test/native/check.test.ts -t "native surge"
         env:
           PROXYLANG_NATIVE_CHECK: "1"
   secrets:

@@ -38,7 +38,7 @@ export default defineBuild({
   outDir: "generated",
   profiles: {
     example: defineProfile({
-      target: { engine: "surge", version: "6.10.0", platform: "macos" },
+      target: { engine: "surge", version: "6.11.0", platform: "macos" },
       proxies: [edge, chained],
       groups: [relay],
       routes: sharedRoutes(chained),

@@ -1,6 +1,6 @@
 # Mihomo 原生输出
 
-Mihomo 1.19.32 在 macOS/Linux 生成 UTF-8 `.yaml`。节点、组和规则分别位于 proxies、proxy-groups、rules；序列化保留字符串值，不用原生文本拼接秘密。
+Mihomo 1.19.34 在 macOS/Linux 生成 UTF-8 `.yaml`。节点、组和规则分别位于 proxies、proxy-groups、rules；序列化保留字符串值，不用原生文本拼接秘密。
 
 ## 名字、节点和分组
 

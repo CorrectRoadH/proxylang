@@ -82,9 +82,8 @@ proxylang 只在能确定客户端行为时模拟解析，其它情况返回未�
 | 目标 | 触发解析的条件 |
 | --- | --- |
 | Surge | 没有 `noResolve: true` 的 IP 条件与 `ipAsn` |
-| sing-box 1.14.4 | 没有 `noResolve: true` 的 IP 条件，以及 `singBox` 分支声明 `resolve: true` 的规则集 |
+| sing-box | 没有 `noResolve: true` 的 IP 条件，以及 `singBox` 分支声明 `resolve: true` 的规则集 |
 | Mihomo、Stash | 显式写了 `noResolve: false` 的 IP 条件 |
-| sing-box 1.12.0 | 无 |
 
 proxylang 不模拟解析失败，也不模拟多地址时客户端选择哪一个地址；`resolvedIp` 由作者给出。
 

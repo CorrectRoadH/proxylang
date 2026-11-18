@@ -21,14 +21,6 @@
         "server": "pl-routed-dns",
         "strategy": "prefer_ipv4"
       }
-    },
-    {
-      "type": "direct",
-      "tag": "pl-ruleset-direct",
-      "domain_resolver": {
-        "server": "pl-dns",
-        "strategy": "prefer_ipv4"
-      }
     }
   ],
   "route": {
@@ -61,7 +53,13 @@
         "url": "https://rules.example.com/list.json",
         "format": "source",
         "update_interval": "86400s",
-        "download_detour": "pl-ruleset-direct"
+        "http_client": {
+          "version": 2,
+          "domain_resolver": {
+            "server": "pl-dns",
+            "strategy": "prefer_ipv4"
+          }
+        }
       }
     ],
     "final": "edge",

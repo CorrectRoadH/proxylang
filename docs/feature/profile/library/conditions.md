@@ -24,13 +24,12 @@
 | 目标 | `includeSniffed: true` | `noResolve` 的 IP 条件语义 |
 | --- | --- | --- |
 | Surge | 域名与有效嗅探域名做逻辑或；编码 `extended-matching` | 省略或 false 允许原生解析；true 编码 `no-resolve` |
-| sing-box 1.12.0 | 拒绝 | 显式 true 或 false 均拒绝；省略时只用已知 IP |
-| sing-box 1.14.4 | 只有 `domainMatching: "prefer-sniffed"` 时允许 | 省略或 false 在该顶层路由前解析；true 只用已知 IP |
+| sing-box | 只有 `domainMatching: "prefer-sniffed"` 时允许 | 省略或 false 在该顶层路由前解析；true 只用已知 IP |
 | Mihomo、Stash | 拒绝 | 省略或 true 编码 `no-resolve`；显式 false 允许原生解析 |
 
 `includeSniffed` 只允许在域名条件与 Surge 规则集分支上。false 与省略均不附加匹配选项，不保证关闭客户端外部嗅探。sing-box 的 `prefer-sniffed` 影响全部域名条件，有效嗅探域名优先，缺失时用原域名；它不表示多来源逻辑或，也不改写实际连接目的地。
 
-`noResolve` 只允许在 IP 条件、`surge.match.ipAsn` 与 Surge 规则集分支上。其它位置即使写 false 也拒绝。sing-box 1.14.4 的需解析条件在 `all`、`any`、`not` 内部报 `RESOLVE_NESTED`，不提前执行会绕过逻辑守卫的解析。
+`noResolve` 只允许在 IP 条件、`surge.match.ipAsn` 与 Surge 规则集分支上。其它位置即使写 false 也拒绝。sing-box 的需解析条件在 `all`、`any`、`not` 内部报 `RESOLVE_NESTED`，不提前执行会绕过逻辑守卫的解析。
 
 解析状态、规则集前置解析与缺失解析结果的行为见[IP 与解析](../../routing-cases/README.md#ip-与解析)。静态求值不进行 DNS 查询。
 
@@ -63,7 +62,7 @@
 | `url` | HTTP(S) URL | 必填 |
 | `format` | `"source"` 或 `"binary"` | 必填 |
 | `intervalSeconds` | 60–2147483647 的整数秒 | 必填，无默认 |
-| `resolve` | boolean | 可选，默认 false；只有 1.14.4 接受显式值 |
+| `resolve` | boolean | 可选，默认 false |
 
 `resolve: true` 只用于作者已确认内容为需解析目的 CIDR 的资源；SDK 不替作者证明远程内容。其解析在该顶层路由判断前发生，与假设的命中结果无关。逻辑嵌套中声明 true 报 `RESOLVE_NESTED`。
 

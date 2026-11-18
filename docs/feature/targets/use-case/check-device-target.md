@@ -1,6 +1,6 @@
 # 为设备检查并生成原生配置
 
-作者新增了一台平板设备，想确认这份 Profile 在 Surge iOS 5.21.0 上能生成，并看清自动选择分组和规则集最终用了哪种实现。
+作者新增了一台平板设备，想确认这份 Profile 在 Surge iOS 5.23.0 上能生成，并看清自动选择分组和规则集最终用了哪种实现。
 
 ## 起始状态
 
@@ -20,7 +20,7 @@
 | Profile 合法 | 这份 Profile 显示通过，列出每个 `group.auto()` 与规则集的选择 |
 | 路由用了 `match.processName` | `CONDITION_UNSUPPORTED`，带路由序号与源码位置 |
 | 节点使用 vless | `PROTOCOL_UNSUPPORTED`，带节点 id |
-| 版本写成 `5.20.0` | `TARGET_UNSUPPORTED` |
+| 版本写成 `5.21.0` | `TARGET_UNSUPPORTED` 指向 `target.version`，提示只支持 `5.23.0` |
 | 多个问题同时存在 | 一次运行列出全部问题 |
 
 ## 完成判据

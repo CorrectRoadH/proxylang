@@ -17,9 +17,33 @@ import {
   explainProfile,
   type Profile,
 } from "proxylang";
-const surgeTarget = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+const surgeTarget = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
 const make = (p: Profile, secrets?: ReturnType<typeof defineSecrets>) =>
   checkBuild(defineBuild({ profiles: { one: p }, secrets })).profiles[0]!;
+// @feature docs/feature/targets/README.md#诊断
+test("retired versions identify the latest stable release for the requested platform", () => {
+  for (const [engine, platform, version, latest] of [
+    ["surge", "macos", "6.10.0", "6.11.0"],
+    ["surge", "ios", "5.21.0", "5.23.0"],
+    ["sing-box", "macos", "1.12.0", "1.14.4"],
+    ["mihomo", "linux", "1.19.32", "1.19.34"],
+    ["stash", "macos", "4.2.1", "5.0.0"],
+  ] as const) {
+    const result = make(
+      defineProfile({
+        target: { engine, platform, version } as never,
+        proxies: [],
+        groups: [],
+        routes: [],
+        fallback: outbound.direct,
+      }),
+    );
+    assert.equal(result.ok, false);
+    const diagnostic = result.diagnostics.find((entry) => entry.code === "TARGET_UNSUPPORTED");
+    assert.equal(diagnostic?.path, "target.version");
+    assert.ok(diagnostic?.message.includes(`最新稳定版 ${latest}`));
+  }
+});
 // @feature docs/feature/profile/library/README.md#秘密
 test("undeclared handles report every use at its own resource, managed query and array path", () => {
   const declared = defineSecrets({ TEST_VALID: { value: "test-only", validation: "test-only" } });
@@ -114,7 +138,7 @@ test("name and group errors do not suppress protocol and platform checks or rese
     members: [node],
   });
   const p = defineProfile({
-    target: { engine: "surge", platform: "ios", version: "5.21.0" },
+    target: { engine: "surge", platform: "ios", version: "5.23.0" },
     proxies: [node],
     groups: [unsupported],
     routes: defineRoutes({ when: match.processName("Example"), to: node }),
@@ -149,10 +173,10 @@ test("same-code errors at independent paths survive diagnostic merging", () => {
   const g2 = defineProxyGroup({
     id: "second",
     algorithm: group.select(),
-    members: [outbound.direct],
+    members: [ep],
   });
   const p = defineProfile({
-    target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
+    target: { engine: "sing-box", platform: "linux", version: "1.14.4" },
     singBox: { mode: "standalone", listener: { port: 1080, resolver: "192.0.2.53" } },
     proxies: [ep],
     groups: [g1, g2],
@@ -167,7 +191,7 @@ test("same-code errors at independent paths survive diagnostic merging", () => {
   );
   assert.ok(
     result.diagnostics.some(
-      (d) => d.code === "MEMBER_TYPE_UNSUPPORTED" && d.path === "groups.second",
+      (d) => d.code === "MEMBER_TYPE_UNSUPPORTED" && d.path === "groups.second.members[0]",
     ),
   );
   assert.equal(
@@ -179,8 +203,8 @@ test("same-code errors at independent paths survive diagnostic merging", () => {
 test("every unsupported Surge exit and condition is located without hiding later target checks", () => {
   const targets = [
     { engine: "sing-box", platform: "linux", version: "1.14.4" },
-    { engine: "mihomo", platform: "linux", version: "1.19.32" },
-    { engine: "stash", platform: "macos", version: "4.2.1" },
+    { engine: "mihomo", platform: "linux", version: "1.19.34" },
+    { engine: "stash", platform: "macos", version: "5.0.0" },
   ] as const;
   for (const target of targets) {
     const g = defineProxyGroup({
@@ -267,7 +291,7 @@ test("missing rule-set sources and cross-engine tunnels do not suppress later co
   const external = ruleSet({ id: "missing", surge: { url: "https://rules.example.com/list" } });
   const result = make(
     defineProfile({
-      target: { engine: "stash", platform: "macos", version: "4.2.1" },
+      target: { engine: "stash", platform: "macos", version: "5.0.0" },
       proxies: [tunnel],
       groups: [],
       routes: defineRoutes({ when: [external, match.sourcePort(2000)], to: outbound.direct }),
@@ -281,18 +305,18 @@ test("missing rule-set sources and cross-engine tunnels do not suppress later co
     );
   const missing = make(
     defineProfile({
-      target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
+      target: { engine: "sing-box", platform: "linux", version: "1.14.4" },
       singBox: { mode: "fragment" },
       proxies: [],
       groups: [],
       routes: defineRoutes({
-        when: [external, match.ipCidr("192.0.2.0/24", { noResolve: true })],
+        when: [external, match.all(match.ipCidr("192.0.2.0/24"), match.network("tcp"))],
         to: outbound.direct,
       }),
       fallback: outbound.direct,
     }),
   );
-  for (const code of ["RULESET_SOURCE_MISSING", "CONDITION_UNSUPPORTED"])
+  for (const code of ["RULESET_SOURCE_MISSING", "RESOLVE_NESTED"])
     assert.ok(
       missing.diagnostics.some((d) => d.code === code),
       JSON.stringify(missing),

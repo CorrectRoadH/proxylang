@@ -25,7 +25,7 @@
 
 **生成结果比对**：每个目录 `test/golden/<target>/<场景>/` 包含 `profile.ts`（导出一份 Profile）和期望产物 `expected.conf`、`expected.json` 或 `expected.yaml`。测试用固定的秘密读取函数渲染并逐字节比较。更新期望文件使用 `vp run test:golden:update`（本次重构新增的脚本），更新后的 diff 与源码改动一起审阅。场景按能力划分，例如协议、分组算法、链式代理、规则集、DNS、TUN、隧道，每个支持的目标都覆盖它支持的场景。
 
-**原生检查**：CI 为每个 sing-box 目标版本（1.12.0、1.14.4）与 Mihomo 1.19.32 下载固定版本的内核，核对 SHA-256，在隔离目录中对每份对应的期望产物运行配置检查。`fragment` 产物先放进一份最小的宿主配置 fixture 再检查，同时断言片段本身不含入站、DNS 等宿主负责的部分。sing-box 1.14.4 的原生检查任务还会启动一份带分域 DNS 和远程规则集的 standalone 配置，在独立空缓存目录中通过回环 DNS 与 HTTP 验证启动。Surge 与 Stash 没有可在 CI 中运行的检查器，它们的产物只由生成结果比对和使用方验收覆盖，这一点在发版说明中写明。
+**原生检查**。CI 下载固定版本的 sing-box、Mihomo 与 Surge macOS 并核对 SHA-256，再用原生检查器验证对应期望产物。sing-box 和 Mihomo 的 fragment 先合入最小宿主配置，检查片段未生成入站与 DNS。sing-box 还在空缓存目录启动配置，通过回环 DNS 与 HTTP 验证远程规则集下载，检查日志无弃用警告。Surge iOS 与 Stash 没有离线原生检查器，由生成结果比对与使用方验收覆盖。
 
 **CLI 与发布**：在临时目录中运行构建出的 `dist/cli.js`。发布测试通过 `publish` 的文件系统接口注入失败，覆盖加锁、写入新批次、切换指针、清理旧批次各阶段的失败，并检查 `out` 与磁盘状态。
 

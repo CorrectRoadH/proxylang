@@ -49,12 +49,11 @@ export type Scenario = {
 };
 export const scenarios: Scenario[] = [];
 for (const [engine, version, platforms, modes] of [
-  ["surge", "6.10.0", ["macos"], ["standalone"]],
-  ["surge", "5.21.0", ["ios"], ["standalone"]],
-  ["sing-box", "1.12.0", ["macos", "linux"], ["standalone", "fragment"]],
+  ["surge", "6.11.0", ["macos"], ["standalone"]],
+  ["surge", "5.23.0", ["ios"], ["standalone"]],
   ["sing-box", "1.14.4", ["macos", "linux"], ["standalone", "fragment"]],
-  ["mihomo", "1.19.32", ["macos", "linux"], ["standalone", "fragment"]],
-  ["stash", "4.2.1", ["macos"], ["fragment"]],
+  ["mihomo", "1.19.34", ["macos", "linux"], ["standalone", "fragment"]],
+  ["stash", "5.0.0", ["macos"], ["fragment"]],
 ] as const)
   for (const platform of platforms)
     for (const mode of modes) {
@@ -64,7 +63,7 @@ for (const [engine, version, platforms, modes] of [
       if (engine !== "stash") scenes.push("rulesets");
       if (engine === "surge" || (engine === "sing-box" && mode === "standalone"))
         scenes.push("dns", "tunnel");
-      if (engine === "sing-box" && version === "1.14.4") {
+      if (engine === "sing-box") {
         scenes.push("modern");
         if (mode === "standalone") scenes.push("tun");
       }
@@ -121,24 +120,20 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
           password: pass,
         }),
       ),
-      ...(
-        [
-          "vmess",
-          ...(s.engine === "sing-box" || s.engine === "mihomo" ? (["vless"] as const) : []),
-        ] as const
-      ).flatMap((type) =>
-        [false, true].map((ws) =>
-          proxy[type]({
-            id: `${type}-${ws ? "ws" : "tcp"}`,
-            server: "192.0.2.15",
-            port: 443,
-            uuid: secret("TEST_UUID"),
-            tls: { serverName: "tls.example.com" },
-            ...(ws
-              ? { transport: { type: "ws" as const, path: "/proxy", host: "ws.example.com" } }
-              : {}),
-          }),
-        ),
+      ...(["vmess", ...(s.engine !== "surge" ? (["vless"] as const) : [])] as const).flatMap(
+        (type) =>
+          [false, true].map((ws) =>
+            proxy[type]({
+              id: `${type}-${ws ? "ws" : "tcp"}`,
+              server: "192.0.2.15",
+              port: 443,
+              uuid: secret("TEST_UUID"),
+              tls: { serverName: "tls.example.com" },
+              ...(ws
+                ? { transport: { type: "ws" as const, path: "/proxy", host: "ws.example.com" } }
+                : {}),
+            }),
+          ),
       ),
     ];
     resources.push(...all);
@@ -405,10 +400,7 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       },
     };
   const rulesetBootstrap =
-    s.scene === "rulesets" &&
-    s.engine === "sing-box" &&
-    s.version === "1.14.4" &&
-    s.mode === "standalone";
+    s.scene === "rulesets" && s.engine === "sing-box" && s.mode === "standalone";
   if (rulesetBootstrap) Object.assign(extensions.singBox as object, { cacheFile: true });
   return {
     target: { engine: s.engine, platform: s.platform, version: s.version },

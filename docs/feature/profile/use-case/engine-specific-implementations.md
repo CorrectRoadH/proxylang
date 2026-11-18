@@ -16,7 +16,7 @@
 
 | 情况 | check 结果 |
 | --- | --- |
-| `group.auto()` 用在 Surge 6.10.0 | 通过，`selections` 记录 `surge-smart` |
+| `group.auto()` 用在 Surge 6.11.0 | 通过，`selections` 记录 `surge-smart` |
 | `group.auto()` 用在 sing-box 1.14.4 | 通过，`selections` 记录 `urltest` 与默认参数 |
 | `surge.smart()` 用在 sing-box 目标 | `ALGORITHM_ENGINE_MISMATCH` |
 | `surge.smart()` 的成员里有分组 | `SMART_MEMBER_NOT_NODE` |

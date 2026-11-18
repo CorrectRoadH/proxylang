@@ -34,7 +34,7 @@ console.log('TEST_CONFIG_LOG');console.info('TEST_CONFIG_INFO');
 const secrets=defineSecrets({TEST_PASSWORD:{value:'TEST_DO_NOT_ECHO',validation:'test-valid'}});
 const edge=proxy.trojan({id:'edge',server:'192.0.2.10',port:443,password:secrets.TEST_PASSWORD});
 const choice=defineProxyGroup({id:'choice',name:'Choice',algorithm:group.auto(),members:[edge]});
-export default defineBuild({outDir:'generated',secrets,profiles:{one:defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[edge],groups:[choice],routes:defineRoutes({when:ruleSet({id:"external",surge:{url:"https://rules.example.com/list.txt"}}),to:edge}),fallback:choice})}});`;
+export default defineBuild({outDir:'generated',secrets,profiles:{one:defineProfile({target:{engine:'surge',platform:'macos',version:'6.11.0'},proxies:[edge],groups:[choice],routes:defineRoutes({when:ruleSet({id:"external",surge:{url:"https://rules.example.com/list.txt"}}),to:edge}),fallback:choice})}});`;
 // @feature docs/feature/build/cli.md#输出
 for (const scope of ["module", "commonjs"])
   test(`CLI ${scope} uses one SDK identity scope and isolates stdout during loading/build`, async () => {
@@ -51,7 +51,7 @@ for (const scope of ["module", "commonjs"])
       assert.equal((await readdir(root)).includes("generated"), false);
       const human = run(root, ["check"]);
       assert.equal(human.status, 0);
-      assert.match(human.stdout, /✓ one.*surge macos 6.10.0/);
+      assert.match(human.stdout, /✓ one.*surge macos 6.11.0/);
       assert.match(human.stdout, /choice→surge-smart/);
       assert.match(human.stdout, /ruleSets: external→surge/);
       assert.doesNotMatch(human.stdout, /TEST_CONFIG_LOG|TEST_DO_NOT_ECHO/);
@@ -78,6 +78,27 @@ for (const scope of ["module", "commonjs"])
       await rm(root, { recursive: true, force: true });
     }
   });
+// @use-case docs/feature/targets/use-case/check-device-target.md
+test("CLI tells authors which stable release replaces a retired target", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proxylang-cli-"));
+  try {
+    await writeFile(join(root, "proxylang.config.ts"), config.replace("6.11.0", "6.10.0"));
+    for (const args of [
+      ["check"],
+      ["build", "--validation"],
+      ["explain", "--profile", "one", "--request", "{}"],
+    ]) {
+      const result = run(root, args);
+      assert.equal(result.status, 1);
+      assert.match(
+        result.stdout,
+        /TARGET_UNSUPPORTED +target\.version +surge macos 只支持最新稳定版 6\.11\.0/,
+      );
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 // @feature docs/feature/build/cli.md#命令
 test("help and targets do not load config; flags reject repeats and unsupported forms before loading", async () => {
   const root = await mkdtemp(join(tmpdir(), "proxylang-cli-"));
@@ -86,7 +107,11 @@ test("help and targets do not load config; flags reject repeats and unsupported 
     for (const args of [["--help"], ["check", "--help"], ["targets"], ["targets", "--help"]])
       assert.equal(run(root, args).status, 0);
     const targets = json(root, ["targets"]).result.targets!;
-    assert.equal(targets.length, 9);
+    assert.equal(targets.length, 7);
+    assert.equal(
+      new Set(targets.map(({ engine, platform }) => `${engine}/${platform}`)).size,
+      targets.length,
+    );
     assert.ok(
       targets.some(
         (t) =>

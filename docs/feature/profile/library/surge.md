@@ -1,6 +1,6 @@
 # Surge Profile 设置与隧道
 
-目标为 macOS 6.10.0 与 iOS 5.21.0。`surge` 是普通严格对象，接受 `general`、`hosts`、`managed`。节点和隧道列入 Profile 的 `proxies`；分组、路由和 fallback 使用对象引用。
+目标为 macOS 6.11.0 与 iOS 5.23.0。`surge` 是普通严格对象，接受 `general`、`hosts`、`managed`。节点和隧道列入 Profile 的 `proxies`；分组、路由和 fallback 使用对象引用。
 
 ## General 与 Host
 

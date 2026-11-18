@@ -53,8 +53,8 @@ const make = (
 ) =>
   defineProfile({
     target: ios
-      ? { engine: "surge", platform: "ios", version: "5.21.0" }
-      : { engine: "surge", platform: "macos", version: "6.10.0" },
+      ? { engine: "surge", platform: "ios", version: "5.23.0" }
+      : { engine: "surge", platform: "macos", version: "6.11.0" },
     proxies,
     groups,
     routes: defineRoutes({

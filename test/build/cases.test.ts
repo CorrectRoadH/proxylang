@@ -17,7 +17,7 @@ import {
   ruleSet,
   type RouteCase,
 } from "proxylang";
-const target = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+const target = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
 const profile = (cases: readonly RouteCase[]) =>
   defineProfile({
     target,
@@ -201,7 +201,7 @@ test("case assumption errors are collected independently of target failures with
   });
   const unused = ruleSet({ id: "unused", surge: { url: "https://rules.example.com/unused" } });
   const p = defineProfile({
-    target: { engine: "sing-box", platform: "linux", version: "1.12.0" },
+    target: { engine: "sing-box", platform: "linux", version: "1.14.4" },
     singBox: { mode: "fragment" },
     proxies: [],
     groups: [],

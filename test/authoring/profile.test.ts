@@ -17,7 +17,7 @@ import {
 import { fixtureSecrets } from "../fixtures/scenarios.js";
 const edge = (id = "edge") =>
   proxy.trojan({ id, server: "192.0.2.10", port: 443, password: fixtureSecrets.TEST_PASSWORD });
-const target = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+const target = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
 function fixture() {
   const node = edge();
   return {
@@ -186,8 +186,8 @@ test("name conflicts, builtin collisions and unsafe names fail on every engine",
   for (const t of [
     target,
     { engine: "sing-box", platform: "linux", version: "1.14.4" },
-    { engine: "mihomo", platform: "linux", version: "1.19.32" },
-    { engine: "stash", platform: "macos", version: "4.2.1" },
+    { engine: "mihomo", platform: "linux", version: "1.19.34" },
+    { engine: "stash", platform: "macos", version: "5.0.0" },
   ] as const) {
     const make = (name: string) => proxy.trojan({ ...edge(), name });
     const base = {
@@ -219,8 +219,8 @@ test("auto selections expose concrete algorithms and reject Stash", () => {
   for (const [t, expected] of [
     [target, "surge-smart"],
     [{ engine: "sing-box", platform: "linux", version: "1.14.4" }, "urltest"],
-    [{ engine: "mihomo", platform: "linux", version: "1.19.32" }, "urltest"],
-    [{ engine: "stash", platform: "macos", version: "4.2.1" }, null],
+    [{ engine: "mihomo", platform: "linux", version: "1.19.34" }, "urltest"],
+    [{ engine: "stash", platform: "macos", version: "5.0.0" }, null],
   ] as const) {
     const result = check({
       target: t,
@@ -286,8 +286,8 @@ test("select availability tests are a strict Surge group branch, checked against
   assert.equal(check({ ...base, target }).ok, true);
   for (const t of [
     { engine: "sing-box", platform: "linux", version: "1.14.4" },
-    { engine: "mihomo", platform: "linux", version: "1.19.32" },
-    { engine: "stash", platform: "macos", version: "4.2.1" },
+    { engine: "mihomo", platform: "linux", version: "1.19.34" },
+    { engine: "stash", platform: "macos", version: "5.0.0" },
   ] as const) {
     const result = check({
       ...base,

@@ -8,7 +8,7 @@ CLI 固定加载调用目录的 `proxylang.config.ts`，不向父目录搜索或
 import { defineBuild, defineProfile, outbound } from "proxylang";
 
 const laptop = defineProfile({
-  target: { engine: "surge", platform: "macos", version: "6.10.0" },
+  target: { engine: "surge", platform: "macos", version: "6.11.0" },
   proxies: [], groups: [], routes: [], fallback: outbound.direct,
 });
 

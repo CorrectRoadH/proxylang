@@ -3,6 +3,7 @@
 // @concord-implements docs/feature/build/cli.md
 import { definitionDiagnostic, targetCatalog } from "./build/index.js";
 import type { CheckResult } from "./build/index.js";
+import type { Diagnostic } from "./model/types.js";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { constants } from "node:fs";
@@ -23,6 +24,11 @@ function print(value: unknown, text?: string) {
     json ? JSON.stringify(value, null, 2) + "\n" : (text ?? human(value)) + "\n",
   );
 }
+function diagnosticMessage(diagnostic: Diagnostic): string {
+  return diagnostic.code === "TARGET_UNSUPPORTED" && diagnostic.path === "target.version"
+    ? `  ${diagnostic.message}`
+    : "";
+}
 function human(value: unknown): string {
   if (!value || typeof value !== "object") return String(value);
   if ("explanation" in value) {
@@ -31,8 +37,8 @@ function human(value: unknown): string {
     return `${r.profile}: ${e.outcome}${e.exit ? " → " + e.exit : ""}${e.needs ? " needs: " + e.needs.kind + (e.needs.kind === "ruleSet" ? " " + e.needs.id : "") : ""}\n${e.trace.map((t) => `  routes[${t.index}]: ${t.matched === null ? "unknown" : t.matched ? "hit" : "miss"}${t.origin ? `  ${t.origin.file}:${t.origin.line}:${t.origin.column}` : ""}`).join("\n")}`;
   }
   if ("diagnostics" in value)
-    return (value as { diagnostics: { code: string; path: string }[] }).diagnostics
-      .map((d) => `${d.code} ${d.path}`)
+    return (value as { diagnostics: Diagnostic[] }).diagnostics
+      .map((d) => `${d.code} ${d.path}${diagnosticMessage(d)}`)
       .join("\n");
   if ("profiles" in value) return humanCheck(value as CheckResult);
   if ("check" in value) {
@@ -90,7 +96,7 @@ function humanCheck(check: CheckResult): string {
             )
             .join(
               "",
-            )}\n${p.diagnostics.map((d) => `  ${d.severity} ${d.code}  ${d.path}${d.origin ? `  ${d.origin.file}:${d.origin.line}:${d.origin.column}` : ""}`).join("\n")}`,
+            )}\n${p.diagnostics.map((d) => `  ${d.severity} ${d.code}  ${d.path}${diagnosticMessage(d)}${d.origin ? `  ${d.origin.file}:${d.origin.line}:${d.origin.column}` : ""}`).join("\n")}`,
       )
       .join("\n") +
     `\ncases: ${check.cases.filter((c) => c.ok).length} passed, ${check.cases.filter((c) => !c.ok).length} failed\n${check.cases.map((c) => `  ${c.ok ? "✓" : "✗"} ${c.profile} "${c.name}": expected ${c.expected}, ${c.actual ? "got " + c.actual : c.outcome}${c.needs ? " needs: " + c.needs.kind + (c.needs.kind === "ruleSet" ? " " + c.needs.id : "") : ""}${c.route ? ` at routes[${c.route.index}]${c.route.origin ? ` ${c.route.origin.file}:${c.route.origin.line}:${c.route.origin.column}` : ""}` : ""}`).join("\n")}\n${check.code}`

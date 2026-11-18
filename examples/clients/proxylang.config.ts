@@ -38,7 +38,7 @@ export default defineBuild({
   outDir: "generated",
   profiles: {
     example: defineProfile({
-      target: { engine: "stash", version: "4.2.1", platform: "macos" },
+      target: { engine: "stash", version: "5.0.0", platform: "macos" },
       proxies: [edge, chained],
       groups: [relay],
       // Stash does not support external rule sets.

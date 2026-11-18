@@ -28,7 +28,7 @@ try {
   const config = `import {defineBuild,defineProfile,defineRoutes,match,outbound,proxy,defineSecrets} from 'proxylang';
  const secrets=defineSecrets({TEST_PASSWORD:{env:'TEST_PASSWORD',validation:'test-valid'}});
  const edge=proxy.trojan({id:'edge',server:'192.0.2.10',port:443,password:secrets.TEST_PASSWORD});
- export default defineBuild({outDir:'generated',profiles:{laptop:defineProfile({target:{engine:'surge',platform:'macos',version:'6.10.0'},proxies:[edge],groups:[],routes:defineRoutes({when:match.domain('example.com'),to:edge}),fallback:outbound.direct})},secrets});`;
+ export default defineBuild({outDir:'generated',profiles:{laptop:defineProfile({target:{engine:'surge',platform:'macos',version:'6.11.0'},proxies:[edge],groups:[],routes:defineRoutes({when:match.domain('example.com'),to:edge}),fallback:outbound.direct})},secrets});`;
   for (const format of ["module", "commonjs"]) {
     const cwd = join(temp, format);
     mkdirSync(cwd);

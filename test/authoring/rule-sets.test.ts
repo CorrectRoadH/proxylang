@@ -74,14 +74,14 @@ test("ruleSet id identity, missing sources, unsupported engines and missing defi
     check([a], {
       engine: "mihomo",
       platform: "linux",
-      version: "1.19.32",
+      version: "1.19.34",
     }).profiles[0]!.diagnostics.some((d) => d.code === "RULESET_SOURCE_MISSING"),
   );
   assert.ok(
     check([a], {
       engine: "stash",
       platform: "macos",
-      version: "4.2.1",
+      version: "5.0.0",
     }).profiles[0]!.diagnostics.some((d) => d.code === "RULESET_UNSUPPORTED"),
   );
   assert.throws(
@@ -91,7 +91,7 @@ test("ruleSet id identity, missing sources, unsupported engines and missing defi
 });
 // @feature docs/feature/profile/library/conditions.md#来源冲突与复用
 test("Surge effective default interval agrees with explicit 86400, while options do not change sources", () => {
-  const t = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+  const t = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
   const a = ruleSet({ id: "one", surge: { url: "https://rules.example.com/list.txt" } });
   const b = ruleSet({
     id: "two",
@@ -147,7 +147,7 @@ for (const branch of ["surge", "singBox", "mihomo"] as const)
 
 // @feature docs/feature/profile/library/conditions.md#来源冲突与复用
 test("Mihomo compares behavior and preserves raw URL identity", () => {
-  const t = { engine: "mihomo", platform: "linux", version: "1.19.32" } as const;
+  const t = { engine: "mihomo", platform: "linux", version: "1.19.34" } as const;
   const set = (
     id: string,
     behavior: "domain" | "classical",
@@ -159,7 +159,7 @@ test("Mihomo compares behavior and preserves raw URL identity", () => {
       (d) => d.code === "RULESET_SOURCE_CONFLICT",
     ),
   );
-  const surgeTarget = { engine: "surge", platform: "macos", version: "6.10.0" } as const;
+  const surgeTarget = { engine: "surge", platform: "macos", version: "6.11.0" } as const;
   assert.equal(
     check(
       [

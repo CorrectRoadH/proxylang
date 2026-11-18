@@ -33,6 +33,6 @@
 
 CI 在 Ubuntu/macOS 与 Node 24.11.0、当前 Node 24、Node 26.0.0 和当前 Node 26 矩阵执行冻结安装、verify 和 CLI 示例检查/构建。隔离安装验收启用 npm engine-strict，确保实际发布包接受对应运行时，并执行 ESM/CJS 配置的 CLI check、build 和 explain。示例只使用保留地址、TEST_* 名字与假值。秘密扫描检查 Git 历史，输出必须脱敏。
 
-原生检查独立下载 sing-box 1.12.0、1.14.4 与 Mihomo 1.19.32，核对 SHA-256 后在隔离目录检查，不启动代理。endpoint 检查要求 with_tailscale 且不创建身份目录；fragment 用最小宿主配置。Surge 和 Stash 不具备自动化检查器，不能用其它引擎通过代替。
+原生检查下载目标版本的 sing-box、Mihomo 与 Surge macOS，核对 SHA-256 后在隔离环境检查。sing-box endpoint 检查要求 with_tailscale 且不创建身份目录，fragment 检查使用最小宿主配置。sing-box 的空缓存启动回归使用本机回环 DNS 与 HTTP。Surge iOS 与 Stash 由生成结果比对与使用方验收覆盖。
 
 Concord 由维护者本地执行，CI 不要求安装 Concord 或配置其凭据。完整测试职责、目录与未验证边界见[测试架构](../testing/README.md)。检查、打包与 CI 都不授权 npm 发布、部署或系统网络操作。

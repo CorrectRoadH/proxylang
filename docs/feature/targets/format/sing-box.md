@@ -23,6 +23,8 @@ fragment 不携带 inbounds 或 DNS，宿主必须提供入口、直接 DNS 路�
 
 select 编码 selector，outbounds 保持顺序，default 为首成员，`interrupt_exist_connections=false`。urltest 编码 URLTest，URL 必填，无认证或 fragment；省略参数时 interval=180s、tolerance=50，固定 `idle_timeout=30m`、`interrupt_exist_connections=false`。
 
+standalone 中的 selector 可以在 `outbounds` 和 `default` 引用 Tailscale endpoint 的原生 tag。端点自身仍位于 `endpoints`。
+
 `group.auto()` 选择 URLTest，默认 URL 为 `https://www.gstatic.com/generate_204`，interval=180s、tolerance=50；这是算法默认值，生成结果不得自行替换。固定 urltest 的 URL 仍由作者明确提供。组的运行时选择与持久状态不由静态解释模拟。
 
 代理链用 detour。SS 使用 shadowsocks/method/password。VMess 固定 security=aes-128-gcm、alter_id=0；VMess 与没有显式 UDP 编码的 VLESS 输出 network=tcp。TLS 编码 enabled/server_name/alpn/insecure，WS 编码 type/path/headers.Host。

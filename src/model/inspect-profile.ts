@@ -123,7 +123,12 @@ export function inspectProfile(
     if (resource.type === "proxy-group") {
       resource.members.forEach((m, i) => {
         reference(m, `${path}.members[${i}]`, resource);
-        if (kindOf(m) === "endpoint")
+        if (
+          kindOf(m) === "endpoint" &&
+          (profile.target.engine !== "sing-box" ||
+            profile.singBox?.mode === "fragment" ||
+            resource.algorithm.type !== "select")
+        )
           error("MEMBER_TYPE_UNSUPPORTED", `${path}.members[${i}]`, resource);
       });
       edges.set(

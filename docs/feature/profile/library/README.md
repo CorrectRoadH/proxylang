@@ -11,7 +11,7 @@
 | 字段 | 接受 |
 | --- | --- |
 | 路由 `to`、`fallback`、案例 `expect` | `Exit` |
-| 分组 `members` | `Fragments<Exit>`；Surge 隧道可以作为 select 成员，sing-box endpoint 不能作为成员，见[资源图](../../targets/README.md#资源图) |
+| 分组 `members` | `Fragments<Exit>`；隧道与 endpoint 的分组限制见[目标能力](../../targets/README.md#能力) |
 | 节点 `via` | 节点或分组 |
 | 请求假设 `hit`、`miss` | `ruleSet` 返回的规则集对象 |
 | 字段中的秘密 | `defineSecrets` 返回对象上的属性 |

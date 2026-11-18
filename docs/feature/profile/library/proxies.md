@@ -55,6 +55,6 @@ TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 f
 
 `stateDirectory` 接受规范的绝对或相对 POSIX 路径，例如 `/var/lib/mesh` 或 `identities/mesh`。拒绝根目录、空段、`.`、`..`、`$`、反斜杠和控制字符。相对路径也拒绝盘符前缀和以 `~` 开头的路径。客户端按自己的工作目录解析相对路径。重叠规则见[资源图](../../targets/README.md#资源图)，运行方须保证真实路径和身份独占。
 
-只在带 `with_tailscale` 的 sing-box standalone 支持。列入 Profile.proxies，可作为路由、fallback 与案例出口；不能作为分组成员或 `via`。不广告子网或出口，不自动配置 MagicDNS。
+只在带 `with_tailscale` 的 sing-box standalone 支持。列入 `Profile.proxies` 后可作为路由、fallback、案例出口与 `group.select()` 成员。`group.urltest()`、`group.auto()` 与节点 `via` 不接受直接引用。此端点不广告子网或出口，业务 MagicDNS 由作者配置。
 
 客户端拥有登录、身份、路由批准和状态目录；没有 authKey 时由运行方提供已有身份或登录。SDK 与原生配置检查不创建、读取、复制或清理身份目录。引导 DNS 与业务 DNS 分开，详见[输出](../../targets/format/sing-box.md#endpoint)。

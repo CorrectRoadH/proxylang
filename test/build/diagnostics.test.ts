@@ -169,10 +169,10 @@ test("same-code errors at independent paths survive diagnostic merging", () => {
     acceptRoutes: true,
     bootstrapResolver: "192.0.2.53",
   });
-  const g1 = defineProxyGroup({ id: "first", algorithm: group.select(), members: [ep] });
+  const g1 = defineProxyGroup({ id: "first", algorithm: group.auto(), members: [ep] });
   const g2 = defineProxyGroup({
     id: "second",
-    algorithm: group.select(),
+    algorithm: group.urltest({ url: "https://example.com/health" }),
     members: [ep],
   });
   const p = defineProfile({
@@ -197,6 +197,33 @@ test("same-code errors at independent paths survive diagnostic merging", () => {
   assert.equal(
     new Set(result.diagnostics.map((d) => JSON.stringify([d.code, d.path]))).size,
     result.diagnostics.length,
+  );
+});
+// @feature docs/feature/profile/library/proxies.md#sing-box-tailscale-endpoint
+test("a Tailscale endpoint is a selector member only in sing-box standalone", () => {
+  const endpoint = singbox.tailscale({
+    id: "mesh",
+    hostname: "example",
+    stateDirectory: "identities/mesh",
+    acceptRoutes: true,
+    bootstrapResolver: "192.0.2.53",
+  });
+  const selector = defineProxyGroup({ id: "home", algorithm: group.select(), members: [endpoint] });
+  const shared = { proxies: [endpoint], groups: [selector], routes: [], fallback: selector };
+  const target = { engine: "sing-box", platform: "linux", version: "1.14.4" } as const;
+  const standalone = make(
+    defineProfile({
+      ...shared,
+      target,
+      singBox: { listener: { port: 1080, resolver: "192.0.2.53" } },
+    }),
+  );
+  assert.equal(standalone.ok, true, JSON.stringify(standalone));
+  const fragment = make(defineProfile({ ...shared, target, singBox: { mode: "fragment" } }));
+  assert.ok(
+    fragment.diagnostics.some(
+      (d) => d.code === "MEMBER_TYPE_UNSUPPORTED" && d.path === "groups.home.members[0]",
+    ),
   );
 });
 // @feature docs/feature/targets/README.md#诊断

@@ -101,7 +101,7 @@ for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === 
           });
           assert.doesNotMatch(stdout + stderr, /deprecat/i);
           for (const path of statePaths) await assert.rejects(access(path), { code: "ENOENT" });
-          if (s.scene === "tailscale-relative-state") {
+          if (s.scene === "tailscale-relative-state" || s.scene === "tailscale-selector") {
             const working = join(root, "working");
             await mkdir(working);
             const listener = createServer();

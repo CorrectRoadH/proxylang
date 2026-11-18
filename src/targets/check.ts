@@ -56,7 +56,10 @@ export function checkTarget(
           : `proxies.${id}.via`;
       if (!registry.has(ref) && !["DIRECT", "REJECT"].includes(ref))
         error("MISSING_REFERENCE", path);
-      if (registry.get(ref)?.type === "sing-box-tailscale")
+      if (
+        registry.get(ref)?.type === "sing-box-tailscale" &&
+        (t.engine !== "sing-box" || t.mode !== "standalone" || registry.get(id)?.type !== "select")
+      )
         error("ENDPOINT_REFERENCE_UNSUPPORTED", path);
     }
   const state = new Map<string, number>(),

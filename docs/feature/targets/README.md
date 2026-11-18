@@ -27,7 +27,7 @@
 | 协议 | http、trojan、anytls、hysteria2、shadowsocks、vmess | 再加 vless 与扩展选项 | 再加 vless | 再加 TCP-only vless |
 | 分组算法 | select、Smart | select、urltest | select、urltest | select |
 | `group.auto()` | Smart | urltest | urltest | 不支持 |
-| 分组成员中的隧道 | select 与 Smart 可以包含 Surge 隧道 | endpoint 不能作为成员或 `via`，只能作为路由出口 | 无隧道 | 无隧道 |
+| 分组成员中的隧道 | select 与 Smart 可以包含 Surge 隧道 | standalone 的 select 可以包含 Tailscale endpoint | 无隧道 | 无隧道 |
 | `match.processName` | 只在 macOS | 支持 | 支持 | 支持 |
 | `includeSniffed: true` | extended-matching | 需要 `singBox.domainMatching: "prefer-sniffed"` | 不支持 | 不支持 |
 | 规则集 | `surge` 分支 | `singBox` 分支 | `mihomo` 分支 | 不支持 |
@@ -72,7 +72,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `SECRET_UNDECLARED` | error | 引用的秘密不属于构建定义的秘密集合 |
 | `GROUP_CYCLE` | error | 分组成员与 `via` 构成环，诊断列出环上的全部 id |
 | `EXIT_UNSUPPORTED` | error | 内置出口不被目标支持，例如非 Surge 目标使用 `outbound.rejectDrop`；诊断指向路由出口、成员或 fallback 的实际路径 |
-| `MEMBER_TYPE_UNSUPPORTED` | error | 分组成员或 `via` 的类型不被目标允许，例如 sing-box endpoint |
+| `MEMBER_TYPE_UNSUPPORTED` | error | 分组成员或 `via` 的类型不被目标允许，例如 URLTest 直接引用 Tailscale endpoint |
 | `TCP_ONLY_EXIT` | error | 出口的可选路径上有 TCP-only 节点，但路由没有限定 TCP，或者用作 `fallback`；Surge 显式 UDP 拒绝的终端节点例外见[Surge 契约](../profile/library/surge.md#不支持-udp-的出口)，`via` 不豁免 |
 | `PROTOCOL_UNSUPPORTED` | error | 节点协议不被目标支持 |
 | `PROXY_OPTION_UNSUPPORTED` | error | 节点选项不被目标支持，例如某个版本不支持的 vless 扩展 |

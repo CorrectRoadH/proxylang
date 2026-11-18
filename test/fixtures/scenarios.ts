@@ -65,7 +65,8 @@ for (const [engine, version, platforms, modes] of [
         scenes.push("dns", "tunnel");
       if (engine === "sing-box") {
         scenes.push("modern");
-        if (mode === "standalone") scenes.push("tun", "tailscale-relative-state");
+        if (mode === "standalone")
+          scenes.push("tun", "tailscale-relative-state", "tailscale-selector");
       }
       for (const scene of scenes)
         scenarios.push({
@@ -373,16 +374,27 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       resources.push(ep);
       routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: ep }));
     }
-    if (s.scene === "tailscale-relative-state") {
+    if (s.scene === "tailscale-relative-state" || s.scene === "tailscale-selector") {
       const endpoint = singbox.tailscale({
         id: "mesh",
+        ...(s.scene === "tailscale-selector" ? { name: "Example Mesh" } : {}),
         hostname: "fixture-mesh",
-        stateDirectory: `identities/${s.platform}-mesh`,
+        stateDirectory: `identities/${s.platform}-${s.scene === "tailscale-selector" ? "selector" : "mesh"}`,
         acceptRoutes: true,
         bootstrapResolver: "192.0.2.53",
       });
       resources.push(endpoint);
-      routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: endpoint }));
+      if (s.scene === "tailscale-selector") {
+        const selector = defineProxyGroup({
+          id: "home",
+          algorithm: group.select(),
+          members: [endpoint, outbound.direct],
+        });
+        groups.push(selector);
+        routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: selector }));
+      } else {
+        routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: endpoint }));
+      }
     }
     if (s.scene === "modern")
       Object.assign(extensions.singBox as object, {

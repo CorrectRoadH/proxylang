@@ -7,6 +7,7 @@ import {
   outbound,
   proxy,
   defineSecrets,
+  dnsRule,
   ruleSet,
   singbox,
   surge,
@@ -66,7 +67,7 @@ for (const [engine, version, platforms, modes] of [
       if (engine === "sing-box") {
         scenes.push("modern");
         if (mode === "standalone")
-          scenes.push("tun", "tailscale-relative-state", "tailscale-selector");
+          scenes.push("tun", "tailscale-relative-state", "tailscale-selector", "tailscale-dns");
       }
       for (const scene of scenes)
         scenarios.push({
@@ -374,12 +375,12 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       resources.push(ep);
       routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: ep }));
     }
-    if (s.scene === "tailscale-relative-state" || s.scene === "tailscale-selector") {
+    if (s.scene.startsWith("tailscale-")) {
       const endpoint = singbox.tailscale({
         id: "mesh",
-        ...(s.scene === "tailscale-selector" ? { name: "Example Mesh" } : {}),
+        ...(s.scene === "tailscale-relative-state" ? {} : { name: "Example Mesh" }),
         hostname: "fixture-mesh",
-        stateDirectory: `identities/${s.platform}-${s.scene === "tailscale-selector" ? "selector" : "mesh"}`,
+        stateDirectory: `identities/${s.platform}-${s.scene === "tailscale-relative-state" ? "mesh" : s.scene.slice("tailscale-".length)}`,
         acceptRoutes: true,
         bootstrapResolver: "192.0.2.53",
       });
@@ -395,6 +396,11 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       } else {
         routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: endpoint }));
       }
+      if (s.scene === "tailscale-dns")
+        extensions.dns = dnsRule(["*.mesh.example", "corp.example"], {
+          endpoint,
+          acceptDefaultResolvers: true,
+        });
     }
     if (s.scene === "modern")
       Object.assign(extensions.singBox as object, {

@@ -15,11 +15,11 @@ import type {
   DeepReadonly,
   Profile,
   ProfileDefinition,
+  ProfileDnsRule,
   ProfileProxy,
   ProxyGroupDefinition,
   RouteDefinition,
 } from "../model/profile-types.js";
-import type { DnsRule } from "../model/types.js";
 export type * from "../model/profile-types.js";
 const fail = (code: string): never => {
   throw new ProfileDefinitionError(code);
@@ -119,7 +119,7 @@ export function defineProfile(input: ProfileDefinition | Profile): Profile {
       if (typeof item.name !== "string" || !item.name) fail("INVALID_FIELD");
       requireKind(item.expect, ["node", "group", "tunnel", "endpoint", "builtin"]);
     }
-  const dns = input.dns === undefined ? [] : flatten<DnsRule>(input.dns);
+  const dns = input.dns === undefined ? [] : flatten<ProfileDnsRule>(input.dns);
   if (dns) {
     const checked = dnsRulesSchema.safeParse(dns);
     if (!checked.success)

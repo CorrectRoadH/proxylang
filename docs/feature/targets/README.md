@@ -34,6 +34,7 @@
 | 隧道 | `surge.tailscale`、`surge.wireguard` | `singbox.tailscale` | 不支持 | 不支持 |
 | 相对 endpoint 状态目录 | 不适用 | 支持，基准为客户端工作目录 | 不适用 | 不适用 |
 | DNS 规则 | `[Host]` | `dns.rules`，只在 `standalone` | 不支持 | 不支持 |
+| Tailscale DNS | 不支持 | standalone 的 DNS 规则可以引用已登记的 Tailscale endpoint | 不支持 | 不支持 |
 | TUN | 不适用 | 只在 `standalone` | 不支持 | 不支持 |
 
 `group.auto()` 与 `group.urltest()` 省略参数时的默认测速 URL、间隔与容差，以及 sing-box 额外输出的 `idle_timeout` 等固定字段，沿用现行实现，写在 [sing-box 输出](format/sing-box.md)与 [Mihomo 输出](format/mihomo.md)中。
@@ -68,7 +69,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | --- | --- | --- |
 | `TARGET_UNSUPPORTED` | error | 目标或模式不在能力目录中。版本不匹配时给出该引擎与平台支持的版本 |
 | `DUPLICATE_ID` | error | 同一 Profile 中两个不同的资源或规则集对象使用同一个 id |
-| `UNLISTED_EXIT` | error | 路由、分组成员、`via`、`fallback` 或案例引用的对象没有列在这份 Profile 的 `proxies` 或 `groups` 中 |
+| `UNLISTED_EXIT` | error | 路由、分组成员、`via`、`fallback` 或案例引用的对象没有列在这份 Profile 的 `proxies` 或 `groups` 中，或 `dns[i].server.endpoint` 引用的端点对象没有列在 `proxies` 中 |
 | `SECRET_UNDECLARED` | error | 引用的秘密不属于构建定义的秘密集合 |
 | `GROUP_CYCLE` | error | 分组成员与 `via` 构成环，诊断列出环上的全部 id |
 | `EXIT_UNSUPPORTED` | error | 内置出口不被目标支持，例如非 Surge 目标使用 `outbound.rejectDrop`；诊断指向路由出口、成员或 fallback 的实际路径 |
@@ -84,7 +85,8 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `RULESET_UNSUPPORTED` | error | 目标不支持规则集 |
 | `RULESET_SOURCE_MISSING` | error | 规则集没有目标引擎的分支 |
 | `RULESET_SOURCE_CONFLICT` | error | 两个规则集的来源地址相同，但其它来源字段不同 |
-| `DNS_UNSUPPORTED` | error | 目标或模式不支持 Profile 的 DNS 规则 |
+| `DNS_UNSUPPORTED` | error | 目标或模式不支持 Profile 的 DNS 规则，或在 sing-box standalone 以外使用 Tailscale DNS（`dns[i].server`） |
+| `TAILSCALE_DNS_OPTIONS_CONFLICT` | error | `dns[i].server.acceptDefaultResolvers` 与同一端点首条 DNS 规则的生效值不同 |
 | `TUNNEL_UNSUPPORTED` | error | 隧道类型不被目标支持 |
 | `ENDPOINT_STATE_OVERLAP` | error | 状态目录按[资源图](#资源图)规则重叠 |
 | `DUPLICATE_NATIVE_NAME` | error | 两个资源的原生名字相同，或与内置出口名相同 |

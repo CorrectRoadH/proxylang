@@ -6,6 +6,7 @@ import {
   defineRoutes,
   defineSecrets,
   defineProxyGroup,
+  dnsRule,
   group,
   proxy,
   surge,
@@ -225,6 +226,84 @@ test("a Tailscale endpoint is a selector member only in sing-box standalone", ()
       (d) => d.code === "MEMBER_TYPE_UNSUPPORTED" && d.path === "groups.home.members[0]",
     ),
   );
+});
+// @feature docs/feature/profile/library/conditions.md#dns-规则
+test("Tailscale DNS checks Profile ownership, target mode and overlapping resolvers", () => {
+  const options = {
+    id: "mesh",
+    hostname: "example",
+    stateDirectory: "identities/mesh",
+    acceptRoutes: true,
+    bootstrapResolver: "192.0.2.53",
+  };
+  const endpoint = singbox.tailscale(options);
+  const target = { engine: "sing-box", platform: "linux", version: "1.14.4" } as const;
+  const base = {
+    target,
+    proxies: [endpoint],
+    groups: [],
+    routes: [],
+    fallback: outbound.direct,
+    dns: dnsRule(["*.mesh.example", "other.example"], { endpoint }),
+    singBox: {
+      listener: { port: 1080, resolver: "192.0.2.53" },
+      tun: {
+        address: ["172.16.0.1/30"],
+        stack: "mixed",
+        autoRoute: false,
+        strictRoute: false,
+        dnsMode: "disabled",
+      },
+    } as const,
+  };
+  assert.equal(base.dns[0]!.server.endpoint, endpoint);
+  const valid = make(
+    defineProfile({
+      ...base,
+      dns: [base.dns, dnsRule("host.mesh.example", { endpoint, acceptDefaultResolvers: false })],
+    }),
+  );
+  assert.equal(valid.ok, true, JSON.stringify(valid));
+  assert.throws(
+    () =>
+      defineProfile({
+        ...base,
+        dns: [base.dns, dnsRule("host.mesh.example", { endpoint, acceptDefaultResolvers: true })],
+      }),
+    { code: "DNS_RULE_CONFLICT" },
+  );
+  assert.throws(() => dnsRule("mesh.example", { endpoint: { ...endpoint } }), {
+    code: "INVALID_FIELD",
+  });
+  const inconsistent = make(
+    defineProfile({
+      ...base,
+      dns: [base.dns, dnsRule("corp.example", { endpoint, acceptDefaultResolvers: true })],
+    }),
+  );
+  assert.deepEqual(
+    inconsistent.diagnostics.map(({ code, path }) => [code, path]),
+    [["TAILSCALE_DNS_OPTIONS_CONFLICT", "dns[2].server.acceptDefaultResolvers"]],
+  );
+  const unlisted = make(defineProfile({ ...base, proxies: [singbox.tailscale(options)] }));
+  assert.deepEqual(
+    unlisted.diagnostics.map(({ code, path }) => [code, path]),
+    [
+      ["UNLISTED_EXIT", "dns[0].server.endpoint"],
+      ["UNLISTED_EXIT", "dns[1].server.endpoint"],
+    ],
+  );
+  const { singBox: _singBox, ...portable } = base;
+  for (const profile of [
+    defineProfile({ ...base, singBox: { mode: "fragment" } }),
+    defineProfile({ ...portable, target: surgeTarget }),
+  ]) {
+    assert.ok(
+      make(profile).diagnostics.some(
+        (d) => d.code === "DNS_UNSUPPORTED" && d.path === "dns[0].server",
+      ),
+    );
+  }
 });
 // @feature docs/feature/targets/README.md#诊断
 test("every unsupported Surge exit and condition is located without hiding later target checks", () => {

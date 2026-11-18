@@ -6,6 +6,7 @@ import type {
   ProxyNode as NativeNode,
   TailscaleEndpoint,
   DnsRule,
+  TailscaleDnsServer,
   GroupAlgorithm,
   Secret,
   Tun,
@@ -65,6 +66,8 @@ export type SurgeTunnel = PublicSecrets<NativeTunnel> & { readonly name?: string
 export type SingBoxEndpoint = PublicSecrets<TailscaleEndpoint> & {
   readonly name?: string;
 } & SDK<"endpoint">;
+export type TailscaleDnsOptions = TailscaleDnsServer<SingBoxEndpoint>;
+export type ProfileDnsRule = DnsRule<string | TailscaleDnsOptions>;
 export type Builtin = {
   readonly builtin: "DIRECT" | "REJECT" | "REJECT-DROP" | "REJECT-NO-DROP" | "REJECT-TINYGIF";
 } & SDK<"builtin">;
@@ -129,7 +132,7 @@ export type SingBoxOptions = {
 };
 type Common = {
   readonly cases?: Fragments<RouteCase>;
-  readonly dns?: Fragments<DnsRule>;
+  readonly dns?: Fragments<ProfileDnsRule>;
   readonly proxies: Fragments<ProfileProxy>;
   readonly routes: Fragments<Route>;
   readonly fallback: Exit;
@@ -178,7 +181,7 @@ type FlattenedProfile<D extends ProfileDefinition> = D extends ProfileDefinition
         ? ProxyGroup
         : ProxyGroup<Portable>)[];
       readonly routes: readonly Route[];
-      readonly dns: readonly DnsRule[];
+      readonly dns: readonly ProfileDnsRule[];
       readonly cases: readonly RouteCase[];
       readonly surge?: D extends { target: { engine: "surge" } } ? ResolvedSurge : never;
     }

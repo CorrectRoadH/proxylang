@@ -132,10 +132,13 @@ export function normalizeSurgeProfile(p: Profile) {
   if (p.proxies.some((x) => x.type === "sing-box-tailscale"))
     throw new ProfileDefinitionError("PROFILE_ENDPOINT_UNSUPPORTED");
   const groups = p.groups;
+  const dns = p.dns?.flatMap(({ pattern, server }) =>
+    typeof server === "string" ? [{ pattern, server }] : [],
+  );
   return lowerSurgeProfile({
     target: p.target,
     ...p.surge,
-    ...(p.dns?.length ? { hosts: [...p.dns, ...(p.surge?.hosts ?? [])] } : {}),
+    ...(dns?.length ? { hosts: [...dns, ...(p.surge?.hosts ?? [])] } : {}),
     nodes: nodes.map((n) => {
       const { name: _name, ...rest } = n;
       return { ...rest, ...("via" in rest && rest.via ? { via: rest.via.id } : {}) };

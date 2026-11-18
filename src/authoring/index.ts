@@ -21,6 +21,7 @@ export type {
   ProxyGroup,
   SurgeTunnel,
   SingBoxEndpoint,
+  TailscaleDnsOptions,
   Secrets,
   SecretRef,
 } from "../model/profile-types.js";

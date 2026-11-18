@@ -121,7 +121,15 @@ export function normalizeProfile(profile: Profile): NormalizedProfile {
         };
       }),
       fallback: destination(profile.fallback),
-      ...(profile.dns === undefined ? {} : { dns: profile.dns }),
+      ...(profile.dns === undefined
+        ? {}
+        : {
+            dns: profile.dns.map(({ pattern, server }) => ({
+              pattern,
+              server:
+                typeof server === "string" ? server : { ...server, endpoint: server.endpoint.id },
+            })),
+          }),
       ...extension,
     }),
   ) as NormalizedProfile;

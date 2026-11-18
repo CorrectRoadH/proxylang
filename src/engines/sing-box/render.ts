@@ -167,9 +167,24 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
         server: "127.0.0.1",
         server_port: model.listener!.port,
       });
+    const tailscaleDnsTags = new Map<string, string>();
     dns.rules = model.dns.map((rule, index) => {
       const tag = `pl-domain-dns-${index}`;
-      if (isIP(rule.server)) {
+      const condition = dnsCondition(rule);
+      if (typeof rule.server !== "string") {
+        const { endpoint, acceptDefaultResolvers } = rule.server;
+        const existing = tailscaleDnsTags.get(endpoint);
+        if (existing !== undefined) return { ...condition, server: existing };
+        tailscaleDnsTags.set(endpoint, tag);
+        dns.servers.push({
+          type: "tailscale",
+          tag,
+          endpoint: name(endpoint),
+          ...(acceptDefaultResolvers === undefined
+            ? {}
+            : { accept_default_resolvers: acceptDefaultResolvers }),
+        });
+      } else if (isIP(rule.server)) {
         dns.servers.push({ type: "udp", tag, server: rule.server, server_port: 53 });
       } else {
         const url = dohUrl(rule.server);
@@ -183,7 +198,7 @@ export function singbox(plan: EnginePlan, secret: (token: Secret) => string): Js
           domain_resolver: { server: DNS, strategy: "prefer_ipv4" },
         });
       }
-      return { ...dnsCondition(rule), server: tag };
+      return { ...condition, server: tag };
     });
   }
   if (model.endpoints?.length) {

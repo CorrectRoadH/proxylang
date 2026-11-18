@@ -168,7 +168,11 @@ export type ConcreteGroup =
     };
 
 export type Engine = "surge" | "sing-box" | "mihomo" | "stash";
-export type DnsRule = { readonly pattern: string; readonly server: string };
+export type DnsRule<Server = string> = { readonly pattern: string; readonly server: Server };
+export type TailscaleDnsServer<Endpoint> = {
+  readonly endpoint: Endpoint;
+  readonly acceptDefaultResolvers?: boolean;
+};
 export type Tun = {
   readonly address: readonly string[];
   readonly stack: "system" | "gvisor" | "mixed";
@@ -222,7 +226,7 @@ export type NormalizedProfile = {
   readonly rules: readonly ExpandedRule[];
   readonly fallback: Action;
   readonly listener?: { readonly port: number; readonly resolver: string };
-  readonly dns?: readonly DnsRule[];
+  readonly dns?: readonly DnsRule<string | TailscaleDnsServer<string>>[];
   readonly tun?: Tun;
   readonly domainMatching?: "prefer-sniffed";
   readonly serverAliases?: Readonly<Record<string, string>>;

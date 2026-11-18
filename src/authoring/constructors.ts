@@ -22,6 +22,8 @@ import type {
   ExternalRuleSet,
   Condition,
   Fragments,
+  ProfileDnsRule,
+  TailscaleDnsOptions,
 } from "../model/profile-types.js";
 import type { DnsRule } from "../model/types.js";
 import { created, flatten, parsed, requireKind, inspectRecord } from "./data.js";
@@ -29,15 +31,23 @@ import { proxyBuilder } from "./proxy-builder.js";
 import { surgeMatch } from "./surge-match.js";
 export function dnsRule(pattern: string, server: string): DnsRule;
 export function dnsRule(pattern: readonly string[], server: string): DnsRule[];
+export function dnsRule(pattern: string, server: TailscaleDnsOptions): DnsRule<TailscaleDnsOptions>;
+export function dnsRule(
+  pattern: readonly string[],
+  server: TailscaleDnsOptions,
+): DnsRule<TailscaleDnsOptions>[];
 // @concord-code
 // @concord-implements docs/feature/profile/library/conditions.md#dns-规则
-export function dnsRule(pattern: string | readonly string[], server: string): DnsRule | DnsRule[] {
+export function dnsRule(
+  pattern: string | readonly string[],
+  server: ProfileDnsRule["server"],
+): ProfileDnsRule | ProfileDnsRule[] {
   const batch = Array.isArray(pattern);
   const result = parsed(
     dnsRulesSchema,
     (batch ? pattern : [pattern]).map((p) => ({ pattern: p, server })),
   ).map((item) => created(item, "dns"));
-  return batch ? (Object.freeze(result) as unknown as DnsRule[]) : result[0]!;
+  return batch ? (Object.freeze(result) as unknown as ProfileDnsRule[]) : result[0]!;
 }
 type DomainOptions = { readonly includeSniffed?: boolean };
 type IpOptions = { readonly noResolve?: boolean };

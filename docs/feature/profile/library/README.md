@@ -47,7 +47,7 @@ General 片段在每次 defineProfile 内按对象身份缓存校验，每次出
 | `outbound.direct` `outbound.reject` | 常量 | 内置直连与拒绝，所有引擎可用 |
 | `outbound.rejectDrop` `outbound.rejectNoDrop` `outbound.rejectTinyGif` | 常量 | 只用于 Surge 目标 |
 | `defineSecrets` | 见[秘密](#秘密) | |
-| `dnsRule` | `(pattern: string \| readonly string[], server: string) => DnsRule \| DnsRule[]` | 按域名指定 DNS 服务器 |
+| `dnsRule` | 见 [DNS 规则](conditions.md#dns-规则) | 按域名指定 IP、DoH 或 Tailscale DNS |
 
 `ProfileDefinition` 的字段：`target`、`proxies`、`groups`、`routes`、`fallback`，可选的 `dns`、`cases`，以及与目标引擎对应的 `surge`、`singBox` 或 `mihomo`（Stash 没有专属字段）。`cases` 的结构见[路由案例 API](../../routing-cases/library.md#routecase)。
 
@@ -153,7 +153,7 @@ defineRoutes({ when: cnDirect, to: outbound.direct });
 
 ## 公开类型
 
-`proxylang` 导出的类型：`Profile`、`ProfileDefinition`、`Target`、`Exit`、`Route`、`Condition`、`RuleSet`、`Fragments`、`ProxyNode`（及各协议节点类型）、`ProxyGroup`、`GroupAlgorithm`、`SurgeTunnel`、`SingBoxEndpoint`、`DnsRule`、`SurgeGeneral`、`SurgeHost`、`Secrets`、`SecretRef`、`ProfileDefinitionError`，以及[构建](../../build/library.md)与[路由案例](../../routing-cases/library.md)页列出的结果类型。这里没有列出的类型不是公开 API。
+`proxylang` 导出的类型：`Profile`、`ProfileDefinition`、`Target`、`Exit`、`Route`、`Condition`、`RuleSet`、`Fragments`、`ProxyNode`（及各协议节点类型）、`ProxyGroup`、`GroupAlgorithm`、`SurgeTunnel`、`SingBoxEndpoint`、`DnsRule`、`TailscaleDnsOptions`、`SurgeGeneral`、`SurgeHost`、`Secrets`、`SecretRef`、`ProfileDefinitionError`，以及[构建](../../build/library.md)与[路由案例](../../routing-cases/library.md)页列出的结果类型。这里没有列出的类型不是公开 API。
 
 ## 错误
 

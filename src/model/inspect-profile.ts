@@ -116,6 +116,19 @@ export function inspectProfile(
     )
       error("EXIT_UNSUPPORTED", path, owner);
   };
+  const tailscaleDnsDefaults = new Map<object, boolean>();
+  profile.dns?.forEach((rule, i) => {
+    if (typeof rule.server === "string") return;
+    const { endpoint, acceptDefaultResolvers = false } = rule.server;
+    const path = `dns[${i}].server`;
+    reference(endpoint, `${path}.endpoint`, rule);
+    if (profile.target.engine !== "sing-box" || profile.singBox?.mode === "fragment")
+      error("DNS_UNSUPPORTED", path, rule, "Tailscale DNS requires sing-box standalone");
+    const previous = tailscaleDnsDefaults.get(endpoint);
+    if (previous === undefined) tailscaleDnsDefaults.set(endpoint, acceptDefaultResolvers);
+    else if (previous !== acceptDefaultResolvers)
+      error("TAILSCALE_DNS_OPTIONS_CONFLICT", `${path}.acceptDefaultResolvers`, rule);
+  });
   const edges = new Map<object, object[]>();
   for (const resource of resources) {
     const path =

@@ -51,7 +51,9 @@ Reality、uTLS 分别输出 tls.reality、tls.utls 且 enabled=true；Vision 输
 
 规则集定义在 `route.rule_set`，字段为 `type: "remote"`、`tag`、`url`、`format`、`update_interval` 和内联 `http_client`。下载使用 HTTP/2 客户端与直连拨号，允许内核回退到 HTTP/1.1。standalone 的 `http_client.domain_resolver` 指向基础解析器 `pl-dns`，策略为 `prefer_ipv4`。fragment 使用宿主的默认域名解析器。规则集 tag 使用去重代表的 id，业务条件的 `rule_set` 引用同步映射。缓存由作者显式开启。
 
-精确 DNS pattern 用 domain，通配 pattern 用锚定且转义的 domain_regex，不匹配根域；转为小写。每项对应 pl-domain-dns-N typed UDP 或 HTTPS server，HTTPS 保留端口、路径、tls.enabled，域名上游用 pl-dns 引导。
+精确 DNS pattern 用 domain，通配 pattern 用锚定且转义的 domain_regex，不匹配根域；转为小写。每条规则的 `server` 引用 `pl-domain-dns-N`。IP 和 DoH 各自按规则序号生成 server，保留 DoH 端口及路径，域名上游用 `pl-dns` 引导。
+
+每个端点只生成一个 Tailscale DNS server，引用该端点的规则共用首条规则的 `pl-domain-dns-N`。server 编码为 `{"type":"tailscale","tag":"pl-domain-dns-N","endpoint":"Example Mesh"}`，`endpoint` 使用端点的原生 tag。首条规则显式声明的 `acceptDefaultResolvers` 编码为 `accept_default_resolvers`，省略时使用原生默认值。端点的引导解析器仍由 `bootstrapResolver` 提供。
 
 standalone 有 DNS 规则时，在 listener.port 的 UDP 侧生成仅监听 127.0.0.1 的 pl-dns-listener。pl-routed-dns 指向它，route.default_domain_resolver 与代理拨号使用它，进入本机 DNS 规则；DoH 引导始终直接使用 pl-dns，防止递归。无规则时默认解析器仍为 pl-dns。
 

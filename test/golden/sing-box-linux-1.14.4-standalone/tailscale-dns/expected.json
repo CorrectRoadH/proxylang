@@ -1,0 +1,126 @@
+{
+  "log": {
+    "level": "warn"
+  },
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "pl-direct"
+    },
+    {
+      "type": "trojan",
+      "tag": "edge",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "password": "test-only",
+      "tls": {
+        "enabled": true,
+        "server_name": "proxy.example.com"
+      },
+      "domain_resolver": {
+        "server": "pl-routed-dns",
+        "strategy": "prefer_ipv4"
+      }
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "inbound": [
+          "pl-dns-listener"
+        ],
+        "action": "hijack-dns"
+      },
+      {
+        "domain": [
+          "mesh.example"
+        ],
+        "action": "route",
+        "outbound": "Example Mesh"
+      },
+      {
+        "domain_suffix": [
+          "example.com"
+        ],
+        "action": "route",
+        "outbound": "edge"
+      }
+    ],
+    "final": "edge",
+    "default_domain_resolver": {
+      "server": "pl-routed-dns",
+      "strategy": "prefer_ipv4"
+    }
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "pl-listener",
+      "listen": "127.0.0.1",
+      "listen_port": 16900
+    },
+    {
+      "type": "direct",
+      "tag": "pl-dns-listener",
+      "listen": "127.0.0.1",
+      "listen_port": 16900,
+      "network": "udp"
+    }
+  ],
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "pl-dns",
+        "server": "192.0.2.53",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "pl-routed-dns",
+        "server": "127.0.0.1",
+        "server_port": 16900
+      },
+      {
+        "type": "tailscale",
+        "tag": "pl-domain-dns-0",
+        "endpoint": "Example Mesh",
+        "accept_default_resolvers": true
+      },
+      {
+        "type": "udp",
+        "tag": "pl-ts-dns-mesh",
+        "server": "192.0.2.53",
+        "server_port": 53
+      }
+    ],
+    "final": "pl-dns",
+    "strategy": "prefer_ipv4",
+    "rules": [
+      {
+        "domain_regex": [
+          "^.+\\.mesh\\.example$"
+        ],
+        "server": "pl-domain-dns-0"
+      },
+      {
+        "domain": [
+          "corp.example"
+        ],
+        "server": "pl-domain-dns-0"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "type": "tailscale",
+      "tag": "Example Mesh",
+      "hostname": "fixture-mesh",
+      "state_directory": "identities/linux-dns",
+      "accept_routes": true,
+      "domain_resolver": {
+        "server": "pl-ts-dns-mesh"
+      }
+    }
+  ]
+}

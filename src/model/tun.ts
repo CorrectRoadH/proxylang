@@ -30,8 +30,10 @@ export function unsafeTunResolvers(
   const networks = model.tun.address.map((value) => ipaddr.parseCIDR(value));
   const resolvers = [
     ...(model.listener ? [model.listener.resolver] : []),
-    ...(model.dns ?? []).map((rule) =>
-      isIP(rule.server) ? rule.server : new URL(rule.server).hostname.replace(/^\[|\]$/g, ""),
+    ...(model.dns ?? []).flatMap(({ server }) =>
+      typeof server === "string"
+        ? [isIP(server) ? server : new URL(server).hostname.replace(/^\[|\]$/g, "")]
+        : [],
     ),
     ...(model.endpoints ?? []).map((endpoint) => endpoint.bootstrapResolver),
   ];

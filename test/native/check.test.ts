@@ -101,7 +101,7 @@ for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === 
           });
           assert.doesNotMatch(stdout + stderr, /deprecat/i);
           for (const path of statePaths) await assert.rejects(access(path), { code: "ENOENT" });
-          if (s.scene === "tailscale-relative-state" || s.scene === "tailscale-selector") {
+          if (s.scene.startsWith("tailscale-")) {
             const working = join(root, "working");
             await mkdir(working);
             const listener = createServer();
@@ -110,7 +110,9 @@ for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === 
             try {
               const addr = listener.address();
               assert.ok(addr && typeof addr !== "string");
-              config.inbounds[0].listen_port = addr.port;
+              for (const inbound of config.inbounds) inbound.listen_port = addr.port;
+              for (const server of config.dns.servers)
+                if (server.tag === "pl-routed-dns") server.server_port = addr.port;
               config.log = { level: "info" };
               for (const endpoint of config.endpoints) {
                 assert.equal(endpoint.auth_key, undefined);

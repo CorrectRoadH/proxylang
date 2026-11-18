@@ -87,11 +87,13 @@ Surge 不生成共享资源定义，但同一 URL 的格式与有效更新间隔
 
 ## DNS 规则
 
-`dnsRule(pattern, server)` 接受字符串或只读字符串数组；数组返回同序 `DnsRule[]`，空数组合法，输入被复制。`DnsRule` 为 `{ readonly pattern: string; readonly server: string }`，Profile 的 `dns` 接受嵌套片段。
+`dnsRule(pattern, server)` 接受字符串或只读字符串数组作为 `pattern`，数组返回同序规则数组，空数组合法，输入被复制。`DnsRule<Server = string>` 为 `{ readonly pattern: string; readonly server: Server }`，Profile 的 `dns` 接受嵌套片段。
 
-pattern 最长 253 字符，只接受精确域名或前导 `*.`。通配符匹配非空、多级子域，不匹配根域；比较忽略大小写。server 最长 2048 字符，接受 IP 或 HTTPS DoH URL。DoH 禁止认证、query、fragment、空端口、反斜杠、空白及会被 URL 规范化改变的路径；自定义端口与路径保留，省略路径用 `/dns-query`，显式 `/` 保留。
+pattern 最长 253 字符，只接受精确域名或前导 `*.`。通配符匹配非空、多级子域，不匹配根域；比较忽略大小写。字符串 server 最长 2048 字符，接受 IP 或 HTTPS DoH URL。DoH 禁止认证、query、fragment、空端口、反斜杠、空白及会被 URL 规范化改变的路径；自定义端口与路径保留，省略路径用 `/dns-query`，显式 `/` 保留。
 
-展开后最多 2000 项，重复模式拒绝。匹配集合重叠且 server 不同报 `DNS_RULE_CONFLICT`，相同 server 的包含关系合法。不排序或去重。
+sing-box standalone 也接受 `TailscaleDnsOptions`，形状为 `{ endpoint: SingBoxEndpoint, acceptDefaultResolvers?: boolean }`。端点提供 tailnet 下发的 MagicDNS 和分域 DNS。`acceptDefaultResolvers: true` 允许将未命中查询交给 tailnet 下发的默认解析器，默认 false。同一端点的所有规则须使用相同的生效值。
+
+展开后最多 2000 项，重复模式拒绝。匹配集合重叠且 server 不同报 `DNS_RULE_CONFLICT`，相同 server 的包含关系合法。Tailscale DNS 按端点对象身份及 `acceptDefaultResolvers` 的生效值判等。不排序或去重。
 
 Surge 将 `dns` 放在原生 hosts 前，合并后最多 2000 项。跨入口出现忽略大小写后相同的 pattern 报 `DNS_HOSTS_CONFLICT`，路径指向 `dns[i]` 与 `surge.hosts[j]`，即使内容相同也拒绝。不同原生 glob 保留客户端顺序语义。
 

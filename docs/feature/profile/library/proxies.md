@@ -53,7 +53,7 @@ TCP-only 沿全部可选成员及 `via` 路径传播；非 TCP 限定路由和 f
 
 `singbox.tailscale({ id, name?, hostname, stateDirectory, acceptRoutes, bootstrapResolver, authKey?, exitNode?, exitNodeAllowLanAccess? })` 返回 `SingBoxEndpoint`。hostname 是 DNS 单标签，bootstrapResolver 是 IP；authKey 为秘密引用，exitNode 为 IP，exitNodeAllowLanAccess 只在 exitNode 存在时可写。
 
-stateDirectory 必须为规范绝对 POSIX 路径，不接受根目录、空段、`.`、`..`、环境变量、反斜杠或控制字符。状态目录不可互相包含，跨 Profile 也不可共用，不可与构建输出重叠。检查是词法防误用，运行方还须保证真实路径和身份独占。
+`stateDirectory` 接受规范的绝对或相对 POSIX 路径，例如 `/var/lib/mesh` 或 `identities/mesh`。拒绝根目录、空段、`.`、`..`、`$`、反斜杠和控制字符。相对路径也拒绝盘符前缀和以 `~` 开头的路径。客户端按自己的工作目录解析相对路径。重叠规则见[资源图](../../targets/README.md#资源图)，运行方须保证真实路径和身份独占。
 
 只在带 `with_tailscale` 的 sing-box standalone 支持。列入 Profile.proxies，可作为路由、fallback 与案例出口；不能作为分组成员或 `via`。不广告子网或出口，不自动配置 MagicDNS。
 

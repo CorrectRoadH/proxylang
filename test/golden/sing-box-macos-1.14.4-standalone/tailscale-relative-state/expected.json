@@ -1,0 +1,83 @@
+{
+  "log": {
+    "level": "warn"
+  },
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "pl-direct"
+    },
+    {
+      "type": "trojan",
+      "tag": "edge",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "password": "test-only",
+      "tls": {
+        "enabled": true,
+        "server_name": "proxy.example.com"
+      }
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "domain": [
+          "mesh.example"
+        ],
+        "action": "route",
+        "outbound": "mesh"
+      },
+      {
+        "domain_suffix": [
+          "example.com"
+        ],
+        "action": "route",
+        "outbound": "edge"
+      }
+    ],
+    "final": "edge",
+    "default_domain_resolver": {
+      "server": "pl-dns",
+      "strategy": "prefer_ipv4"
+    }
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "pl-listener",
+      "listen": "127.0.0.1",
+      "listen_port": 16900
+    }
+  ],
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "pl-dns",
+        "server": "192.0.2.53",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "pl-ts-dns-mesh",
+        "server": "192.0.2.53",
+        "server_port": 53
+      }
+    ],
+    "final": "pl-dns",
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [
+    {
+      "type": "tailscale",
+      "tag": "mesh",
+      "hostname": "fixture-mesh",
+      "state_directory": "identities/macos-mesh",
+      "accept_routes": true,
+      "domain_resolver": {
+        "server": "pl-ts-dns-mesh"
+      }
+    }
+  ]
+}

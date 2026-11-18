@@ -208,3 +208,66 @@ test("cross-Profile endpoint state and output overlaps are reported before rende
     false,
   );
 });
+
+// @feature docs/feature/targets/README.md#资源图
+test("relative endpoint state directories overlap by path segment within a batch", async () => {
+  const { singbox } = await import("proxylang");
+  const endpoint = (id: string, stateDirectory: string) =>
+    singbox.tailscale({
+      id,
+      hostname: id,
+      stateDirectory,
+      acceptRoutes: true,
+      bootstrapResolver: "192.0.2.53",
+    });
+  const profile = (...proxies: ReturnType<typeof endpoint>[]) =>
+    defineProfile({
+      target: { engine: "sing-box", platform: "linux", version: "1.14.4" },
+      proxies,
+      groups: [],
+      routes: [],
+      fallback: outbound.direct,
+      singBox: { listener: { port: 16900, resolver: "192.0.2.53" } },
+    });
+  for (const path of [
+    "",
+    "/",
+    ".",
+    "..",
+    "a/./b",
+    "a/../b",
+    "a//b",
+    "a/",
+    "a\\b",
+    "a/$state",
+    "a/\u001f",
+    "C:/state",
+    "C:state",
+    "~/state",
+  ])
+    assert.throws(() => endpoint("invalid", path), { code: "INVALID_FIELD" });
+
+  const parent = endpoint("parent", "identity");
+  const child = endpoint("child", "identity/mesh");
+  const shared = checkBuild(
+    defineBuild({ profiles: { one: profile(parent), two: profile(child) } }),
+  );
+  assert.deepEqual(
+    shared.profiles.map((p) => p.diagnostics.map((d) => d.code)),
+    [["ENDPOINT_STATE_OVERLAP"], ["ENDPOINT_STATE_OVERLAP"]],
+  );
+  const sameProfile = checkBuild(defineBuild({ profiles: { one: profile(parent, child) } }));
+  assert.ok(sameProfile.profiles[0]!.diagnostics.some((d) => d.code === "ENDPOINT_STATE_OVERLAP"));
+
+  const separate = checkBuild(
+    defineBuild({
+      outDir: "/identity/mesh",
+      profiles: {
+        one: profile(parent, endpoint("prefix", "identity-backup")),
+        two: profile(endpoint("absolute", "/other/identity")),
+      },
+    }),
+  );
+  assert.equal(separate.outputDirectoryChecked, true);
+  assert.equal(separate.ok, true, JSON.stringify(separate));
+});

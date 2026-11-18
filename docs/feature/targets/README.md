@@ -32,6 +32,7 @@
 | `includeSniffed: true` | extended-matching | 需要 `singBox.domainMatching: "prefer-sniffed"` | 不支持 | 不支持 |
 | 规则集 | `surge` 分支 | `singBox` 分支 | `mihomo` 分支 | 不支持 |
 | 隧道 | `surge.tailscale`、`surge.wireguard` | `singbox.tailscale` | 不支持 | 不支持 |
+| 相对 endpoint 状态目录 | 不适用 | 支持，基准为客户端工作目录 | 不适用 | 不适用 |
 | DNS 规则 | `[Host]` | `dns.rules`，只在 `standalone` | 不支持 | 不支持 |
 | TUN | 不适用 | 只在 `standalone` | 不支持 | 不支持 |
 
@@ -43,7 +44,7 @@
 
 - 分组成员与节点的 `via` 构成一张依赖图，图中不能有环，包括“节点 → `via` 分组 → 成员节点”这样跨类型的环。
 - 节点的 TCP-only 属性沿所有可选路径传播：一个出口的任何可选路径上有 TCP-only 节点时，指向它的路由必须用 `match.network("tcp")` 限定，`fallback` 也不能指向它，除非 sing-box Profile 声明了 `singBox.unsupportedUdp: "reject"`。
-- sing-box endpoint 的状态目录互不包含，也不能与构建的输出目录重叠；同一批次中两份 Profile 声明相同状态目录也是重叠。
+- 同一构建批次内，sing-box endpoint 的绝对状态目录彼此比较，相对状态目录也彼此比较。相同目录或按路径段互相包含均算重叠，包括不同 Profile 的声明。构建输出目录只与绝对状态目录比较。相对状态目录以客户端工作目录为基准。
 
 ## 原生名字
 
@@ -85,7 +86,7 @@ check 结果中的每条诊断有 `severity`、`code`、`profile`、`path`，能
 | `RULESET_SOURCE_CONFLICT` | error | 两个规则集的来源地址相同，但其它来源字段不同 |
 | `DNS_UNSUPPORTED` | error | 目标或模式不支持 Profile 的 DNS 规则 |
 | `TUNNEL_UNSUPPORTED` | error | 隧道类型不被目标支持 |
-| `ENDPOINT_STATE_OVERLAP` | error | endpoint 状态目录之间、或者与输出目录互相包含 |
+| `ENDPOINT_STATE_OVERLAP` | error | 状态目录按[资源图](#资源图)规则重叠 |
 | `DUPLICATE_NATIVE_NAME` | error | 两个资源的原生名字相同，或与内置出口名相同 |
 | `NAME_UNSAFE` | error | 原生名字包含该引擎格式的分隔符或控制字符 |
 

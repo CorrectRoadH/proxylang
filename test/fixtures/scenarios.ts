@@ -65,7 +65,7 @@ for (const [engine, version, platforms, modes] of [
         scenes.push("dns", "tunnel");
       if (engine === "sing-box") {
         scenes.push("modern");
-        if (mode === "standalone") scenes.push("tun");
+        if (mode === "standalone") scenes.push("tun", "tailscale-relative-state");
       }
       for (const scene of scenes)
         scenarios.push({
@@ -372,6 +372,17 @@ export function scenarioDefinition(s: Scenario): ProfileDefinition {
       });
       resources.push(ep);
       routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: ep }));
+    }
+    if (s.scene === "tailscale-relative-state") {
+      const endpoint = singbox.tailscale({
+        id: "mesh",
+        hostname: "fixture-mesh",
+        stateDirectory: `identities/${s.platform}-mesh`,
+        acceptRoutes: true,
+        bootstrapResolver: "192.0.2.53",
+      });
+      resources.push(endpoint);
+      routes.unshift(...defineRoutes({ when: match.domain("mesh.example"), to: endpoint }));
     }
     if (s.scene === "modern")
       Object.assign(extensions.singBox as object, {

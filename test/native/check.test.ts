@@ -1,6 +1,6 @@
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, rm, access } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, rm, access } from "node:fs/promises";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { join, resolve } from "node:path";
@@ -13,6 +13,32 @@ import { defineBuild, runBuild } from "proxylang";
 import { fixtureSecrets, scenarioProfile, scenarios } from "../fixtures/scenarios.js";
 const exec = promisify(execFile),
   enabled = process.env.PROXYLANG_NATIVE_CHECK === "1";
+
+async function assertSingBoxStarts(binary: string, args: string[], cwd: string) {
+  const child = spawn(binary, ["run", ...args], {
+    cwd,
+    timeout: 10000,
+    killSignal: "SIGKILL",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let started = false;
+  let output = "";
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.setEncoding("utf8");
+    stream.on("data", (chunk: string) => {
+      output += chunk;
+      if (!started && output.includes("sing-box started")) {
+        started = true;
+        child.kill("SIGTERM");
+      }
+    });
+  }
+  const [exitCode] = await once(child, "close");
+  assert.match(output, /sing-box started/, output);
+  assert.doesNotMatch(output, /deprecat/i);
+  assert.equal(exitCode, 0, output);
+}
+
 // @feature docs/engineering/testing/README.md
 for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === "mihomo"))
   test.skipIf(!enabled)(
@@ -61,9 +87,12 @@ for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === 
           }
           for (const set of config.route.rule_set ?? [])
             set.url = `http://127.0.0.1:${address.port}/rules`;
-          for (const endpoint of config.endpoints ?? []) {
+          const statePaths: string[] = [];
+          for (const [i, endpoint] of (config.endpoints ?? []).entries()) {
             assert.match(version.stdout, /\bwith_tailscale\b/);
-            endpoint.state_directory = join(root, "identity");
+            if (endpoint.state_directory.startsWith("/"))
+              endpoint.state_directory = join(root, `identity-${i}`);
+            statePaths.push(resolve(root, endpoint.state_directory));
           }
           await writeFile(file, JSON.stringify(config), { mode: 0o600 });
           const { stdout, stderr } = await exec(binary, ["check", "-c", file], {
@@ -71,7 +100,31 @@ for (const s of scenarios.filter((s) => s.engine === "sing-box" || s.engine === 
             timeout: 15000,
           });
           assert.doesNotMatch(stdout + stderr, /deprecat/i);
-          await assert.rejects(access(join(root, "identity")));
+          for (const path of statePaths) await assert.rejects(access(path), { code: "ENOENT" });
+          if (s.scene === "tailscale-relative-state") {
+            const working = join(root, "working");
+            await mkdir(working);
+            const listener = createServer();
+            listener.listen(0, "127.0.0.1");
+            await once(listener, "listening");
+            try {
+              const addr = listener.address();
+              assert.ok(addr && typeof addr !== "string");
+              config.inbounds[0].listen_port = addr.port;
+              config.log = { level: "info" };
+              for (const endpoint of config.endpoints) {
+                assert.equal(endpoint.auth_key, undefined);
+                endpoint.control_url = `http://127.0.0.1:${address.port}/control`;
+              }
+              await writeFile(file, JSON.stringify(config));
+            } finally {
+              await new Promise<void>((done) => listener.close(() => done()));
+            }
+            await assertSingBoxStarts(binary, ["-c", file, "-D", working], root);
+            for (const endpoint of config.endpoints)
+              await access(join(working, endpoint.state_directory));
+            for (const path of statePaths) await assert.rejects(access(path), { code: "ENOENT" });
+          }
         } else {
           const config = parse(source);
           if (s.mode === "fragment") {
@@ -200,32 +253,11 @@ test.skipIf(!enabled)(
       await writeFile(file, JSON.stringify(config));
       await new Promise<void>((done) => portReservation.close(() => done()));
 
-      const child = spawn(
+      await assertSingBoxStarts(
         resolve(`.cache/native/sing-box-${bootstrapScenario.version}`),
-        ["run", "-c", file],
-        {
-          cwd: root,
-          timeout: 10000,
-          killSignal: "SIGKILL",
-          stdio: ["ignore", "pipe", "pipe"],
-        },
+        ["-c", file],
+        root,
       );
-      let started = false;
-      let output = "";
-      for (const stream of [child.stdout, child.stderr]) {
-        stream.setEncoding("utf8");
-        stream.on("data", (chunk: string) => {
-          output += chunk;
-          if (!started && output.includes("sing-box started")) {
-            started = true;
-            child.kill("SIGTERM");
-          }
-        });
-      }
-      const [exitCode] = await once(child, "close");
-      assert.match(output, /sing-box started/, output);
-      assert.doesNotMatch(output, /deprecat/i);
-      assert.equal(exitCode, 0, output);
       assert.deepEqual(downloadedHosts, [`rules.example.com:${httpAddress.port}`]);
     } finally {
       portReservation.close();

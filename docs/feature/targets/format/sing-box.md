@@ -60,3 +60,5 @@ standalone 有 DNS 规则时，在 listener.port 的 UDP 侧生成仅监听 127.
 TUN 入站 tag 为 pl-tun，逐字段编码 address/stack/auto_route/strict_route/dns_mode/route_exclude_address。autoRoute true 同时设置 route.auto_detect_interface=true。输入约束和运行所有权见[TUN](../../profile/library/sing-box.md#tun)。
 
 Tailscale 在 endpoints 中编码 type=tailscale、tag、state_directory、hostname、accept_routes 及可选 auth_key/exit_node/exit_node_allow_lan_access。另生成固定直连 typed UDP DNS pl-ts-dns-<id>，供 endpoint.domain_resolver 引用，业务 DNS final 仍是 pl-dns。SDK 不访问身份目录，checker 不得创建它。
+
+`state_directory` 保留声明的路径字符串。相对路径在运行时由 sing-box 基于客户端工作目录解析，例如 `identities/mesh` 在 CLI 下相对于 `-D` 指定的目录。

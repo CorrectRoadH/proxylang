@@ -251,15 +251,11 @@ export const endpointSchema = z
     stateDirectory: z
       .string()
       .max(4096)
-      .refine(
-        (x) =>
-          x.startsWith("/") &&
-          !/[\p{C}$\\]/u.test(x) &&
-          x
-            .split("/")
-            .slice(1)
-            .every((part) => part !== "" && part !== "." && part !== ".."),
-      ),
+      .refine((value) => {
+        if (/[\p{C}$\\]/u.test(value) || /^(?:~|[a-z]:)/i.test(value)) return false;
+        const path = value.startsWith("/") ? value.slice(1) : value;
+        return path.split("/").every((part) => part !== "" && part !== "." && part !== "..");
+      }),
     acceptRoutes: z.boolean(),
     bootstrapResolver: ip,
     authKey: secretSchema.optional(),

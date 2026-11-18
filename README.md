@@ -1,10 +1,38 @@
 # proxylang
 
-用 TypeScript 维护多台设备的代理配置，生成 Surge、sing-box、Mihomo 和 Stash 原生文件。共享节点与规则只写一次；每台设备明确选择自己的出口、客户端和设置。
+家里好几台设备，有的用 Surge，有的用 sing-box，每台的代理配置都要单独维护。节点和规则改一处，要去好几个文件里同步，漏改了也没人提醒。
 
-## 从一份 Profile 开始
+proxylang 让你用 TypeScript 把这些配置写在一个地方：节点、分组和规则只写一次，每台设备各自挑出口、客户端和设置，最后生成 Surge、sing-box、Mihomo、Stash 能直接用的配置文件。写错了在生成之前就会报错，不会悄悄丢掉一部分配置。
 
-使用 Node 24（>=24.11.0）或 Node 26。安装 `proxylang`，在项目根目录创建 `proxylang.config.ts`：
+## 支持哪些客户端
+
+| 客户端   | 平台和版本                    | 生成什么                | 怎么验证                                                                       | 支持程度                                                                           |
+| -------- | ----------------------------- | ----------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| sing-box | macOS / Linux，1.12.0、1.14.4 | 完整配置或片段，`.json` | 比对生成结果；CI 用真实内核做配置检查；1.14.4 完整配置会在空缓存下真正启动一次 | 最完整：支持 DNS 分流、TUN（仅 1.14.4 完整配置）、Tailscale endpoint；作者日常在用 |
+| Surge    | macOS 6.10.0、iOS 5.21.0      | 完整配置，`.conf`       | 比对生成结果；Surge 没有能在 CI 里跑的检查器，靠实际使用验收                   | 完整：支持 Smart 分组、`[Host]` DNS、Tailscale 和 WireGuard；作者日常在用          |
+| Mihomo   | macOS / Linux，1.19.32        | 完整配置或片段，`.yaml` | 比对生成结果；CI 用真实内核做配置检查                                          | 常用功能都有；不支持 DNS 规则、隧道和 TUN                                          |
+| Stash    | macOS 4.2.1                   | 只有片段，`.yaml`       | 只比对生成结果                                                                 | 基础：只有 select 分组，不支持规则集、DNS 和隧道；入口和 DNS 由你自己的配置提供    |
+
+不在表里的客户端、平台或版本会直接报错。几个常被问到的差别：
+
+| 功能                      | Surge                                               | sing-box                          | Mihomo     | Stash    |
+| ------------------------- | --------------------------------------------------- | --------------------------------- | ---------- | -------- |
+| 协议                      | http、trojan、anytls、hysteria2、shadowsocks、vmess | 再加 vless（部分扩展只在 1.14.4） | 再加 vless | 同 Surge |
+| 自动选节点 `group.auto()` | Smart                                               | urltest                           | urltest    | 不支持   |
+| 远程规则集                | 支持                                                | 支持                              | 支持       | 不支持   |
+| 按进程名分流              | 只在 macOS                                          | 支持                              | 支持       | 支持     |
+| 嗅探域名匹配              | 支持                                                | 只在 1.14.4                       | 不支持     | 不支持   |
+| DNS 分流                  | `[Host]`                                            | 只在完整配置                      | 不支持     | 不支持   |
+| Tailscale / WireGuard     | 都支持                                              | Tailscale                         | 不支持     | 不支持   |
+| TUN                       | 不适用                                              | 只在 1.14.4 完整配置              | 不支持     | 不支持   |
+
+完整的能力表和每个客户端的输出格式见[目标与原生输出](docs/feature/targets/README.md)。
+
+“完整配置”指生成一份可以直接交给客户端的文件；“片段”只包含节点、分组、规则和规则集，需要合并进你已有的配置。
+
+## 五分钟上手
+
+需要 Node 24（>=24.11.0）或 Node 26。安装 `proxylang`，在项目根目录新建 `proxylang.config.ts`：
 
 ```ts
 import {
@@ -64,34 +92,21 @@ npx proxylang check
 npx proxylang build --validation
 ```
 
-`check` 检查全部 Profile 和案例，不读取秘密或写文件。验证构建使用假值，生成 `generated/out/laptop.conf`。实际使用前为 `EDGE_PASSWORD` 提供生产来源，再运行 `npx proxylang build`；将文件交给客户端的部署流程由你负责。
+`check` 检查所有设备的配置和测试用例，不读密码，也不写文件。`build --validation` 用假密码生成 `generated/out/laptop.conf`，方便你先看看结果。真正使用时，给 `EDGE_PASSWORD` 设好环境变量，再运行 `npx proxylang build`。生成的文件怎么送到设备上（托管配置、订阅、手动拷贝）由你决定。
 
-## 心智模型
+## 几个基本概念
 
-- **一台设备一份 Profile**：声明精确目标、节点、分组、有序路由、默认出口和引擎设置；构建定义的键决定文件名。
-- **复用靠函数和数组**：共享路由、案例以所需出口为参数。嵌套数组按书写顺序展开，不需要另一套模板语言。
-- **引用写对象**：`to`、`members`、`via`、`fallback` 和案例的 `expect` 引用构造器返回的资源。被引用资源必须列入同一 Profile 的 `proxies` 或 `groups`；内置出口使用 `outbound.direct`、`outbound.reject`。
-- **首条命中**：按作者顺序求值，第一条命中决定出口；全部不命中才使用 `fallback`。
-- **引擎差异写明处**：`group.auto()` 在 Surge 选择 Smart，在 sing-box 和 Mihomo 选择 URLTest；Stash 不支持它。规则集按引擎声明来源，不自动转换内容或替换机制。
+- **一台设备一份 Profile。** 里面写清楚这台设备用哪个客户端的哪个版本、有哪些节点和分组、按什么顺序分流、都不匹配时走哪里。`defineBuild` 里的键名就是生成的文件名。
+- **复用就用函数和数组。** 几台设备共用的规则写成函数，把这台设备的出口当参数传进去。数组可以嵌套，按书写顺序展开，不需要另学一套模板语法。
+- **引用直接写对象。** `to`、`members`、`via`、`fallback` 和用例里的 `expect` 都直接引用前面创建的对象。被引用的节点或分组必须放进同一个 Profile 的 `proxies` 或 `groups`；直连和拒绝用 `outbound.direct`、`outbound.reject`。
+- **从上往下，第一条命中的规则生效。** 都不命中才走 `fallback`。
+- **客户端之间的差异会明说。** 比如 `group.auto()` 在 Surge 上是 Smart，在 sing-box 和 Mihomo 上是 URLTest，Stash 不支持。规则集要为每个客户端分别写来源，proxylang 不会替你转换规则内容。
 
-资源的 `id` 用于诊断和案例，`name` 是原生名字，省略时使用 id。所有引用跟随同一个原生名字；改名可能重置客户端保存的选择。同一资源对象可以跨 Profile 复用，形状相同的普通对象不能代替 SDK 资源。
+每个节点和分组有 `id` 和 `name`：`id` 用在报错和测试用例里，`name` 是客户端里显示的名字，不写就用 `id`。改 `name` 可能让客户端忘掉你上次在分组里手动选的节点。
 
-## 四个引擎
+## 一份规则集，给不同客户端用
 
-| 引擎     | 平台与精确版本             | 输出与边界                                                                                          |
-| -------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| Surge    | macOS 6.10.0、iOS 5.21.0   | 完整 `.conf`；`surge.general/hosts/managed`，以及 `surge.tailscale/wireguard`                       |
-| sing-box | macOS/Linux 1.12.0、1.14.4 | 完整或片段 `.json`；`singBox` 设置，TUN 只在 1.14.4 完整模式可用；`singbox.tailscale` 创建 endpoint |
-| Mihomo   | macOS/Linux 1.19.32        | 完整或片段 `.yaml`；完整模式需 `mihomo.listener`                                                    |
-| Stash    | macOS 4.2.1                | 片段 `.yaml`；宿主提供入口与 DNS，仅支持 select，不支持远程规则集                                   |
-
-sing-box 完整模式默认开启，须提供 `singBox.listener`；Mihomo 默认输出片段。精确能力与模式矩阵见[目标](docs/feature/targets/README.md)。不受支持的行为报 error，不静默省略。
-
-Surge 的 `includeSniffed: true` 匹配原域名或嗅探域名；sing-box 1.14.4 的 `domainMatching: "prefer-sniffed"` 对全部域名条件优先使用嗅探域名。两者语义不同。
-
-## 跨引擎规则集
-
-后续 TypeScript 片段沿用上手示例中的导入和节点。把声明放在 `defineProfile` 之前，再将路由、案例和新增出口列入相应字段。
+下面的片段沿用上手示例里的导入和节点。
 
 ```ts
 import { ruleSet } from "proxylang";
@@ -110,13 +125,15 @@ const localServices = ruleSet({
 const routes = defineRoutes({ when: localServices, to: outbound.direct });
 ```
 
-`ruleSet` 是条件，路由单独给出出口。目标没有对应分支就报错。sing-box 与 Mihomo 对同来源资源去重，使用路由中先引用的规则集 id；相同 URL 的来源参数冲突会报错。更新、缓存和下载失败由客户端处理，构建不下载规则集，也不保证不同上游内容相同。Surge 内置集使用 `surge.ruleSets.lan` 和 `surge.ruleSets.system`。
+规则集只是匹配条件，出口在路由里另外写。某个客户端没写来源时会报错。同一个地址被引用多次，只生成一份定义；同一个地址写了不同参数也会报错。
 
-## 用 cases 保护路由意图
+proxylang 生成配置时不会下载规则集。规则集的下载、更新和缓存都由客户端自己负责。Surge 内置的规则集用 `surge.ruleSets.lan` 和 `surge.ruleSets.system`。
 
-Profile 的 `cases` 给出请求和期望出口；`check` 与 `build` 每次执行，失败阻止发布。共享案例用函数绑定每台设备的出口。
+## 用测试用例守住分流规则
 
-远程规则内容不能静态推断，案例通过对象声明假设：
+每个 Profile 可以写 `cases`：给一个请求，写明它应该走哪个出口。`check` 和 `build` 每次都会跑这些用例，有一个不过就不会生成文件。几台设备共用的用例同样写成函数。
+
+远程规则集里有什么，proxylang 看不到，所以用例里要写明“假设这个请求命中了某个规则集”：
 
 ```ts
 const cases = [
@@ -129,13 +146,13 @@ const cases = [
 ];
 ```
 
-缺少规则集假设或解析信息时，求值可能为 `indeterminate`，案例失败并提示缺少什么。`ip` 是入口已知地址，`resolvedIp` 是解析后用于规则的地址。求值不执行 DNS、不模拟分组当前选择、拨号或远端健康。完整语义见[路由案例](docs/feature/routing-cases/README.md)。
+信息不够、判断不出走哪条规则时，用例会失败，并告诉你还缺什么。`ip` 是请求本身带的地址，`resolvedIp` 是域名解析后的地址。用例只模拟规则匹配：不做 DNS 查询，不管分组当前选的是哪个节点，也不检查节点能不能连通。详见[路由用例](docs/feature/routing-cases/README.md)。
 
-## 秘密与链式代理
+## 密码和链式代理
 
-`defineSecrets` 的每项选择 `env` 或 `value` 来源，返回不带值的句柄。构建只接受同一集合的引用；秘密仅在检查和案例通过后读取，批次中每项只读一次。`--validation` 只读取显式 `validation`，缺少就失败，不回退生产来源。UUID 和 WireGuard 密钥的假值也须符合对应格式。
+`defineSecrets` 里每个密码可以来自环境变量（`env`），也可以直接写值（`value`）。配置里拿到的只是一个引用，检查和用例都通过之后才会读取真正的值。`--validation` 只用你写的 `validation` 假值，没写就报错，不会退回去读真密码。UUID 和 WireGuard 密钥的假值也要符合格式。
 
-先创建中转，再把它传给节点工厂：
+链式代理：先建好中转分组，再把它传给节点。
 
 ```ts
 const relay = defineProxyGroup({
@@ -156,11 +173,11 @@ const createExit = (via: typeof relay) =>
 const exit = createExit(relay);
 ```
 
-路径是客户端 → Relay → Exit → 目的地。节点和中转都要登记；成员与 `via` 构成的图不能有环。也可用 `proxy.builder(base).name("Exit").via(relay).build()` 派生节点。Surge 编码 `underlying-proxy`，sing-box 编码 `detour`；Surge 不允许端口跳跃与 `via` 同用。协议和 UDP 能力依目标检查，配置通过不证明远端可达。
+流量的路径是 客户端 → Relay → Exit → 目标网站。中转和出口都要放进 Profile，而且不能互相引用成环。也可以用 `proxy.builder(base).name("Exit").via(relay).build()` 从已有节点派生。Surge 里生成 `underlying-proxy`，sing-box 里生成 `detour`；Surge 不允许端口跳跃和 `via` 一起用。
 
-## CLI
+## 命令行
 
-CLI 从调用目录固定加载 `proxylang.config.ts`，配置是可信可执行代码。
+命令行固定读取当前目录下的 `proxylang.config.ts`。这个文件是会被执行的代码，只运行你信得过的配置。
 
 ```sh
 npx proxylang targets
@@ -170,8 +187,8 @@ npx proxylang build --validation
 npx proxylang build
 ```
 
-`explain` 也可用 `--request-file request.json`。CLI 的规则集假设写在请求 JSON 的 `ruleSets` 中，以规则集 id 为键、布尔值为命中结果。所有命令支持 `--json`，参数与结果见[CLI 契约](docs/feature/build/cli.md)。
+`explain` 告诉你一个请求会命中哪条规则、走哪个出口；请求也可以放在文件里，用 `--request-file request.json`。要假设命中规则集，在请求 JSON 的 `ruleSets` 里以规则集 id 为键、`true`/`false` 为值。所有命令都支持 `--json`，参数和输出格式见[命令行说明](docs/feature/build/cli.md)。
 
-构建整批渲染成功后才切换 `out` 相对符号链接，正常失败保留上一批。退出 0 为成功，1 为未发布，2 表示已发布但清理失败或需要人工恢复；以返回的 code 为准。旧 generation 保留，维护者负责秘密产物的留存与恢复。详见[构建与发布](docs/feature/build/README.md)。
+`build` 要等所有设备的配置都生成成功，才把 `out` 指向新的一批文件；中途失败的话，`out` 仍然指向上一批。退出码 0 表示成功，1 表示没有发布，2 表示已经发布但清理旧文件失败或需要手动处理，具体看返回的 `code`。旧批次会保留下来，里面有密码，留多久、怎么清理由你决定。详见[构建与发布](docs/feature/build/README.md)。
 
-生成结果、原生语法检查和真实网络验收是不同证据；本工具不启动客户端或接管系统网络。
+最后提醒一句：配置能生成、能通过客户端的语法检查，不等于在你的网络里真的能用。proxylang 不会替你启动客户端或接管系统网络，上线前还是要在设备上实际试一下。
